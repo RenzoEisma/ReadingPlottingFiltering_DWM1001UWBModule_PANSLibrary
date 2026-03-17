@@ -1,0 +1,1 @@
+UWB_CONFIG: {'port1': 'COM3', 'port2': 'COM4', 'baud': 115200, 'latency': 0}, OPTI_CONFIG: {'server_ip': '192.168.1.188', 'client_ip': '192.168.1.15', 'multicast': False, 'latency': 0}

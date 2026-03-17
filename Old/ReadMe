@@ -1,0 +1,59 @@
+
+
+
+
+
+
+
+=========================================
+DRONE SENSOR FUSION LOGGER
+=========================================
+
+HOW IT WORKS
+This program logs position data from multiple sensors (OptiTrack, UWB, and eventually GPS) simultaneously.
+The `master_logger.py` acts as the orchestrator. When executed, it creates a uniquely timestamped folder inside a
+`measurements/` directory. It then starts separate worker threads for each enabled sensor. Each sensor driver writes
+its own data directly to a CSV file inside that session folder. Pressing Ctrl+C safely closes all files and ports.
+
+-----------------------------------------
+1. CLIENT COMPUTER SETUP (Python)
+-----------------------------------------
+1. Ensure Python 3.x is installed.
+2. Open your terminal in this project folder and create a virtual environment if you haven't already.
+3. Install the required serial library for UWB:
+   pip install pyserial
+4. Open `master_logger.py` and update the `MASTER CONFIGURATION` section with your current COM ports and IP addresses.
+
+-----------------------------------------
+2. OPTITRACK SETUP
+-----------------------------------------
+1. Open Motive on the server PC and ensure your drone's Rigid Body is tracking.
+2. Go to View -> Data Streaming Pane.
+3. Check the box for "Broadcast Frame Data".
+4. Set "Local Interface" to the Motive PC's specific IP address (e.g., 192.168.1.187). Do not use Loopback.
+5. Set "Transmission Type" to Unicast.
+6. Check the box for "Rigid Bodies".
+*(Note: Ensure Windows Firewall on the Motive PC allows UDP traffic on ports 1510 and 1511).*
+
+-----------------------------------------
+3. UWB SETUP
+-----------------------------------------
+1. Plug the UWB listener module into the client computer via USB.
+2. Open Windows Device Manager and check "Ports (COM & LPT)" to find the COM port number (e.g., COM3).
+3. Update the `UWB_CONFIG` dictionary in `master_logger.py` to match this COM port.
+*(The script automatically handles the \r\r and 'lec' commands to start the data stream).*
+
+-----------------------------------------
+4. GPS SETUP
+-----------------------------------------
+[Placeholder: Instructions for RTK GPS base/rover configuration, NMEA formatting, and COM port setup will go here once integrated.]
+
+-----------------------------------------
+HOW TO RUN
+-----------------------------------------
+1. Turn on all sensors and ensure they are connected.
+2. Open a terminal in the project directory.
+3. Run the master script:
+   python master_logger.py
+4. Fly the drone.
+5. Press Ctrl+C in the terminal to stop logging and save all files safely.
