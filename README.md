@@ -1,0 +1,284 @@
+===============================================================================
+  _____   _____   ____  _   _ ______    _____ ______ _   _  _____  ____  _____
+ |  __ \ |  __ \ / __ \| \ | |  ____|  / ____|  ____| \ | |/ ____|/ __ \|  __ \
+ | |  | || |__) | |  | |  \| | |__    | (___ | |__  |  \| | (___ | |  | | |__) |
+ | |  | ||  _  /| |  | | . ` |  __|    \___ \|  __| | . ` |\___ \| |  | |  _  /
+ | |__| || | \ \| |__| | |\  | |____   ____) | |____| |\  |____) | |__| | | \ \
+ |_____/ |_|  \_\\____/|_| \_|______| |_____/|______|_| \_|_____/ \____/|_|  \_\
+
+                ______ _    _  _____ _____ ____  _   _
+               |  ____| |  | |/ ____|_   _/ __ \| \ | |
+               | |__  | |  | | (___   | || |  | |  \| |
+               |  __| | |  | |\___ \  | || |  | | . ` |
+               | |    | |__| |____) |_| || |__| | |\  |
+               |_|     \____/|_____/|_____\____/|_| \_|
+===============================================================================
+
+- Author:               Renzo Eisma
+- Date last Rev.:       03/19/2026
+- Version:              3.1
+- Project:              UWB vs Ground Truth Comparison
+- Lab:                  LabAir
+
+-------------------------------------------------------------------------------
+I. PROJECT OVERVIEW
+-------------------------------------------------------------------------------
+
+This project is a comprehensive logging and analysis suite for drone positioning
+systems[cite: 1]. It simultaneously records data from multiple sensors like
+UWB, OptiTrack ground truth, and eventually GPS[cite: 1]. It provides tools to
+filter, compare, and visualize the accuracy of the positioning hardware
+[cite: 1]. The system is designed around a central logger that orchestrates
+individual sensor drivers[cite: 2, 3].
+
+A MATLAB script is also planned for the drivers folder to handle data filtering
+and routing to ROS.
+
+-------------------------------------------------------------------------------
+II. TABLE OF CONTENTS
+-------------------------------------------------------------------------------
+
+1. SYSTEM ARCHITECTURE ........................................ [SECTION 1]
+2. READING SENSORS SETUP GUIDE ................................ [SECTION 2]
+    a. Client Computer Setup (Python)
+    b. OptiTrack Setup
+    c. UWB Setup
+    d. GPS Setup
+3. USER GUIDES ................................................ [SECTION 3]
+    a. Using the Master Logger
+    b. Using the Plotting Script (Report Maker)
+    c. Using the Bluetooth Assigner (DWM1001C)
+4. DATA OUTPUT SCHEMA ......................................... [SECTION 4]
+5. TROUBLESHOOTING / COMMON ERRORS ............................ [SECTION 5]
+6. TO-DO LISTS BY MODULE ...................................... [SECTION 6]
+    a. MasterLogger
+    b. ComparisonReportMaker
+    c. ReadUWBBluetooth
+    d. UWB_Sensor Driver
+7. VERSION HISTORY ............................................ [SECTION 7]
+
+
+-------------------------------------------------------------------------------
+1. SYSTEM ARCHITECTURE
+-------------------------------------------------------------------------------
+
+[1.1] Broad system overview
+The system uses a multi-threaded approach where the MasterLogger script acts as
+the primary orchestrator[cite: 2, 3]. It initializes separate threads for each
+enabled sensor (UWB, OptiTrack, GPS) to ensure high-frequency data collection
+without blocking the main process[cite: 3].
+
+[1.2] Code Blockdiagram
+MasterLogger -> Thread 1: OptiTrack Driver (UDP)
+             -> Thread 2: UWB Driver (UART/Serial)
+             -> Thread 3: GPS Driver (TBD) [cite: 3]
+             -> Post-Process: ComparisonReportMaker (Data Fusion)
+
+
+-------------------------------------------------------------------------------
+2. READING SENSORS SETUP GUIDE
+-------------------------------------------------------------------------------
+
+[2.1] CLIENT COMPUTER SETUP (PYTHON)
+1. Ensure Python 3.x is installed[cite: 5].
+2. Open your terminal in this project folder and create a virtual environment
+   if you haven't already[cite: 6].
+3. Install the required serial library for UWB: pip install pyserial[cite: 7].
+4. Open MasterLogger.py and update the MASTER CONFIGURATION section with your
+   current COM ports and IP addresses.
+
+[2.2] OPTITRACK SETUP
+1. Open Motive on the server PC and ensure your drone's Rigid Body is
+   tracking[cite: 8].
+2. Go to View -> Data Streaming Pane[cite: 9].
+3. Check the box for "Broadcast Frame Data"[cite: 9].
+4. Set "Local Interface" to the Motive PC's specific IP address. Do not use
+   Loopback[cite: 10].
+5. Set "Transmission Type" to Unicast[cite: 11].
+6. Check the box for "Rigid Bodies"[cite: 11].
+* Note: Ensure Windows Firewall on the Motive PC allows UDP traffic on
+  ports 1510 and 1511[cite: 12].
+
+[2.3] UWB SETUP
+1. Plug the UWB listener module into the client computer via USB[cite: 13].
+2. Open Windows Manager -> Ports (COM & LPT) to find the COM port[cite: 13].
+3. Update the UWB_CONFIG dictionary in MasterLogger.py to match[cite: 14].
+* The script automatically handles the \r\r and 'lec' commands to start the
+  data stream[cite: 15].
+
+[2.4] GPS SETUP
+[Placeholder: Instructions for RTK GPS base/rover configuration, NMEA
+formatting, and COM port setup will go here once integrated.]
+
+-------------------------------------------------------------------------------
+3. USER GUIDES
+-------------------------------------------------------------------------------
+
+[3.1] USING THE MASTER LOGGER
+The central orchestrator for data collection[cite: 2].
+
+1. Ensure Python 3.x is installed along with: pyserial, pandas, numpy,
+   matplotlib, plotly, scipy, and bleak[cite: 5, 21].
+2. Open MasterLogger.py and update configuration for COM ports and IP
+   addresses.
+3. For OptiTrack setup, open Motive -> Data Streaming -> Broadcast Frame Data ->
+   Local IP -> Unicast -> Rigid Bodies[cite: 9, 10, 11].
+4. Turn on all sensors and run: python MasterLogger.py[cite: 16].
+5. Fly the drone or move the sensors as needed[cite: 16].
+6. Press Ctrl+C to stop logging, close ports, and trigger report
+   generation[cite: 17].
+
+[3.2] USING THE PLOTTING SCRIPT
+The report maker can be run independently to analyze previous sessions.
+
+1. Run: python drivers/ComparisonReportMaker.py.
+2. A configuration window appears for name, notes, and preferences.
+3. Click "Start Analysis" and select the session folder in /measurements.
+4. The script calculates offsets, generates a PDF, and an interactive HTML
+   dashboard.
+
+[3.3] USING THE BLUETOOTH ASSIGNER
+Direct configuration of DWM1001C modules via BLE[cite: 18, 19].
+
+1. Update dictionaries in ReadUWBBluetooth.py with MAC addresses[cite: 23].
+2. Run: python drivers/ReadUWBBluetooth.py.
+3. The script assigns roles (Tag/Anchor/Listener), pushes positions, and
+   optionally streams location data[cite: 25, 26, 28].
+
+
+-------------------------------------------------------------------------------
+4. DATA OUTPUT SCHEMA
+-------------------------------------------------------------------------------
+
+All logs follow a standardized 4-column CSV format for internal compatibility
+between drivers and the report generator:
+
+Column 1: Time          (Unix PC Timestamp in seconds)
+Column 2: POSX          (X coordinate in meters)
+Column 3: POSY          (Y coordinate in meters)
+Column 4: POSZ          (Z coordinate in meters)
+
+Example Log Header:
+Time, POSX, POSY, POSZ
+1740673321.451, 1.2345, -0.5678, 2.1012
+
+
+-------------------------------------------------------------------------------
+5. TROUBLESHOOTING / COMMON ERRORS
+-------------------------------------------------------------------------------
+
+- ERROR: "Permission Denied" during folder rename
+  Cause: A CSV log from the session is open in Excel or another program.
+  Fix: Close all CSV files before ending the MasterLogger script.
+
+- ERROR: OptiTrack data not appearing in logs
+  Cause: Windows Firewall blocking UDP ports 1510/1511 or Motive set to Loopback.
+  Fix: Disable firewall temporarily or add an exception; set Motive to a specific
+  Local IP[cite: 10, 12].
+
+- ERROR: UWB Jumps/Outliers in Raw Data
+  Cause: Non-Line-of-Sight (NLOS) interference or radio collisions.
+  Fix: Check "uwbFiltered_log" which uses the UWBSmoother Kalman Filter for
+  outlier rejection.
+
+- ERROR: Bluetooth device connection fails
+  Cause: Device already connected to another host or MAC address mismatch.
+  Fix: Reset DWM1001C power and verify the MAC address in the script[cite: 23, 35].
+
+
+-------------------------------------------------------------------------------
+6. TO-DO LISTS
+-------------------------------------------------------------------------------
+
+[6.1] MASTERLOGGER
+
+[6.1.1] Now
+
+[6.1.2] Later
+- Maybe use CPP for certain scripts that need to be faster
+- Export (filtered) UWB data live to ROS with matlab script
+- Add appropriate comments to all the code
+
+
+
+[6.2] COMPARISONREPORTMAKER
+
+[6.2.1] To Do Now:
+- Fix time offset
+- Think of what is important to measure and implement it
+- Fix report in HTML
+- Nothing plots when there is no UWB data
+- Settings in masterlogger are not connected to reportmaker
+
+
+[6.2.1] Later To Do:
+- Automatically calculate Angle offset
+
+
+
+[6.3] READUWBBLUETOOTH
+[6.3.1] To Do Now:
+- Locatie uitlezen werkend krijgen
+- Accelerometer uitlezen werkend krijgen
+- Exit programma errors fixen
+- UWB uitzetten werkt niet via bluetooth
+
+[6.3.2] Later To Do:
+- Snappen hoe die networks werken en modules kunnen wisselen van netwerk
+- In plaats van parameters in script, kan het beter als een text bestand er buiten
+- Bestand uit Rhuyther code halen
+- Iets van een plotter hebben
+
+
+
+[6.4] UWB_SENSOR
+
+[6.4.1] To Do Now:
+- Read Accelerometer Values as well
+- Read two listeners at once
+- Read seperate anchor to tag values
+
+[6.4.2] Later To Do:
+- Export (filtered) UWB data live to ROS as an option
+- read the uwb without a listener (The way that ReadUWBBluetooth.py is doing it now but in this script)
+
+
+
+
+Masterlogger
+-	Time offset Optitrack and UWB
+- uitlezen vanaf listeners weer werkend krijgen
+
+Plotter
+-	Time offset
+-	position offset
+-	settings in masterlogger aanpassen doet niks want data is niet verbonden
+
+Matlab
+-	Matlab script in python zetten en begin werkend krijgen
+
+Daarna:
+-	Aan chat vragen wat professioneler kan
+-	Comments toevoegen
+-	Readme aanpassen
+-	Geprinte tekst in textveld netter maken
+
+
+
+
+-------------------------------------------------------------------------------
+7. VERSION CHANGES
+-------------------------------------------------------------------------------
+
+- VERSION 1.0: Initial release; sensor reading only.
+- VERSION 2.0: Integrated ComparisonReportMaker functionality.
+- VERSION 3.0: Added Matlab integration and direct Bluetooth reading.
+- Version 3.1:
+    - Make a front end for the code
+    - Add a live plotter
+    - Eventually make the code open source (Add a GitHub for it)
+    - Have the name that you input be saved and used again (plotter script)
+
+===============================================================================
+END OF DOCUMENT
+===============================================================================
