@@ -1,0 +1,92 @@
+[
+    {
+        "name": "Module 1",
+        "address": "C3:1D:AF:E3:90:91",
+        "type": "Anchor",
+        "location": "0.00, 0.00, 2.48",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 2",
+        "address": "ED:A9:E1:EA:CF:2A",
+        "type": "Anchor",
+        "location": "0.69, 3.54, 2.55",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 3",
+        "address": "EE:A4:EF:F1:0A:54",
+        "type": "Anchor",
+        "location": "-1.64, 3.53, 2.51",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 4",
+        "address": "F5:54:39:34:07:D0",
+        "type": "Anchor",
+        "location": "8.03, 0.1, 2.38",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 5",
+        "address": "DD:D8:25:D8:63:4F",
+        "type": "Anchor",
+        "location": "7.36, 6.53, 2.22",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 6",
+        "address": "F9:7C:4A:7F:84:77",
+        "type": "Anchor",
+        "location": "-1.43, -3.53, 2.60",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 7",
+        "address": "FE:EC:3A:B7:95:B1",
+        "type": "Anchor",
+        "location": "1.69, -3.52, 2.63",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 8",
+        "address": "FF:C2:59:29:6B:57",
+        "type": "Anchor",
+        "location": "0.54, 6.99, 2.56",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 9",
+        "address": "D0:01:D9:86:62:78",
+        "type": "Listener",
+        "location": "0.0, 0.0, 0.0",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 11",
+        "address": "FA:26:65:8A:77:E9",
+        "type": "Tag",
+        "location": "0.0, 0.0, 0.0",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    }
+]

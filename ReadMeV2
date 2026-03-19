@@ -15,8 +15,8 @@
 ===============================================================================
 
 - Author:               Renzo Eisma
-- Date last Rev.:       03/03/2026
-- Version:              3.0
+- Date last Rev.:       03/19/2026
+- Version:              3.1
 - Project:              UWB vs Ground Truth Comparison
 - Lab:                  LabAir
 
@@ -193,34 +193,23 @@ Time, POSX, POSY, POSZ
 [6.1] MASTERLOGGER
 
 [6.1.1] Now
-- Filter UWB Data
-- Make folder output more sorted by adding folders:
-    - Logs
-      - uwb_log
-      - opti_log
-      - filter_log
-      - configuration_Session
-      - Anchor Positions
-    - Seperate Images
-      - png1
-      - png2
-    - Report PDF
-    - Report Plotly
 
 [6.1.2] Later
-- Add a live plotter
 - Maybe use CPP for certain scripts that need to be faster
 - Export (filtered) UWB data live to ROS with matlab script
 - Add appropriate comments to all the code
-- Make a front end for the code
-- Eventually make the code open source (Add a GitHub for it)
 
 
 
 [6.2] COMPARISONREPORTMAKER
 
 [6.2.1] To Do Now:
-- Have the name that you input be saved and used again
+- Fix time offset
+- Think of what is important to measure and implement it
+- Fix report in HTML
+- Nothing plots when there is no UWB data
+- Settings in masterlogger are not connected to reportmaker
+
 
 [6.2.1] Later To Do:
 - Automatically calculate Angle offset
@@ -236,7 +225,6 @@ Time, POSX, POSY, POSZ
 
 [6.3.2] Later To Do:
 - Snappen hoe die networks werken en modules kunnen wisselen van netwerk
-- ReadMe toevoegen
 - In plaats van parameters in script, kan het beter als een text bestand er buiten
 - Bestand uit Rhuyther code halen
 - Iets van een plotter hebben
@@ -256,6 +244,28 @@ Time, POSX, POSY, POSZ
 
 
 
+
+Masterlogger
+-	Time offset Optitrack and UWB
+- uitlezen vanaf listeners weer werkend krijgen
+
+Plotter
+-	Time offset
+-	position offset
+-	settings in masterlogger aanpassen doet niks want data is niet verbonden
+
+Matlab
+-	Matlab script in python zetten en begin werkend krijgen
+
+Daarna:
+-	Aan chat vragen wat professioneler kan
+-	Comments toevoegen
+-	Readme aanpassen
+-	Geprinte tekst in textveld netter maken
+
+
+
+
 -------------------------------------------------------------------------------
 7. VERSION CHANGES
 -------------------------------------------------------------------------------
@@ -263,6 +273,11 @@ Time, POSX, POSY, POSZ
 - VERSION 1.0: Initial release; sensor reading only.
 - VERSION 2.0: Integrated ComparisonReportMaker functionality.
 - VERSION 3.0: Added Matlab integration and direct Bluetooth reading.
+- Version 3.1:
+    - Make a front end for the code
+    - Add a live plotter
+    - Eventually make the code open source (Add a GitHub for it)
+    - Have the name that you input be saved and used again (plotter script)
 
 ===============================================================================
 END OF DOCUMENT

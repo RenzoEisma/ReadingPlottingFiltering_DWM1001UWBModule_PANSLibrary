@@ -17,6 +17,12 @@
 # information.
 # =============================================================================
 
+# ===================== PROGRAM_INFO ==================================================================================
+""" For Plotting Code go to the bottom of the script
+    All of this code is taken from an example from the NatNetClient"""
+
+# =====================================================================================================================
+
 # OptiTrack NatNet direct depacketization library for Python 3.x
 
 import sys #type: ignore  # noqa F401
@@ -2299,14 +2305,22 @@ class NatNetClient:
             self.data_thread.join()
 
 
-def run_simple_logger(stop_event, config, save_dir):
-    """
-    Starts NatNet with hardcoded settings and logs until stop_event is set.
-    """
-    import csv
-    import time
-    import os
-    from datetime import datetime
+
+# ===================== PROGRAM_INFO ==================================================================================
+""" Author: Renzo Eisma
+    Date: 03/19/2026
+    Description: This program is for reading OptiTrack data and putting it into a csv for data comparison"""
+
+# =====================================================================================================================
+# IMPORTS
+# =====================================================================================================================
+
+import csv
+import time
+import os
+from datetime import datetime
+
+def run_simple_logger(stop_event, config, save_dir, data_queue=None):
 
     # 1. YOU MUST INITIALIZE THE CLIENT INSIDE THE FUNCTION
     streaming_client = NatNetClient()
@@ -2318,7 +2332,7 @@ def run_simple_logger(stop_event, config, save_dir):
     streaming_client.set_use_multicast(config['multicast'])
 
     session_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = os.path.join(save_dir, f"optitrack_log_{session_name}.csv")
+    filename = os.path.join(save_dir, f"[Log]_optitrack_{session_name}.csv")
 
     with open(filename, mode="w", newline="") as f:
         writer = csv.writer(f)
@@ -2331,6 +2345,9 @@ def run_simple_logger(stop_event, config, save_dir):
                 writer.writerow([true_time, round(pos[0], 4), round(pos[1], 4), round(pos[2], 4)])
                 f.flush()
 
+                if data_queue is not None:
+                    data_queue.put(('GT', pos[0], pos[1], pos[2]))
+
         streaming_client.rigid_body_listener = handler
 
         if streaming_client.run('d'):  # Starts data threads
@@ -2342,38 +2359,3 @@ def run_simple_logger(stop_event, config, save_dir):
             print("[Opti] Stopped.")
         else:
             print("[Opti] Failed to connect.")
-
-    # # 2. Open file and setup writer
-    # csv_file = open(filename, mode="w", newline="")
-    # csv_writer = csv.writer(csv_file)
-    # csv_writer.writerow(['Time', 'POSX', 'POSY', 'POSZ'])
-    #
-    # def my_rigid_body_handler(new_id, position, rotation):
-    #     if not stop_event.is_set():
-    #         true_time = time.time() - latency_offset
-    #         x, y, z = position
-    #         row = [true_time, round(x, 4), round(y, 4), round(z, 4)]
-    #         csv_writer.writerow(row)
-    #         csv_file.flush()
-    #         # Optional: print every packet (can be slow, but good for testing)
-    #         # print(f"Logged Opti: {row[1:]}")
-    #
-    # streaming_client.rigid_body_listener = my_rigid_body_handler
-    #
-    # print(f"=== OPTITRACK LOGGER STARTED ===")
-    # print(f"Logging to: {filename}")
-    #
-    # streaming_client.run('d')
-    #
-    # # 3. USE THE STOP_EVENT TO CONTROL THE LOOP
-    # # This is what allows the MasterLogger to shut this thread down
-    # try:
-    #     while not stop_event.is_set():
-    #         time.sleep(0.1)
-    # except KeyboardInterrupt:
-    #     pass  # Allow local Ctrl+C if running standalone
-    # finally:
-    #     print("\n[Opti] Shutting down and saving file...")
-    #     streaming_client.shutdown()
-    #     csv_file.close()
-    #     print(f"✅ Data saved to {filename}")

@@ -1,194 +1,12 @@
+# ===================== PROGRAM_INFO ==================================================================================
+""" Author: Renzo Eisma
+    Description: UWB DWM1001 Bluetooth worker script. Takes a configuration list from the GUI
+    and pushes settings to all devices concurrently."""
+# =====================================================================================================================
+
 import asyncio
 import struct
 from bleak import BleakClient
-
-
-
-# --- General Settings (applies to all modules) -----------------------------------------------------------------------
-# Toggle Assign Devices
-Assign_Devices = True
-
-# Reading Outputs Settings
-Output_Distances_Enable = False
-Output_Position_Enable = False
-Output_Accelerometer_Enable = False
-
-# Enable LEDs
-LED_Indication_Enable = True
-
-
-
-# --- Middle 4 four anchors Setup -------------------------------------------------------------------------------------
-# Measured with red pole relatively accurate
-# Offset applied so that middle above point on anchor is position
-
-UWB_Device_011 = {
-    'address': "FA:26:65:8A:77:E9",
-    'type': "Tag",
-    'location': "0.0, 0.0, 0.0",
-    'network_id': "0x1D32",
-    'turned_on': "True"
-}
-UWB_Device_01 = {
-    'address': "C3:1D:AF:E3:90:91",
-    'type': "Anchor",
-    'location': "0.00, 0.00, 2.48",
-    'network_id': "0x1D32",
-    'turned_on': "False"
-}
-UWB_Device_02 = {
-    'address': "ED:A9:E1:EA:CF:2A",
-    'type': "Anchor",
-    'location': "0.69, 3.54, 2.55",
-    'network_id': "0x1D32",
-    'turned_on': "True"
-}
-UWB_Device_03 = {
-    'address': "EE:A4:EF:F1:0A:54",
-    'type': "Anchor",
-    'location': "-1.64, 3.53, 2.51",
-    'network_id': "0x1D32",
-    'turned_on': "True"
-}
-UWB_Device_04 = {
-    'address': "F5:54:39:34:07:D0",
-    'type': "Anchor",
-    'location': "8.03, 0.1, 2.38",
-    'network_id': "0x1D32",
-    'turned_on': "False"
-}
-UWB_Device_05 = {
-    'address': "DD:D8:25:D8:63:4F",
-    'type': "Anchor",
-    'location': "7.36, 6.53, 2.22",
-    'network_id': "0x1D32",
-    'turned_on': "False"
-}
-UWB_Device_06 = {
-    'address': "F9:7C:4A:7F:84:77",
-    'type': "Anchor",
-    'location': "-1.43, -3.53, 2.60",
-    'network_id': "0x1D32",
-    'turned_on': "True"
-}
-UWB_Device_07 = {
-    'address': "FE:EC:3A:B7:95:B1",
-    'type': "Anchor",
-    'location': "1.69, -3.52, 2.63",
-    'network_id': "0x1D32",
-    'turned_on': "True"
-}
-UWB_Device_08 = {
-    'address': "FF:C2:59:29:6B:57",
-    'type': "Anchor",
-    'location': "0.54, 6.99, 2.56",
-    'network_id': "0x1D32",
-    'turned_on': "False"
-}
-UWB_Device_09 = {
-    'address': "D0:01:D9:86:62:78",
-    'type': "Listener",
-    'location': "0.0, 0.0, 0.0",
-    'network_id': "0x1D32",
-    'turned_on': "True"
-}
-
-# Grouping them into a list makes it easier to loop through them later
-all_uwb_devices = [
-    UWB_Device_011, UWB_Device_01, UWB_Device_02, UWB_Device_03,
-    UWB_Device_04, UWB_Device_05, UWB_Device_06, UWB_Device_07,
-    UWB_Device_08, UWB_Device_09
-]
-
-
-
-# # --- 8 Wall anchors setup ------------------------------------------------------------------------------------------
-# # measured badly
-# # Not same 000 as the optitrack system
-#
-# UWB_Device_011 = {
-#     'address': "FA:26:65:8A:77:E9",
-#     'type': "Tag",
-#     'location': "0.0, 0.0, 0.0",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_01 = {
-#     'address': "C3:1D:AF:E3:90:91",
-#     'type': "Anchor",
-#     'location': "0.00, 0.00, 2.48",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_02 = {
-#     'address': "ED:A9:E1:EA:CF:2A",
-#     'type': "Anchor",
-#     'location': "2.96, 0.00, 2.48",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_03 = {
-#     'address': "EE:A4:EF:F1:0A:54",
-#     'type': "Anchor",
-#     'location': "5.8, 0.1, 2.40",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_04 = {
-#     'address': "F5:54:39:34:07:D0",
-#     'type': "Anchor",
-#     'location': "8.03, 0.1, 2.38",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_05 = {
-#     'address': "DD:D8:25:D8:63:4F",
-#     'type': "Anchor",
-#     'location': "7.36, 6.53, 2.22",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_06 = {
-#     'address': "F9:7C:4A:7F:84:77",
-#     'type': "Anchor",
-#     'location': "5.88, 6.92, 2.59",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_07 = {
-#     'address': "FE:EC:3A:B7:95:B1",
-#     'type': "Anchor",
-#     'location': "2.39, 6.8, 2.65",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_08 = {
-#     'address': "FF:C2:59:29:6B:57",
-#     'type': "Anchor",
-#     'location': "0.54, 6.99, 2.56",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# UWB_Device_09 = {
-#     'address': "D0:01:D9:86:62:78",
-#     'type': "Listener",
-#     'location': "0.0, 0.0, 0.0",
-#     'network_id': "0x1D32",
-#     'turned_on': "True"
-# }
-# # Grouping them into a list makes it easier to loop through them later
-# all_uwb_devices = [
-#     UWB_Device_011, UWB_Device_01, UWB_Device_02, UWB_Device_03,
-#     UWB_Device_04, UWB_Device_05, UWB_Device_06, UWB_Device_07,
-#     UWB_Device_08, UWB_Device_09
-# ]
-
-
-
-
-
-
-
 
 # =====================================================================================================================
 # BLUETOOTH UUIDS
@@ -196,8 +14,6 @@ all_uwb_devices = [
 NETWORK_ID_UUID = "80f9d8bc-3bff-45bb-a181-2d6a37991208"
 ANCHOR_POS_UUID = "f0f26c9b-2c8c-49ac-ab60-fe03def1b40c"
 OPERATION_MODE_UUID = "3f0afd88-7770-46b0-b5e7-9fc099598964"
-LOC_DATA_MODE_UUID = "a02b947e-df97-4516-996a-1882521e0ead"
-LOCATION_DATA_UUID = "003bbdf2-c634-4b3d-ab56-7ec889b89a37"
 
 
 # =====================================================================================================================
@@ -206,150 +22,103 @@ LOCATION_DATA_UUID = "003bbdf2-c634-4b3d-ab56-7ec889b89a37"
 def parse_location(loc_string):
     """Converts a string like '2.0, 4.5, 6.7' (meters) into 13 packed bytes."""
     coords = [float(c.strip()) for c in loc_string.split(',')]
+    # Pad to 3 coordinates if the user messed up the string
+    while len(coords) < 3:
+        coords.append(0.0)
+
     x_mm, y_mm, z_mm = int(coords[0] * 1000), int(coords[1] * 1000), int(coords[2] * 1000)
-
-    # '<iiiB' packs three 32-bit integers and one 8-bit unsigned integer
-    # 100 represents a 100% location quality factor
+    # '<iiiB' packs three 32-bit integers and one 8-bit unsigned integer (100 = Quality Factor)
     return struct.pack('<iiiB', x_mm, y_mm, z_mm, 100)
-
-
-def build_operation_mode(device_type, led_enable):
-    """
-    Constructs the 2-byte hex payload for the module's role.
-    Note: You may need to adjust these hex masks depending on your exact firmware version.
-    """
-    # Base configuration: 0x0000
-    # You will need to bitwise OR (|) the correct flags based on the DWM1001 API Guide.
-    # Below are representative placeholders for standard node configuration.
-    mode_value = 0x0000
-
-    if device_type == "Anchor":
-        mode_value |= 0x0080  # Example Anchor flag
-    elif device_type == "Listener":
-        mode_value |= 0x0100  # Example Listener flag
-    else:  # Tag
-        mode_value |= 0x0000  # Example Tag flag
-
-    if led_enable:
-        mode_value |= 0x0040  # Example LED enable flag
-
-    return struct.pack('<H', mode_value)
-
-
-def determine_location_mode():
-    """Determines the 1-byte mode payload based on global output settings."""
-    if Output_Position_Enable and Output_Distances_Enable:
-        return struct.pack('<B', 2)  # Both
-    elif Output_Distances_Enable:
-        return struct.pack('<B', 1)  # Distances only
-    else:
-        return struct.pack('<B', 0)  # Position only (default)
-
-
-def notification_handler(sender, data):
-    """Callback function to print the incoming data."""
-    if len(data) >= 13:
-        x_mm, y_mm, z_mm, quality = struct.unpack('<iiiB', data[:13])
-        print(f"[{sender}] 📍 Pos: {x_mm / 100000.0:.3f}m, {y_mm / 100000.0:.3f}m, {z_mm / 100000.0:.3f}m | QF: {quality}%")
-
 
 
 # =====================================================================================================================
 # ASYNC BLUETOOTH ROUTINES
 # =====================================================================================================================
 async def configure_device(client, device):
-    print(f"  -> Configuring {device['type']}...")
+    dev_name = device.get('name', 'Unknown')
+    dev_type = device.get('type', 'Tag')
+    print(f"  -> Configuring {dev_name} as {dev_type}...")
 
-    # # 1. Set Network ID
-    # net_id_bytes = struct.pack('<H', int(device['network_id'], 16))
-    # await client.write_gatt_char(NETWORK_ID_UUID, net_id_bytes)
-
-    # 2. Set Anchor Position
-    if device['type'] == "Anchor":
-        loc_bytes = parse_location(device['location'])
+    # 1. Set Anchor Position
+    if dev_type == "Anchor":
+        loc_bytes = parse_location(device.get('location', "0.0, 0.0, 0.0"))
         await client.write_gatt_char(ANCHOR_POS_UUID, loc_bytes)
 
-    # 3. Safely update Operation Mode (READ -> MODIFY -> WRITE)
+    # 2. Safely update Operation Mode (READ -> MODIFY -> WRITE)
     current_mode_bytes = await client.read_gatt_char(OPERATION_MODE_UUID)
     current_mode_int = struct.unpack('<H', current_mode_bytes)[0]
-
     new_mode_int = current_mode_int
 
     # Modify role bits
-    if device['type'] == "Anchor":
+    if dev_type == "Anchor":
         new_mode_int |= 0x0080  # Turn Anchor bit ON
-    elif device['type'] == "Listener":
+    elif dev_type == "Listener":
         new_mode_int |= 0x0100  # Turn Listener bit ON
     else:  # Tag
         new_mode_int &= ~0x0180  # Turn Anchor and Listener bits OFF
 
     # Handle UWB Radio Power state
-    if device.get('turned_on') == "False":
-        # Clear bits 9 and 10 to completely turn off the UWB radio
-        new_mode_int &= ~0x0600
-        print("  -> UWB Radio commanded to OFF.")
+    # (Checking against strings and bools to be safe with JSON loading)
+    is_on = device.get('turned_on', True)
+    if str(is_on).lower() == "false":
+        new_mode_int &= ~0x0600  # Clear bits 9 and 10 to turn off radio
+        print(f"  -> {dev_name}: UWB Radio commanded to OFF.")
     else:
-        # Set bit 10 to put the UWB radio in Active mode
-        new_mode_int |= 0x0400
+        new_mode_int |= 0x0400  # Put the UWB radio in Active mode
 
-    # Safely toggle the LED bit
-    if LED_Indication_Enable:
+    # Handle LED state natively per module
+    led_enable = device.get('led_enabled', True)
+    if str(led_enable).lower() == "true":
         new_mode_int |= 0x0040  # Turn LED ON
     else:
         new_mode_int &= ~0x0040  # Turn LED OFF
 
     # Write the safely modified bytes back to the module
     await client.write_gatt_char(OPERATION_MODE_UUID, struct.pack('<H', new_mode_int))
-    print("  -> Configuration applied successfully.")
+    print(f"  -> {dev_name} configuration applied successfully.")
 
 
 async def connect_and_manage(device):
-    """Handles connection, configuration, and data streaming for a single device."""
-    address = device['address']
-    print(f"\nAttempting connection to {address} ({device['type']})...")
+    """Handles connection and configuration for a single device."""
+    address = device.get('address')
+    if not address or address == "00:00:00:00:00:00":
+        return  # Skip placeholder modules
+
+    print(f"\nAttempting connection to {address} ({device.get('name')})...")
 
     try:
-        async with BleakClient(address) as client:
+        async with BleakClient(address, timeout=10.0) as client:
             if not client.is_connected:
                 print(f"❌ Failed to connect to {address}")
                 return
 
             print(f"✅ Connected to {address}")
-
-            if Assign_Devices:
-                await configure_device(client, device)
-
-            # Only start the data stream if the device is actually turned on
-            if (Output_Position_Enable or Output_Distances_Enable) and device.get('turned_on') != "False":
-                loc_mode_bytes = determine_location_mode()
-                await client.write_gatt_char(LOC_DATA_MODE_UUID, loc_mode_bytes)
-
-                print(f"  -> Starting data stream for {device['type']}...")
-                await client.start_notify(LOCATION_DATA_UUID, notification_handler)
-
-                while True:
-                    await asyncio.sleep(1.0)
-            elif device.get('turned_on') == "False":
-                print(f"  -> Skipping data stream because device is turned off.")
+            await configure_device(client, device)
 
     except Exception as e:
         print(f"⚠️ Error with device {address}: {e}")
 
 
-async def main():
-    """Main program logic."""
-    print(f"Starting DWM1001 Controller. Device Assignment Enabled: {Assign_Devices}")
-
-    # Create an asynchronous task for each device in the list
-    # This allows the script to handle multiple device connections at the same time
-    tasks = [connect_and_manage(device) for device in all_uwb_devices]
-
-    # Run all tasks concurrently
+async def main_async(device_list):
+    """Creates concurrent tasks for all devices in the list."""
+    print(f"\n=== PUSHING BLUETOOTH CONFIGURATION TO {len(device_list)} DEVICES ===")
+    tasks = [connect_and_manage(device) for device in device_list]
     await asyncio.gather(*tasks)
+    print("\n=== BLUETOOTH CONFIGURATION COMPLETE ===")
+
+
+def run_bluetooth_configuration(device_list):
+    """
+    Entry point for the Master Control Station.
+    Creates a new event loop so it can run safely in a background thread.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main_async(device_list))
+    finally:
+        loop.close()
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nProgram terminated by user.")
+    print("This script is now a worker module. Please run it via MasterControlStation.py")

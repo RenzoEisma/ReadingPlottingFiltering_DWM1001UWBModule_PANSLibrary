@@ -1,3 +1,13 @@
+# ===================== PROGRAM_INFO ==================================================================================
+""" Author: Renzo Eisma
+    Date: 03/19/2026
+    Description: This program is for calculating and visualizing
+    the error between UWB measurements and ground truth measurements"""
+
+# =====================================================================================================================
+# IMPORTS
+# =====================================================================================================================
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,19 +23,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
+import json # Make sure this is added to your imports at the top of the file
 
-# ========================= PROGRAM_INFO =========================
-"""
-    Author: Renzo Eisma
-    Version: 2.0
-    Date: 02/24/2026
-    Description: This program is for calculating and visualizing
-    the error between UWB measurements and ground truth measurements
-"""
-
-# ================================================================
-# ======================== CONFIGURATION =========================
-# ================================================================
+# =====================================================================================================================
+# CONFIGURATION
+# =====================================================================================================================
 
 measurement_name = 'UWB_TwoAWallTwoACornersMat_Att2'
 measurement_notes = '---'
@@ -39,23 +41,37 @@ REPORT_INFO = {
 # 2. Define your datasets here.
 DATASETS = [
     {
-        'prefix': 'optitrack', 'label': 'OptiTrack (GT)', 'color': 'red', 'style': '--',
+        'prefix': '[Log]_optitrack', 'label': 'OptiTrack (GT)', 'color': 'red', 'style': '--',
         'is_ground_truth': True,
         'offset': [0, 0, 0], # Tripods (UWB 000 == Opti 000)
         'multiplier': [1.0, 1.0, 1.0], # Tripods (UWB 000 == Opti 000)
-        'time_offset': 4,
+        'time_offset': 0,
         # 'offset': [4.2604, 3.5112, -0.1], # Wall Anchors (UWB 000 != Opti 000)
         # 'multiplier': [-1.0, -1.0, 1.0], # Wall Anchors (UWB 000 != Opti 000)
     },
     {
-        'prefix': 'uwb','label': 'UWB Raw','color': 'blue','style': '-',
+        'prefix': '[Log]_uwb','label': 'UWB Raw','color': 'blue','style': '-',
         'is_ground_truth': False,
         'offset': [0,0,-0.25], #[-4.2604, -3.5112, -0.3094]
         'multiplier': [1.0, 1.0, 1.21],
         'time_offset': 0,
     },
     {
-        'prefix': 'uwbFiltered','label': 'UWB Filtered','color': 'orange','style': '-',
+        'prefix': '[Log]_uwbFiltered','label': 'UWB Filtered','color': 'orange','style': '-',
+        'is_ground_truth': False,
+        'offset': [0,0,-0.25],
+        'multiplier': [1.0, 1.0, 1.21],
+        'time_offset': 0,
+    },
+    {
+        'prefix': '[Log]_listener1','label': 'UWB Raw 1','color': 'orange','style': '-',
+        'is_ground_truth': False,
+        'offset': [0,0,-0.25],
+        'multiplier': [1.0, 1.0, 1.21],
+        'time_offset': 0,
+    },
+    {
+        'prefix': '[Log]_uwb_listener2','label': 'UWB Raw 2','color': 'yellow','style': '-',
         'is_ground_truth': False,
         'offset': [0,0,-0.25],
         'multiplier': [1.0, 1.0, 1.21],
@@ -67,7 +83,6 @@ DATASETS = [
 DT = 0.1  # Measurement interval (10Hz = 0.1 seconds)
 SHOW_ANCHORS = True  # Toggle to show/hide UWB anchors on the map
 SAVE_PDF = True # Save to a PDF
-FADE_TRAJECTORY = False  # Fade trajectory from start (light) to end (dark)
 
 # 4. Individual PNG's
 SAVE_INDIVIDUAL_PNGS = True  # Master toggle for PNG exports
@@ -80,9 +95,8 @@ EXPORT_LIST = {
     'x_axis_comparison': True,
     'y_axis_comparison': True
 }
-# ================================================================
-# ================================================================
-# ================================================================
+
+
 
 class SettingsDialog(tk.Toplevel):
     def __init__(self, parent):
@@ -90,7 +104,6 @@ class SettingsDialog(tk.Toplevel):
         self.title("Report Configuration")
         self.result = None
 
-        # Text Inputs
         tk.Label(self, text="Measurement Name:").grid(row=0, column=0, padx=10, pady=5, sticky="w")
         self.name_entry = tk.Entry(self, width=40)
         self.name_entry.insert(0, REPORT_INFO['name'])
@@ -101,20 +114,15 @@ class SettingsDialog(tk.Toplevel):
         self.notes_entry.insert(0, REPORT_INFO['notes'])
         self.notes_entry.grid(row=1, column=1, padx=10, pady=5)
 
-        # Checkboxes
         self.show_anchors_var = tk.BooleanVar(value=SHOW_ANCHORS)
         tk.Checkbutton(self, text="Show Anchors", variable=self.show_anchors_var).grid(row=2, column=0, sticky="w", padx=10)
 
         self.save_pdf_var = tk.BooleanVar(value=SAVE_PDF)
         tk.Checkbutton(self, text="Save PDF Report", variable=self.save_pdf_var).grid(row=2, column=1, sticky="w", padx=10)
 
-        self.fade_var = tk.BooleanVar(value=FADE_TRAJECTORY)
-        tk.Checkbutton(self, text="Fade Trajectory", variable=self.fade_var).grid(row=3, column=0, sticky="w", padx=10)
-
         self.save_pngs_var = tk.BooleanVar(value=SAVE_INDIVIDUAL_PNGS)
-        tk.Checkbutton(self, text="Save Individual PNGs", variable=self.save_pngs_var).grid(row=3, column=1, sticky="w", padx=10)
+        tk.Checkbutton(self, text="Save Individual PNGs", variable=self.save_pngs_var).grid(row=3, column=0, sticky="w", padx=10)
 
-        # Submit Button
         tk.Button(self, text="Start Analysis", command=self.on_submit, width=20, bg="lime").grid(row=4, column=0, columnspan=2, pady=15)
 
     def on_submit(self):
@@ -123,21 +131,30 @@ class SettingsDialog(tk.Toplevel):
             'notes': self.notes_entry.get(),
             'show_anchors': self.show_anchors_var.get(),
             'save_pdf': self.save_pdf_var.get(),
-            'fade': self.fade_var.get(),
             'save_pngs': self.save_pngs_var.get()
         }
         self.destroy()
 
 
 def get_latest_file(prefix, folder_path):
-    """Finds the most recent log file in the specific folder."""
-    # os.path.join makes sure the slashes are correct for Windows/Mac
-    search_pattern = os.path.join(folder_path, f"{prefix}_log_*.csv")
-    files = glob.glob(search_pattern)
-
-    if not files:
+    """Finds the most recent log file by searching the directory manually, avoiding glob's bracket issue."""
+    if not os.path.exists(folder_path):
         return None
-    return max(files)
+
+    # Get all files in the directory
+    all_files = os.listdir(folder_path)
+
+    # Filter for files that start with our prefix (e.g., "[Log]_optitrack") and end with .csv
+    matching_files = [
+        os.path.join(folder_path, f) for f in all_files
+        if f.startswith(prefix) and f.endswith(".csv")
+    ]
+
+    if not matching_files:
+        return None
+
+    # Return the most recent one (max works perfectly because your timestamps sort alphabetically)
+    return max(matching_files)
 
 
 def load_position_data(filepath):
@@ -368,7 +385,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
     # Plot Anchors in 3D and 2D
     if SHOW_ANCHORS:
-        anchor_csv = os.path.join(session_folder, "anchor_positions.csv")
+        anchor_csv = os.path.join(session_folder, "[Log]_anchor_positions.csv")
 
         if os.path.exists(anchor_csv):
             try:
@@ -387,42 +404,62 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
     fig.update_layout(height=1200, title_text=f"Interactive Report: {report_name}", template="plotly_white")
 
-    html_path = os.path.join(session_folder, f"Interactive_Report_{report_name.replace(' ', '_')}.html")
-    safe_name = "Interactive_Report.html"
+    # html_path = os.path.join(session_folder, f"Interactive_Report_{report_name.replace(' ', '_')}.html")
+    # safe_name = "[Report]_Interactive_Report.html"
+    safe_name = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}.html"
     html_path = os.path.join(session_folder, safe_name)
     fig.write_html(html_path)
     print(f" -> Interactive Plotly report saved: {html_path}")
 
 
-def run_dashboard(session_folder=None):
-    root = tk.Tk()
-    root.withdraw()
+def run_dashboard(session_folder=None, skip_popup=False):
+    global REPORT_INFO, SHOW_ANCHORS, SAVE_PDF, SAVE_INDIVIDUAL_PNGS
 
-    # 1. Ask for Settings first
-    dialog = SettingsDialog(root)
-    root.wait_window(dialog)
-
-    if not dialog.result:
-        print("Configuration cancelled.")
-        return
-
-    # 2. Update global variables with user input
-    global REPORT_INFO, SHOW_ANCHORS, SAVE_PDF, FADE_TRAJECTORY, SAVE_INDIVIDUAL_PNGS
-    REPORT_INFO['name'] = dialog.result['name']
-    REPORT_INFO['notes'] = dialog.result['notes']
-    SHOW_ANCHORS = dialog.result['show_anchors']
-    SAVE_PDF = dialog.result['save_pdf']
-    FADE_TRAJECTORY = dialog.result['fade']
-    SAVE_INDIVIDUAL_PNGS = dialog.result['save_pngs']
-
-    # If the MasterLogger didn't provide a folder, ask the user for one
-    if session_folder is None:
+    # ONLY create a new Tkinter root if we are running completely standalone
+    root = None
+    if not skip_popup:
         root = tk.Tk()
-        root.withdraw()  # Hides the tiny empty root window
-        session_folder = filedialog.askdirectory(title="Select Measurement Session Folder")
-    if not session_folder:
-        print("No folder selected. Exiting.")
-        return  # Stop the script if you click 'Cancel'
+        root.withdraw()
+
+    # If no folder was provided, ask the user
+    if session_folder is None:
+        if not skip_popup:
+            session_folder = filedialog.askdirectory(title="Select Measurement Session Folder")
+        if not session_folder:
+            print("No folder selected. Exiting.")
+            return
+
+    settings_path = os.path.join(session_folder, "report_settings.json")
+
+    # If triggered by Master Control Station, read JSON and skip popup
+    if skip_popup and os.path.exists(settings_path):
+        try:
+            with open(settings_path, 'r') as f:
+                config = json.load(f)
+                REPORT_INFO['name'] = config.get('name', REPORT_INFO['name'])
+                REPORT_INFO['notes'] = config.get('notes', REPORT_INFO['notes'])
+                SHOW_ANCHORS = config.get('show_anchors', SHOW_ANCHORS)
+                SAVE_PDF = config.get('save_pdf', SAVE_PDF)
+                SAVE_INDIVIDUAL_PNGS = config.get('save_pngs', SAVE_INDIVIDUAL_PNGS)
+            print("Successfully loaded report settings from JSON.")
+        except Exception as e:
+            print(f"Error reading report_settings.json: {e}")
+
+    # Otherwise, show the traditional popup (for standalone use)
+    else:
+        if root is not None:
+            dialog = SettingsDialog(root)
+            root.wait_window(dialog)
+
+            if not dialog.result:
+                print("Configuration cancelled.")
+                return
+
+            REPORT_INFO['name'] = dialog.result['name']
+            REPORT_INFO['notes'] = dialog.result['notes']
+            SHOW_ANCHORS = dialog.result['show_anchors']
+            SAVE_PDF = dialog.result['save_pdf']
+            SAVE_INDIVIDUAL_PNGS = dialog.result['save_pngs']
 
     # Setup Figure (A4-ish proportions: 8.5 x 11)
     fig_unused = plt.figure(figsize=(14, 18))
@@ -459,7 +496,7 @@ def run_dashboard(session_folder=None):
 
     # 1. Plot Anchors
     if SHOW_ANCHORS:
-        anchor_csv = os.path.join(session_folder, "anchor_positions.csv")
+        anchor_csv = os.path.join(session_folder, "[Log]_anchor_positions.csv")
 
         if os.path.exists(anchor_csv):
             try:
@@ -523,17 +560,9 @@ def run_dashboard(session_folder=None):
         # Instead of generic indices, use true elapsed time in seconds (starts at 0.0s)
         time_index = df['pc_timestamp'] - df['pc_timestamp'].iloc[0]
 
-        # --- 3D & 2D Fading Paths ---
-        # Add a dummy plot just so the legend works correctly
-        ax1.plot([], [], [], label=lbl, color=col, linestyle=sty, linewidth=2)
-        ax2.plot([], [], label=lbl, color=col, linestyle=sty, linewidth=2)
-
-        if FADE_TRAJECTORY:
-            plot_fading_line(ax1, df['x'], df['y'], df['z'], color=col, style=sty)
-            plot_fading_line(ax2, df['x'], df['y'], None, color=col, style=sty)
-        else:
-            ax1.plot(df['x'], df['y'], df['z'], color=col, linestyle=sty, linewidth=2)
-            ax2.plot(df['x'], df['y'], color=col, linestyle=sty, linewidth=2)
+        # --- 3D & 2D Standard Paths ---
+        ax1.plot(df['x'], df['y'], df['z'], label=lbl, color=col, linestyle=sty, linewidth=2)
+        ax2.plot(df['x'], df['y'], label=lbl, color=col, linestyle=sty, linewidth=2)
 
         # Draw faint dots to set axis bounds and show sample rate
         ax1.scatter(df['x'], df['y'], df['z'], color=col, s=5, alpha=0.1)
@@ -658,20 +687,20 @@ def run_dashboard(session_folder=None):
     plt.tight_layout()
 
     if SAVE_PDF:
-        report_title = f"Report_{REPORT_INFO['name'].replace(' ', '_')}"
+        report_title = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}"
         pdf_filename = os.path.join(session_folder, f"{report_title}.pdf")
         plt.savefig(pdf_filename, dpi=300, bbox_inches='tight')
         print(f"Report exported successfully to: {pdf_filename}")
 
     if SAVE_INDIVIDUAL_PNGS:
         export_map = {
-            '3d_map': (ax1, "Dashboard_3D_Map"),
-            '2d_top_down': (ax2, "Dashboard_2D_View"),
-            'x_axis_comparison': (ax_x, "Dashboard_X_Comparison"),
-            'y_axis_comparison': (ax_y, "Dashboard_Y_Comparison"),
-            'z_stability': (ax3, "Dashboard_Z_Altitude"),
-            'velocity': (ax4, "Dashboard_Velocity"),
-            'total_error': (ax5, "Dashboard_Total_Error")
+            '3d_map': (ax1, "[Plot]_3D_Map"),
+            '2d_top_down': (ax2, "[Plot]_2D_View"),
+            'x_axis_comparison': (ax_x, "[Plot]_X_Comparison"),
+            'y_axis_comparison': (ax_y, "[Plot]_Y_Comparison"),
+            'z_stability': (ax3, "[Plot]_Z_Altitude"),
+            'velocity': (ax4, "[Plot]_Velocity"),
+            'total_error': (ax5, "[Plot]_Total_Error")
         }
 
         for key, (axis, filename) in export_map.items():
