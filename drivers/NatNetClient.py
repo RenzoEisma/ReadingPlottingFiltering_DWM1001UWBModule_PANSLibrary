@@ -2027,7 +2027,7 @@ class NatNetClient:
             # Block for input
             try:
                 data, addr = in_socket.recvfrom(recv_buffer_size)
-                print(f"DEBUG: Raw UDP packet received from {addr}")
+                # print(f"DEBUG: Raw UDP packet received from {addr}")
             except socket.error as msg:
                 if not stop():
                     print("ERROR: data socket access error occurred:\n  %s" % msg) #type: ignore  # noqa E501
@@ -2086,7 +2086,7 @@ class NatNetClient:
 
             offset_tmp, mocap_data = self.__unpack_mocap_data(data[offset:], packet_size, major, minor) #type: ignore  # noqa E501
             offset += offset_tmp
-            print("MoCap Frame: %d\n" % (mocap_data.prefix_data.frame_number))
+            # print("MoCap Frame: %d\n" % (mocap_data.prefix_data.frame_number))
             # get a string version of the data for output
             if print_level >= 1:
                 mocap_data_str = mocap_data.get_as_string()

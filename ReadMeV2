@@ -193,6 +193,7 @@ Time, POSX, POSY, POSZ
 [6.1] MASTERLOGGER
 
 [6.1.1] Now
+- ...
 
 [6.1.2] Later
 - Maybe use CPP for certain scripts that need to be faster
@@ -204,10 +205,8 @@ Time, POSX, POSY, POSZ
 [6.2] COMPARISONREPORTMAKER
 
 [6.2.1] To Do Now:
-- Fix time offset
 - Think of what is important to measure and implement it
-- Fix report in HTML
-- Nothing plots when there is no UWB data
+- Offsets in general
 - Settings in masterlogger are not connected to reportmaker
 
 
@@ -218,16 +217,7 @@ Time, POSX, POSY, POSZ
 
 [6.3] READUWBBLUETOOTH
 [6.3.1] To Do Now:
-- Locatie uitlezen werkend krijgen
-- Accelerometer uitlezen werkend krijgen
-- Exit programma errors fixen
-- UWB uitzetten werkt niet via bluetooth
-
-[6.3.2] Later To Do:
 - Snappen hoe die networks werken en modules kunnen wisselen van netwerk
-- In plaats van parameters in script, kan het beter als een text bestand er buiten
-- Bestand uit Rhuyther code halen
-- Iets van een plotter hebben
 
 
 
@@ -244,14 +234,18 @@ Time, POSX, POSY, POSZ
 
 
 
+Matlab To Do:
+- Install either matlab 2024b or later or use python 3.11.9
+- get matlab script working in python (read data from python scripts)
+- add a simple filter
+- send filtered data back or put it in a csv, not put it back
+- send filtered data to ross
 
-Masterlogger
--	Time offset Optitrack and UWB
-- uitlezen vanaf listeners weer werkend krijgen
+
+
+
 
 Plotter
--	Time offset
--	position offset
 -	settings in masterlogger aanpassen doet niks want data is niet verbonden
 
 Matlab
@@ -262,6 +256,11 @@ Daarna:
 -	Comments toevoegen
 -	Readme aanpassen
 -	Geprinte tekst in textveld netter maken
+
+
+
+- networks van modules kunnen aanpassen in dit programma
+
 
 
 

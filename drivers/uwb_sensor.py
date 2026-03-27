@@ -119,14 +119,12 @@ def parse_distances(line):
 # UWB DRIVER LOOP
 # ========================================================
 def run_uwb(stop_event, config, save_dir, data_queue=None):
-
     # 1. Unpack Master Configuration
     port1 = config.get('port1')
     port2 = config.get('port2')
     baud = config.get('baud', 115200)
 
     send_matlab = config.get('send_matlab', False)
-    # send_ros = config.get('send_ros', False) # Placeholder for future ROS integration
     filter_type = config.get('filter_type', 'Python Filter')
     read_type = config.get('read_type', 'Tag Position')
     anchor_count = config.get('anchor_count', '4 Anchors (1 Listener)')
@@ -145,7 +143,6 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
         print("[UWB] Starting MATLAB Engine (this may take a few seconds)...")
         try:
             eng = matlab.engine.start_matlab()
-            # Send initial variables to the MATLAB workspace
             eng.workspace['uwb_filter_type'] = filter_type
             eng.workspace['uwb_read_type'] = read_type
             eng.workspace['uwb_anchor_count'] = anchor_count
@@ -156,20 +153,31 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
     session_name = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Trackers for our multiple ports
     active_serials = []
     filters = []
     raw_writers = []
     filt_writers = []
     file_handles = []
 
+    # We create a text buffer for each port to catch fragmented serial lines
+    buffers = []
+
     try:
         # 4. Setup Serial Ports and Output Files
         all_anchors = []
         for i, port in enumerate(ports_to_open):
+            # Timeout is mostly ignored now due to the buffer, but kept low to prevent blocking
             ser = serial.Serial(port, baud, timeout=0.05)
+
+            time.sleep(0.5)
+            ser.write(b'\r')
+            time.sleep(0.1)
+            ser.write(b'\r\r')
+            time.sleep(0.5)
+
             active_serials.append(ser)
             filters.append(UWBSmoother())
+            buffers.append("")
 
             # Fetch Anchors
             anchors = update_anchor_list(ser, save_dir)
@@ -177,7 +185,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
             # Put module into continuous reporting mode
             ser.write(b'\r\r')
-            time.sleep(0.5)
+            time.sleep(1.0)  # Increased back to 1.0s to ensure the module wakes up properly
             ser.write(b'lec\r')
 
             # Create CSVs for this specific listener
@@ -187,7 +195,6 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
             f_filt = None
             filt_w = None
 
-            # Setup CSV Headers based on Read Type
             if read_type == 'Tag Position':
                 raw_w.writerow(['Time', 'POSX', 'POSY', 'POSZ'])
                 if filter_type == 'Python Filter':
@@ -196,20 +203,16 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                     filt_w = csv.writer(f_filt)
                     filt_w.writerow(['Time', 'POSX', 'POSY', 'POSZ'])
             else:
-                # Distances mode header
                 raw_w.writerow(['Time', 'Dist1', 'Dist2', 'Dist3', 'Dist4', 'Dist5', 'Dist6', 'Dist7', 'Dist8'])
-                # (Filters are generally applied to coordinates, not raw distances, so we skip filt_writer here)
 
             raw_writers.append(raw_w)
             filt_writers.append(filt_w)
             file_handles.extend([f_raw, f_filt])
 
-        # Save merged anchor list to one file
         if all_anchors:
             anchor_file_path = os.path.join(save_dir, "[Log]_anchor_positions.csv")
             with open(anchor_file_path, 'w') as file:
                 file.write("X,Y,Z\n")
-                # Remove exact duplicates if listeners report the same anchors
                 unique_anchors = []
                 for a in all_anchors:
                     if a not in unique_anchors:
@@ -222,88 +225,84 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
         while not stop_event.is_set():
             for i, ser in enumerate(active_serials):
                 if ser.in_waiting > 0:
-                    line = ser.readline().decode('utf-8', errors='ignore').strip()
-                    if not line:
-                        continue
+                    # Read all available bytes and dump them into this port's holding buffer
+                    new_data = ser.read(ser.in_waiting).decode('utf-8', errors='ignore')
+                    buffers[i] += new_data
 
-                    arr_time = time.time()
+                    # If we have a complete line (signified by a newline character)
+                    if '\n' in buffers[i]:
+                        lines = buffers[i].split('\n')
 
-                    # ==========================================
-                    # MODE A: TAG POSITION
-                    # ==========================================
-                    if read_type == 'Tag Position' and line.startswith('POS'):
-                        parts = [p for p in line.split(',') if p]
-                        if len(parts) >= 6:
-                            raw_x, raw_y, raw_z = float(parts[3]), float(parts[4]), float(parts[5])
+                        # The very last item in the split list will be whatever incomplete chunk
+                        # arrived after the last \n. We pop it off and keep it in the buffer for next time.
+                        buffers[i] = lines.pop()
 
-                            # 1. Save Raw Data
-                            raw_writers[i].writerow([arr_time, raw_x, raw_y, raw_z])
-                            file_handles[i * 2].flush()
+                        for line in lines:
+                            line = line.strip()
+                            if not line:
+                                continue
 
-                            # 2. Python Filter Route
-                            if filter_type == 'Python Filter':
-                                filt_x, filt_y, filt_z = filters[i].process(arr_time, raw_x, raw_y, raw_z)
-                                filt_writers[i].writerow(
-                                    [arr_time, round(filt_x, 4), round(filt_y, 4), round(filt_z, 4)])
-                                file_handles[(i * 2) + 1].flush()
+                            arr_time = time.time()
 
-                                # Send to Live GUI
-                                if data_queue is not None and i == 0:  # Only plot listener 1 for now to avoid mess
-                                    data_queue.put(('UWB', filt_x, filt_y, filt_z))
+                            # ==========================================
+                            # MODE A: TAG POSITION
+                            # ==========================================
+                            if read_type == 'Tag Position' and line.startswith('POS'):
+                                parts = [p for p in line.split(',') if p]
+                                if len(parts) >= 6:
+                                    raw_x, raw_y, raw_z = float(parts[3]), float(parts[4]), float(parts[5])
 
-                                # Send to MATLAB
-                                if send_matlab and eng is not None:
-                                    # Assuming you have a function called "process_uwb_data.m" in your folder
-                                    # We use nargout=0 so python doesn't wait for a return variable
-                                    eng.eval(f"process_uwb_data({filt_x}, {filt_y}, {filt_z});", nargout=0)
+                                    raw_writers[i].writerow([arr_time, raw_x, raw_y, raw_z])
+                                    file_handles[i * 2].flush()
 
-                                    # 3. MATLAB Filter Route
-                            else:
-                                # Send to Live GUI (Raw)
-                                if data_queue is not None and i == 0:
-                                    data_queue.put(('UWB', raw_x, raw_y, raw_z))
+                                    if filter_type == 'Python Filter':
+                                        filt_x, filt_y, filt_z = filters[i].process(arr_time, raw_x, raw_y, raw_z)
+                                        filt_writers[i].writerow(
+                                            [arr_time, round(filt_x, 4), round(filt_y, 4), round(filt_z, 4)])
+                                        file_handles[(i * 2) + 1].flush()
 
-                                # Send RAW to MATLAB
-                                if send_matlab and eng is not None:
-                                    eng.eval(f"process_uwb_data({raw_x}, {raw_y}, {raw_z});", nargout=0)
+                                        if data_queue is not None and i == 0:
+                                            data_queue.put(('UWB', filt_x, filt_y, filt_z))
 
+                                        if send_matlab and eng is not None:
+                                            eng.eval(f"process_uwb_data({filt_x}, {filt_y}, {filt_z});", nargout=0)
 
-                    # ==========================================
-                    # MODE B: TAG DISTANCES
-                    # ==========================================
-                    elif read_type == 'Tag Distances' and ('DIST' in line or 'POS' in line):
-                        distances = parse_distances(line)
-                        if distances:
-                            # Pad the list to 8 columns just to keep the CSV format consistent
-                            padded_dist = distances + [0.0] * (8 - len(distances))
-                            raw_writers[i].writerow([arr_time] + padded_dist[:8])
-                            file_handles[i * 2].flush()
+                                    else:
+                                        if data_queue is not None and i == 0:
+                                            data_queue.put(('UWB', raw_x, raw_y, raw_z))
 
-                            # Send Distances to MATLAB
-                            if send_matlab and eng is not None:
-                                # Convert python list to MATLAB array format: [1.1, 2.2, ...]
-                                mat_dist = matlab.double(distances)
-                                eng.workspace['current_distances'] = mat_dist
-                                eng.eval("process_uwb_distances(current_distances);", nargout=0)
+                                        if send_matlab and eng is not None:
+                                            eng.eval(f"process_uwb_data({raw_x}, {raw_y}, {raw_z});", nargout=0)
 
-            # Prevent CPU maxing
+                            # ==========================================
+                            # MODE B: TAG DISTANCES
+                            # ==========================================
+                            elif read_type == 'Tag Distances' and ('DIST' in line or 'POS' in line):
+                                distances = parse_distances(line)
+                                if distances:
+                                    padded_dist = distances + [0.0] * (8 - len(distances))
+                                    raw_writers[i].writerow([arr_time] + padded_dist[:8])
+                                    file_handles[i * 2].flush()
+
+                                    if send_matlab and eng is not None:
+                                        mat_dist = matlab.double(distances)
+                                        eng.workspace['current_distances'] = mat_dist
+                                        eng.eval("process_uwb_distances(current_distances);", nargout=0)
+
             time.sleep(0.001)
 
     except Exception as e:
         print(f"[UWB Error] {e}")
     finally:
-        # Cleanup Serial Ports
         for ser in active_serials:
             if ser.is_open:
                 ser.write(b'\r')
                 ser.close()
 
-        # Cleanup Files
         for f in file_handles:
             if f is not None:
                 f.close()
 
-        # Cleanup MATLAB Engine
         if eng is not None:
             eng.quit()
             print("[UWB] MATLAB Engine closed.")

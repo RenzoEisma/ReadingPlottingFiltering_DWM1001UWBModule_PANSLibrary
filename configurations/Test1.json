@@ -15,7 +15,7 @@
         "location": "0.69, 3.54, 2.55",
         "network_id": "0x1D32",
         "turned_on": true,
-        "led_enabled": true
+        "led_enabled": false
     },
     {
         "name": "Module 3",
@@ -24,7 +24,7 @@
         "location": "-1.64, 3.53, 2.51",
         "network_id": "0x1D32",
         "turned_on": true,
-        "led_enabled": true
+        "led_enabled": false
     },
     {
         "name": "Module 4",

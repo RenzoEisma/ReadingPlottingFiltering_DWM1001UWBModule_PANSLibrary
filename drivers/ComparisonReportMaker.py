@@ -49,33 +49,33 @@ DATASETS = [
         # 'offset': [4.2604, 3.5112, -0.1], # Wall Anchors (UWB 000 != Opti 000)
         # 'multiplier': [-1.0, -1.0, 1.0], # Wall Anchors (UWB 000 != Opti 000)
     },
+    # {
+    #     'prefix': '[Log]_uwb','label': 'UWB Raw','color': 'blue','style': '-',
+    #     'is_ground_truth': False,
+    #     'offset': [0,0,-0.25], #[-4.2604, -3.5112, -0.3094]
+    #     'multiplier': [1.0, 1.0, 1.0],
+    #     'time_offset': -0.5,
+    # },
+    # {
+    #     'prefix': '[Log]_uwbFiltered','label': 'UWB Filtered','color': 'orange','style': '-',
+    #     'is_ground_truth': False,
+    #     'offset': [0,0,-0.25],
+    #     'multiplier': [1.0, 1.0, 1.0],
+    #     'time_offset': -0.5,
+    # },
     {
-        'prefix': '[Log]_uwb','label': 'UWB Raw','color': 'blue','style': '-',
-        'is_ground_truth': False,
-        'offset': [0,0,-0.25], #[-4.2604, -3.5112, -0.3094]
-        'multiplier': [1.0, 1.0, 1.21],
-        'time_offset': 0,
-    },
-    {
-        'prefix': '[Log]_uwbFiltered','label': 'UWB Filtered','color': 'orange','style': '-',
+        'prefix': '[Log]_uwb_listener1','label': 'UWB Raw 1','color': 'orange','style': '-',
         'is_ground_truth': False,
         'offset': [0,0,-0.25],
-        'multiplier': [1.0, 1.0, 1.21],
-        'time_offset': 0,
-    },
-    {
-        'prefix': '[Log]_listener1','label': 'UWB Raw 1','color': 'orange','style': '-',
-        'is_ground_truth': False,
-        'offset': [0,0,-0.25],
-        'multiplier': [1.0, 1.0, 1.21],
-        'time_offset': 0,
+        'multiplier': [1.0, 1.0, 1.0],
+        'time_offset': -0.5,
     },
     {
         'prefix': '[Log]_uwb_listener2','label': 'UWB Raw 2','color': 'yellow','style': '-',
         'is_ground_truth': False,
-        'offset': [0,0,-0.25],
-        'multiplier': [1.0, 1.0, 1.21],
-        'time_offset': 0,
+        'offset': [4.2604, 3.5112, -1.24],
+        'multiplier': [-1.0, -1.0, 1.0],
+        'time_offset': -0.5,
     },
 ]
 
@@ -303,8 +303,10 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
         (k for k, v in loaded_data.items() if any(d['label'] == k and d.get('is_ground_truth') for d in DATASETS)),
         None)
 
+    global_start_time = min(df['pc_timestamp'].min() for df in loaded_data.values())
+
     for lbl, df in loaded_data.items():
-        time_index = df['pc_timestamp'] - df['pc_timestamp'].iloc[0]
+        time_index = df['pc_timestamp'] - global_start_time
         color = next((d['color'] for d in DATASETS if d['label'] == lbl), 'gray')
 
         # 1. 3D Trajectory
@@ -346,7 +348,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
                 on='pc_timestamp', suffixes=('_est', '_gt'), direction='nearest'
             )
 
-            rel_time = df_sync['pc_timestamp'] - df_sync['pc_timestamp'].iloc[0]
+            rel_time = df_sync['pc_timestamp'] - global_start_time
 
             # Calculate 3D and individual axis errors in cm
             errs = np.linalg.norm(
@@ -523,9 +525,9 @@ def run_dashboard(session_folder=None, skip_popup=False):
     gt_key = None
     table_data = []
 
-    # 2. Load Data and Plot Traces
+    # 2. Load Data First
     for ds in DATASETS:
-        # AUTOMATICALLY find the latest file based on the prefix (uwb or optitrack)
+        # AUTOMATICALLY find the latest file based on the prefix
         filepath = get_latest_file(ds['prefix'], session_folder)
         if not filepath:
             print(f"WARNING: No file found for {ds['prefix']}")
@@ -552,13 +554,27 @@ def run_dashboard(session_folder=None, skip_popup=False):
         t_off = ds.get('time_offset', 0.0)
         df['pc_timestamp'] += t_off
 
-        lbl, col, sty = ds['label'], ds['color'], ds['style']
+        lbl = ds['label']
         loaded_data[lbl] = df
         if ds.get('is_ground_truth'): gt_key = lbl
 
-        # --- TIME NORMALIZATION ---
-        # Instead of generic indices, use true elapsed time in seconds (starts at 0.0s)
-        time_index = df['pc_timestamp'] - df['pc_timestamp'].iloc[0]
+    if not loaded_data:
+        print("No data loaded. Exiting.")
+        return
+
+    # --- FIND GLOBAL START TIME ---
+    global_start_time = min(df['pc_timestamp'].min() for df in loaded_data.values())
+
+    # 2.5 Plot Traces using Global Time
+    for ds in DATASETS:
+        lbl = ds['label']
+        if lbl not in loaded_data: continue
+
+        df = loaded_data[lbl]
+        col, sty = ds['color'], ds['style']
+
+        # --- TIME NORMALIZATION FIX ---
+        time_index = df['pc_timestamp'] - global_start_time
 
         # --- 3D & 2D Standard Paths ---
         ax1.plot(df['x'], df['y'], df['z'], label=lbl, color=col, linestyle=sty, linewidth=2)
@@ -568,7 +584,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
         ax1.scatter(df['x'], df['y'], df['z'], color=col, s=5, alpha=0.1)
         ax2.scatter(df['x'], df['y'], color=col, s=5, alpha=0.1)
 
-        # --- Time-series Graphs (No fade needed here) ---
+        # --- Time-series Graphs ---
         ax3.plot(time_index, df['z'], label=lbl, color=col, linestyle=sty, linewidth=2)
         ax_y.plot(time_index, df['y'], label=lbl, color=col, linestyle=sty, linewidth=2)
         ax_x.plot(time_index, df['x'], label=lbl, color=col, linestyle=sty, linewidth=2)
@@ -603,7 +619,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
                 df_sync[['x_gt', 'y_gt', 'z_gt']].values,
                 axis=1
             )
-            rel_time = df_sync['pc_timestamp'] - df_sync['pc_timestamp'].iloc[0]
+            rel_time = df_sync['pc_timestamp'] - global_start_time
             ax5.plot(rel_time, errs * 100, label=f"Error: {lbl}", color='purple', linewidth=1.5)
 
             # Calculate individual axis errors

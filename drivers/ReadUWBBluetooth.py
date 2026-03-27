@@ -49,31 +49,39 @@ async def configure_device(client, device):
     current_mode_int = struct.unpack('<H', current_mode_bytes)[0]
     new_mode_int = current_mode_int
 
-    # Modify role bits
-    if dev_type == "Anchor":
-        new_mode_int |= 0x0080  # Turn Anchor bit ON
-    elif dev_type == "Listener":
-        new_mode_int |= 0x0100  # Turn Listener bit ON
-    else:  # Tag
-        new_mode_int &= ~0x0180  # Turn Anchor and Listener bits OFF
+    # --- BIT CLEARING (Resetting target bits to 0 before we configure them) ---
+    new_mode_int &= ~0x0080  # Clear Role (Bit 7 of Byte 0)
+    new_mode_int &= ~0x0060  # Clear UWB Mode (Bits 6 & 5 of Byte 0)
+    new_mode_int &= ~0x0004  # Clear LED (Bit 2 of Byte 0)
+    new_mode_int &= ~0x2000  # Clear Location Engine (Bit 5 of Byte 1)
+    new_mode_int &= ~0x4000  # Clear Low Power Mode (Bit 6 of Byte 1)
 
-    # Handle UWB Radio Power state
-    # (Checking against strings and bools to be safe with JSON loading)
+    # --- ROLE & LOCATION ENGINE SETUP ---
+    if dev_type == "Anchor":
+        new_mode_int |= 0x0080  # Set Anchor bit ON
+    elif dev_type == "Listener":
+        new_mode_int |= 0x0080  # Listeners are Anchors sniffing the network
+    else:
+        # Tag
+        new_mode_int |= 0x2000  # Turn Location Engine ON so the Tag calculates position
+
+    # --- UWB RADIO SETUP ---
     is_on = device.get('turned_on', True)
     if str(is_on).lower() == "false":
-        new_mode_int &= ~0x0600  # Clear bits 9 and 10 to turn off radio
         print(f"  -> {dev_name}: UWB Radio commanded to OFF.")
+        # We leave the UWB bits at 00 (Off)
     else:
-        new_mode_int |= 0x0400  # Put the UWB radio in Active mode
+        if dev_type == "Listener":
+            new_mode_int |= 0x0020  # Set UWB to Passive (Binary 01)
+        else:
+            new_mode_int |= 0x0040  # Set UWB to Active (Binary 10)
 
-    # Handle LED state natively per module
+    # --- LED SETUP ---
     led_enable = device.get('led_enabled', True)
-    if str(led_enable).lower() == "true":
-        new_mode_int |= 0x0040  # Turn LED ON
-    else:
-        new_mode_int &= ~0x0040  # Turn LED OFF
+    if str(led_enable).lower() != "false":
+        new_mode_int |= 0x0004  # Turn LED ON
 
-    # Write the safely modified bytes back to the module
+    # 3. Write the safely modified bytes back to the module
     await client.write_gatt_char(OPERATION_MODE_UUID, struct.pack('<H', new_mode_int))
     print(f"  -> {dev_name} configuration applied successfully.")
 
