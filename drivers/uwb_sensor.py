@@ -71,20 +71,25 @@ class UWBSmoother:
         return self.state[0], self.state[1], self.state[2]
 
 
+# =====================================================================================================================
+# Functions
+# =====================================================================================================================
+
 def update_anchor_list(ser, save_dir):
     print(f"[UWB] Requesting anchor positions from {ser.port}...")
-    ser.write(b'\r\r')
-    time.sleep(0.2)
     ser.reset_input_buffer()
+
     ser.write(b'la\r')
-    time.sleep(0.8)
+    time.sleep(0.5)
 
     anchors_found = []
-    lines = ser.readlines()
+    raw_text = ser.read_all().decode('utf-8', errors='ignore')
+    lines = raw_text.split('\n')
+
     coord_pattern = re.compile(r"pos=(-?\d+\.\d+):(-?\d+\.\d+):(-?\d+\.\d+)")
 
-    for line_raw in lines:
-        line = line_raw.decode('utf-8', errors='ignore').strip()
+    for line in lines:
+        line = line.strip()
         if "id=" in line and "pos=" in line:
             match = coord_pattern.search(line)
             if match:
@@ -92,16 +97,13 @@ def update_anchor_list(ser, save_dir):
                 anchors_found.append([float(x), float(y), float(z)])
                 print(f" -> Found Anchor: X={x}, Y={y}, Z={z}")
 
-    ser.write(b'\r')
     return anchors_found
 
 
 def parse_distances(line):
-    """
-    Extracts distance measurements from the DWM1001 'lec' output string.
-    Example DWM1001 output: POS,1,0A,0.00,0.00,0.00,100,bT,4,AN0,2.10,AN1,2.20...
-    Returns a list of distances.
-    """
+    # Extracts distance measurements from the DWM1001 'lec' output string.
+    # Example DWM1001 output: POS,1,0A,0.00,0.00,0.00,100,bT,4,AN0,2.10,AN1,2.20...
+    # Returns a list of distances.
     distances = []
     parts = line.split(',')
     # Scan through the parts to find 'ANx' tags and grab the number immediately following it
@@ -115,11 +117,12 @@ def parse_distances(line):
     return distances
 
 
-# ========================================================
+# =====================================================================================================================
 # UWB DRIVER LOOP
-# ========================================================
+# =====================================================================================================================
 def run_uwb(stop_event, config, save_dir, data_queue=None):
     # 1. Unpack Master Configuration
+    # -----------------------------------------------------------------------------------------------------------------
     port1 = config.get('port1')
     port2 = config.get('port2')
     baud = config.get('baud', 115200)
@@ -132,20 +135,26 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     print(f"[UWB] Routing: MATLAB={send_matlab}, Filter={filter_type}, Mode={read_type}")
 
     # 2. Determine number of listeners
+    # -----------------------------------------------------------------------------------------------------------------
     ports_to_open = [port1]
     if "8 Anchors" in anchor_count and port2:
         ports_to_open.append(port2)
         print(f"[UWB] Dual listener mode activated. Ports: {port1}, {port2}")
 
     # 3. Connect to MATLAB Engine
+    # -----------------------------------------------------------------------------------------------------------------
     eng = None
     if send_matlab and matlab is not None:
         print("[UWB] Starting MATLAB Engine (this may take a few seconds)...")
         try:
             eng = matlab.engine.start_matlab()
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            eng.addpath(script_dir, nargout=0)
+
             eng.workspace['uwb_filter_type'] = filter_type
             eng.workspace['uwb_read_type'] = read_type
             eng.workspace['uwb_anchor_count'] = anchor_count
+            eng.workspace['save_dir'] = save_dir
             print("[UWB] MATLAB Engine Connected.")
         except Exception as e:
             print(f"[UWB] MATLAB Engine failed to start: {e}")
@@ -159,38 +168,78 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     filt_writers = []
     file_handles = []
 
-    # We create a text buffer for each port to catch fragmented serial lines
+    # Create a text buffer for each port to catch fragmented serial lines
     buffers = []
 
     try:
         # 4. Setup Serial Ports and Output Files
+        # -------------------------------------------------------------------------------------------------------------
         all_anchors = []
         for i, port in enumerate(ports_to_open):
-            # Timeout is mostly ignored now due to the buffer, but kept low to prevent blocking
-            ser = serial.Serial(port, baud, timeout=0.05)
+            ser = serial.Serial(port, baud, timeout=1, dsrdtr=False, rtscts=False)
+            ser.dtr = False
+            ser.rts = False
 
-            time.sleep(0.5)
+            # 1. Stop any rogue streams from a crashed session
             ser.write(b'\r')
-            time.sleep(0.1)
-            ser.write(b'\r\r')
-            time.sleep(0.5)
+            time.sleep(0.3)
 
+            # 2. Wake up the shell
+            ser.write(b'\r\r')
+            time.sleep(1.0)
+            ser.reset_input_buffer()
+
+            # 3. Add to lists
             active_serials.append(ser)
             filters.append(UWBSmoother())
             buffers.append("")
 
-            # Fetch Anchors
+            # 4. Fetch Anchors
             anchors = update_anchor_list(ser, save_dir)
             all_anchors.extend(anchors)
 
-            # Put module into continuous reporting mode
-            ser.write(b'\r\r')
-            time.sleep(1.0)  # Increased back to 1.0s to ensure the module wakes up properly
+            # 5. Start Live Stream (No extra \r\r needed, it is already awake!)
+            ser.reset_input_buffer()
             ser.write(b'lec\r')
+            time.sleep(0.2)
 
             # Create CSVs for this specific listener
             f_raw = open(os.path.join(save_dir, f"[Log]_uwb_listener{i + 1}_{session_name}.csv"), 'w', newline='')
             raw_w = csv.writer(f_raw)
+
+        # all_anchors = []
+        # for i, port in enumerate(ports_to_open):
+        #     # Open port exactly like the successful sandbox test
+        #     ser = serial.Serial(port, baud, timeout=1, dsrdtr=False, rtscts=False)
+        #     ser.dtr = False
+        #     ser.rts = False
+        #
+        #     # Stop any existing stream from a previous session
+        #     ser.write(b'\r')
+        #     time.sleep(0.2)
+        #
+        #     # Wake up the shell
+        #     ser.write(b'\r\r')
+        #     time.sleep(1.0)
+        #
+        #     # Clear out the welcome message
+        #     ser.reset_input_buffer()
+        #
+        #     # Fetch Anchors
+        #     anchors = update_anchor_list(ser, save_dir)
+        #     all_anchors.extend(anchors)
+        #
+        #     # Start the live stream
+        #     ser.write(b'lec\r')
+        #     time.sleep(0.5)
+        #
+        #     active_serials.append(ser)
+        #     filters.append(UWBSmoother())
+        #     buffers.append("")
+        #
+        #     # Create CSVs for this specific listener
+        #     f_raw = open(os.path.join(save_dir, f"[Log]_uwb_listener{i + 1}_{session_name}.csv"), 'w', newline='')
+        #     raw_w = csv.writer(f_raw)
 
             f_filt = None
             filt_w = None
@@ -222,6 +271,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
         print("[UWB] Listening for data...")
 
         # 5. Main Processing Loop
+        # -------------------------------------------------------------------------------------------------------------
         while not stop_event.is_set():
             for i, ser in enumerate(active_serials):
                 if ser.in_waiting > 0:
@@ -242,6 +292,8 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                             if not line:
                                 continue
 
+                            print(f"[UWB_RAW] {line}")
+
                             arr_time = time.time()
 
                             # ==========================================
@@ -251,6 +303,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                 parts = [p for p in line.split(',') if p]
                                 if len(parts) >= 6:
                                     raw_x, raw_y, raw_z = float(parts[3]), float(parts[4]), float(parts[5])
+                                    print(f"[UWB] Read Position: X={raw_x}, Y={raw_y}, Z={raw_z}")
 
                                     raw_writers[i].writerow([arr_time, raw_x, raw_y, raw_z])
                                     file_handles[i * 2].flush()
@@ -265,14 +318,22 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                             data_queue.put(('UWB', filt_x, filt_y, filt_z))
 
                                         if send_matlab and eng is not None:
-                                            eng.eval(f"process_uwb_data({filt_x}, {filt_y}, {filt_z});", nargout=0)
+                                            # Call the UWB_Matlab_Example.m script directly
+                                            result = eng.UWB_Matlab_Example(float(arr_time), float(filt_x),
+                                                                            float(filt_y), float(filt_z), nargout=1)
+                                            if result:
+                                                print(f"[MATLAB Success] Filtered Point: {filt_x}, {filt_y}, {filt_z}")
 
                                     else:
                                         if data_queue is not None and i == 0:
                                             data_queue.put(('UWB', raw_x, raw_y, raw_z))
 
                                         if send_matlab and eng is not None:
-                                            eng.eval(f"process_uwb_data({raw_x}, {raw_y}, {raw_z});", nargout=0)
+                                            # Call the UWB_Matlab_Example.m script directly
+                                            result = eng.UWB_Matlab_Example(float(arr_time), float(raw_x),
+                                                                            float(raw_y), float(raw_z), nargout=1)
+                                            if result:
+                                                print(f"[MATLAB Success] Raw Point: {raw_x}, {raw_y}, {raw_z}")
 
                             # ==========================================
                             # MODE B: TAG DISTANCES
@@ -287,9 +348,14 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                     if send_matlab and eng is not None:
                                         mat_dist = matlab.double(distances)
                                         eng.workspace['current_distances'] = mat_dist
-                                        eng.eval("process_uwb_distances(current_distances);", nargout=0)
+                                        eng.eval("UWB_Matlab_Example_distances(current_distances);", nargout=0)
 
             time.sleep(0.001)
+
+
+# =====================================================================================================================
+# End Program
+# =====================================================================================================================
 
     except Exception as e:
         print(f"[UWB Error] {e}")

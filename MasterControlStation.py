@@ -82,6 +82,7 @@ class MasterControlApp:
         self.enable_uwb_port2 = tk.BooleanVar(value=True)
         self.uwb_port2 = tk.StringVar(value='COM5')
         self.opti_server = tk.StringVar(value='192.168.1.188')
+        self.opti_client = tk.StringVar(value='192.168.1.15')
 
         # Data Routing Config
         self.send_matlab = tk.BooleanVar(value=False)
@@ -130,6 +131,7 @@ class MasterControlApp:
                     self.enable_uwb_port2.set(data.get("enable_uwb_port2", True))
                     self.uwb_port2.set(data.get("uwb_port2", "COM5"))
                     self.opti_server.set(data.get("opti_server", "192.168.1.188"))
+                    self.opti_client.set(data.get("opti_client", "192.168.1.15"))
 
                     # Routing settings
                     self.send_matlab.set(data.get("send_matlab", False))
@@ -168,6 +170,7 @@ class MasterControlApp:
             "enable_uwb_port2": self.enable_uwb_port2.get(),
             "uwb_port2": self.uwb_port2.get(),
             "opti_server": self.opti_server.get(),
+            "opti_client": self.opti_client.get(),
             "send_matlab": self.send_matlab.get(),
             "send_ros": self.send_ros.get(),
             "filter_type": self.filter_type.get(),
@@ -226,6 +229,9 @@ class MasterControlApp:
 
         tk.Label(hardware_frame, text="Opti Server IP:").grid(row=4, column=1, padx=5, sticky="e")
         tk.Entry(hardware_frame, textvariable=self.opti_server, width=15).grid(row=4, column=2)
+
+        tk.Label(hardware_frame, text="Local Client IP:").grid(row=5, column=1, padx=5, sticky="e")
+        tk.Entry(hardware_frame, textvariable=self.opti_client, width=15).grid(row=5, column=2)
 
         # 2. Data Routing
         routing_frame = tk.LabelFrame(left_pane, text="Data Routing & Processing", padx=10, pady=10)
@@ -359,7 +365,7 @@ class MasterControlApp:
 
         if self.enable_gt.get() and self.gt_type.get() == "OptiTrack":
             opti_config = {'server_ip': self.opti_server.get(), 'client_ip': "192.168.1.15", 'multicast': False,
-                           'latency': 0}
+                           'latency': 0} # PC = .15 and Laptop is .42 IP
 
             # Notice self.data_queue is the 4th item in the args tuple
             t_opti = threading.Thread(

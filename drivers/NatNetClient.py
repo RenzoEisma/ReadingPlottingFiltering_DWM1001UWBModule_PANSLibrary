@@ -84,7 +84,8 @@ class NatNetClient:
         self.server_ip_address = "192.168.1.187" #it was 192.169.1.187
 
         # Change this value to the IP address of your local network interface
-        self.local_ip_address = "192.168.1.15"
+        # self.local_ip_address = "192.168.1.15" # Personal PC
+        self.local_ip_address = "192.168.1.15" # Laptop
 
         # Should match multicast address listed in Motive's streaming settings.
         self.multicast_address = "239.255.42.99"
@@ -181,7 +182,7 @@ class NatNetClient:
                 self.__nat_net_requested_version[1] = minor
                 self.__nat_net_requested_version[2] = 0
                 self.__nat_net_requested_version[3] = 0
-                print("changing bitstream MAIN")
+                print("[Opti] changing bitstream MAIN")
                 # get original output state
                 # print_results = self.get_print_results()
 
@@ -202,7 +203,7 @@ class NatNetClient:
                 # self.set_print_results(print_results)
 
             else:
-                print("Bitstream change request failed")
+                print("[Opti] Bitstream change request failed")
         return return_code
 
     def get_major(self):
@@ -250,7 +251,7 @@ class NatNetClient:
                 else:
                     result.bind((self.local_ip_address, self.command_port))
             except socket.error as e:
-                print(f'Socket error: {e}')
+                print(f'[Opti] Socket error: {e}')
             # set to broadcast mode
             result.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             # set timeout to allow for keep alive messages
@@ -261,7 +262,7 @@ class NatNetClient:
             try:
                 result.bind((self.local_ip_address, 0))
             except socket.error as e:
-                print(f'Socket error: {e}')
+                print(f'[Opti] Socket error: {e}')
         return result
 
     # Create a data socket to attach to the NatNet stream
@@ -280,7 +281,7 @@ class NatNetClient:
                 # Use bind in data socket due to the nature of UDP
                 result.bind((self.local_ip_address, self.data_port))
             except socket.error as e:
-                print(f'Multicast Error: {e}')
+                print(f'[Opti] Multicast Error: {e}')
                 sys.exit(1)
         else:
             # Unicast case
@@ -292,7 +293,7 @@ class NatNetClient:
             try:
                 result.bind((self.local_ip_address, 0))
             except socket.error as e:
-                print(f'Unicast Socket Error: {e}')
+                print(f'[Opti] Unicast Socket Error: {e}')
                 sys.exit(1)
         return result
 
@@ -644,18 +645,18 @@ class NatNetClient:
             marker_count = int.from_bytes(data[offset:offset+4], byteorder='little', signed=True) #type: ignore  # noqa E501
             offset += 4
             if (marker_count < 0):
-                print("WARNING: Early return.  Invalid marker count")
+                print("[Opti] WARNING: Early return.  Invalid marker count")
                 offset = len(data)
                 return offset, marker_set_data
             elif (marker_count > 10000):
-                print("WARNING: Early return.  Marker count too high")
+                print("[Opti] WARNING: Early return.  Marker count too high")
                 offset = len(data)
                 return offset, marker_set_data
 
             trace_mf("Marker Count   : ", marker_count)
             for j in range(0, marker_count):
                 if (len(data) < (offset+12)):
-                    print("WARNING: Early return.  Out of data at marker ", j, " of ", marker_count) #type: ignore  # noqa E501
+                    print("[Opti] WARNING: Early return.  Out of data at marker ", j, " of ", marker_count) #type: ignore  # noqa E501
                     offset = len(data)
                     return offset, marker_set_data
                     break
@@ -988,8 +989,8 @@ class NatNetClient:
         param = 0
         # check to see if there is enough data
         if ((packet_size-offset) <= 0):
-            print("ERROR: Early End of Data Frame Suffix Data")
-            print("\tNo time stamp info available")
+            print("[Opti] ERROR: Early End of Data Frame Suffix Data")
+            print("[Opti] \tNo time stamp info available")
         else:
             if (major == 0):
                 data, offset, frame_suffix_data = self.__unpack_frame_suffix_data_0_case(data, offset, frame_suffix_data, param) #type: ignore  # noqa E501
@@ -1877,11 +1878,11 @@ class NatNetClient:
                 trace_dd("Type: 6 Asset")
                 offset_tmp, data_tmp = self.__unpack_asset_description(data[offset:], major, minor) #type: ignore  # noqa E501
             else:
-                print("Type: Unknown " + str(data_type))
-                print("ERROR: Type decode failure")
-                print("\t" + str(i+1) + " datasets processed of " + str(dataset_count)) #type: ignore  # noqa E501
-                print("\t " + str(offset) + " bytes processed of " + str(packet_size)) #type: ignore  # noqa E501
-                print("\tPACKET DECODE STOPPED")
+                print("[Opti] Type: Unknown " + str(data_type))
+                print("[Opti] ERROR: Type decode failure")
+                print("[Opti] \t" + str(i+1) + " datasets processed of " + str(dataset_count)) #type: ignore  # noqa E501
+                print("[Opti] \t " + str(offset) + " bytes processed of " + str(packet_size)) #type: ignore  # noqa E501
+                print("[Opti] \tPACKET DECODE STOPPED")
                 return offset
             offset += offset_tmp
             data_descs.add_data(data_tmp)
@@ -1917,7 +1918,7 @@ class NatNetClient:
         self.__nat_net_stream_version_server[3] = nnsvs[3]
         if (self.__nat_net_requested_version[0] == 0) and\
            (self.__nat_net_requested_version[1] == 0):
-            print("resetting requested version to %d %d %d %d from %d %d %d %d" % ( #type: ignore  # noqa E501
+            print("[Opti] resetting requested version to %d %d %d %d from %d %d %d %d" % ( #type: ignore  # noqa E501
                 self.__nat_net_stream_version_server[0],
                 self.__nat_net_stream_version_server[1],
                 self.__nat_net_stream_version_server[2],
@@ -1981,16 +1982,16 @@ class NatNetClient:
                 if stop():
                     # print("ERROR: command socket access error occurred:\n  %s" %msg) #type: ignore  # noqa E501
                     # return 1
-                    print("shutting down")
+                    print("[Opti] shutting down")
             except socket.herror:
-                print("ERROR: command socket access herror occurred")
+                print("[Opti] ERROR: command socket access herror occurred")
                 return 2
             except socket.gaierror:
-                print("ERROR: command socket access gaierror occurred")
+                print("[Opti] ERROR: command socket access gaierror occurred")
                 return 3
             except socket.timeout:
                 if (self.use_multicast):
-                    print("ERROR: command socket access timeout occurred. Server not responding") #type: ignore  # noqa E501
+                    print("[Opti] ERROR: command socket access timeout occurred. Server not responding") #type: ignore  # noqa E501
                     # return 4
 
             if len(buffer_list[buffer_list_in_use_index]) > 0:
@@ -2033,14 +2034,14 @@ class NatNetClient:
                     print("ERROR: data socket access error occurred:\n  %s" % msg) #type: ignore  # noqa E501
                     return 1
             except socket.herror:
-                print("ERROR: data socket access herror occurred")
+                print("[Opti] ERROR: data socket access herror occurred")
                 # return 2
             except socket.gaierror:
-                print("ERROR: data socket access gaierror occurred")
+                print("[Opti] ERROR: data socket access gaierror occurred")
                 # return 3
             except socket.timeout:
                 # if self.use_multicast:
-                print("ERROR: data socket access timeout occurred. Server not responding") #type: ignore  # noqa E501
+                print("[Opti] ERROR: data socket access timeout occurred. Server not responding") #type: ignore  # noqa E501
                 # return 4
             if len(data) > 0:
                 # peek ahead at message_id
@@ -2097,7 +2098,7 @@ class NatNetClient:
             trace("Packet Size: %d" % packet_size)
             offset_tmp, data_descs = self.__unpack_data_descriptions(data[offset:], packet_size, major, minor) #type: ignore  # noqa E501
             offset += offset_tmp
-            print("Data Descriptions:\n")
+            print("[Opti] Data Descriptions:\n")
             # get a string version of the data for output
             data_descs_str = data_descs.get_as_string()
             if print_level > 0:
@@ -2169,7 +2170,7 @@ class NatNetClient:
             packet_size = len(command_str) + 1
         elif command == self.NAT_CONNECT:
             tmp_version = [4, 2, 0, 0]
-            print("NAT_CONNECT to Motive with %d %d %d %d\n" % (
+            print("[Opti] NAT_CONNECT to Motive with %d %d %d %d\n" % (
                 tmp_version[0],
                 tmp_version[1],
                 tmp_version[2],
@@ -2224,7 +2225,7 @@ class NatNetClient:
         for sz_command in tmpCommands:
             return_code = self.send_command(sz_command)
             if (print_results):
-                print("Command: %s - return_code: %d" % (sz_command, return_code)) #type: ignore  # noqa E501
+                print("[Opti] Command: %s - return_code: %d" % (sz_command, return_code)) #type: ignore  # noqa E501
 
     def send_keep_alive(self, in_socket, server_ip_address, server_port):
         return self.send_request(in_socket, self.NAT_KEEPALIVE, "", (server_ip_address, server_port)) #type: ignore  # noqa E501
@@ -2255,13 +2256,13 @@ class NatNetClient:
         # Create the data socket
         self.data_socket = self.__create_data_socket()
         if self.data_socket is None:
-            print("Could not open data channel")
+            print("[Opti] Could not open data channel")
             return False
 
         # Create the command socket
         self.command_socket = self.__create_command_socket()
         if self.command_socket is None:
-            print("Could not open command channel")
+            print("[Opti] Could not open command channel")
             return False
         self.__is_locked = True
 
@@ -2271,7 +2272,7 @@ class NatNetClient:
         self.data_thread = Thread(target=self.__data_thread_function, args=(self.data_socket, lambda: self.stop_threads, lambda: self.print_level,)) #type: ignore  # noqa E501
         self.command_thread = Thread(target=self.__command_thread_function, args=(self.command_socket, lambda: self.stop_threads, lambda: self.print_level, thread_option,)) #type: ignore  # noqa E501
         if thread_option == 'd':
-            print("starting data thread")
+            print("[Opti] starting data thread")
             self.command_thread.start()
             if self.command_thread.is_alive():
                 self.data_thread.start()
@@ -2292,7 +2293,7 @@ class NatNetClient:
         return True
 
     def shutdown(self):
-        print("shutdown called")
+        print("[Opti] shutdown called")
         self.stop_threads = True
         # closing sockets causes blocking recvfrom to throw
         # an exception and break the loop
@@ -2324,6 +2325,7 @@ def run_simple_logger(stop_event, config, save_dir, data_queue=None):
 
     # 1. YOU MUST INITIALIZE THE CLIENT INSIDE THE FUNCTION
     streaming_client = NatNetClient()
+    streaming_client.set_print_level(0)
 
     # --- CONFIGURATION ---
     latency_offset = config['latency']
@@ -2333,6 +2335,8 @@ def run_simple_logger(stop_event, config, save_dir, data_queue=None):
 
     session_name = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = os.path.join(save_dir, f"[Log]_optitrack_{session_name}.csv")
+
+    last_print_time = [0.0]
 
     with open(filename, mode="w", newline="") as f:
         writer = csv.writer(f)
@@ -2347,6 +2351,11 @@ def run_simple_logger(stop_event, config, save_dir, data_queue=None):
 
                 if data_queue is not None:
                     data_queue.put(('GT', pos[0], pos[1], pos[2]))
+
+                    current_time = time.time()
+                    if current_time - last_print_time[0] >= 0.1:
+                        print(f"[OptiTrack] Read Position: X={pos[0]:.2f}, Y={pos[1]:.2f}, Z={pos[2]:.2f}")
+                        last_print_time[0] = current_time
 
         streaming_client.rigid_body_listener = handler
 

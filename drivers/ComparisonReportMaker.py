@@ -77,6 +77,13 @@ DATASETS = [
         'multiplier': [-1.0, -1.0, 1.0],
         'time_offset': -0.5,
     },
+    {
+        'prefix': '[Log]_uwbFilteredMatlab_listener1','label': 'UWB FilteredM 1','color': 'yellow','style': '-',
+        'is_ground_truth': False,
+        'offset': [0,0,-0.25],
+        'multiplier': [1.0, 1.0, 1.0],
+        'time_offset': -0.5,
+    },
 ]
 
 # 3. Features Configuration
