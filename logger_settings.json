@@ -1,0 +1,20 @@
+{
+    "enable_uwb": true,
+    "enable_gt": true,
+    "gt_type": "OptiTrack",
+    "uwb_port1": "COM5",
+    "enable_uwb_port2": false,
+    "uwb_port2": "COM5",
+    "opti_server": "192.168.1.187",
+    "opti_client": "192.168.1.15",
+    "send_matlab": false,
+    "send_ros": false,
+    "filter_type": "Python Filter",
+    "read_type": "Tag Position",
+    "anchor_count": "4 Anchors (1 Listener)",
+    "rep_name": "UWB_TestMatlabFilterV3",
+    "rep_notes": "---",
+    "rep_show_anchors": true,
+    "rep_save_pdf": true,
+    "rep_save_pngs": true
+}

@@ -1,0 +1,7 @@
+{
+    "name": "UWB_ITVT2_FourAnchorsLowTripods",
+    "notes": "Tag wasnt at lower z axis than previous measurements",
+    "show_anchors": true,
+    "save_pdf": true,
+    "save_pngs": true
+}

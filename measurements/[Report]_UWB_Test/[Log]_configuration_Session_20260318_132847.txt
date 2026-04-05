@@ -1,0 +1,2 @@
+UWB_CONFIG: port1=COM3, port2=None, baud=115200
+GT_CONFIG: Disabled

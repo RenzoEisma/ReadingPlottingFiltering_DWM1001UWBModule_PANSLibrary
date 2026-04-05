@@ -1,0 +1,38 @@
+[
+    {
+        "name": "Module 17",
+        "address": "E3:A0:23:24:3B:CE",
+        "type": "Anchor",
+        "location": "-2.18, 2.12, 0.48",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 18",
+        "address": "F9:AA:5B:C0:94:0D",
+        "type": "Anchor",
+        "location": "-2.19, -1.5, 0.5",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 19",
+        "address": "D4:72:D2:90:E1:F8",
+        "type": "Anchor",
+        "location": "2.62, -1.45, 0.51",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    },
+    {
+        "name": "Module 20",
+        "address": "CB:95:AB:70:51:F4",
+        "type": "Anchor",
+        "location": "2.77, 2.32, 0.49",
+        "network_id": "0x1D32",
+        "turned_on": true,
+        "led_enabled": true
+    }
+]
