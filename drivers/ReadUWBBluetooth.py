@@ -1,7 +1,9 @@
 # ===================== PROGRAM_INFO ==================================================================================
 """ Author: Renzo Eisma
+    Date: 04/2026
     Description: UWB DWM1001 Bluetooth worker script. Takes a configuration list from the GUI
     and pushes settings to all devices concurrently."""
+
 # =====================================================================================================================
 
 import asyncio
@@ -20,7 +22,9 @@ OPERATION_MODE_UUID = "3f0afd88-7770-46b0-b5e7-9fc099598964"
 # HELPER FUNCTIONS
 # =====================================================================================================================
 def parse_location(loc_string):
-    """Converts a string like '2.0, 4.5, 6.7' (meters) into 13 packed bytes."""
+
+    """Converts a string like '2.0, 4.5, 6.7' (meters) into 13 packed bytes.
+    This is required by the DWM1001 hardware. ..."""
     coords = [float(c.strip()) for c in loc_string.split(',')]
     # Pad to 3 coordinates if the user messed up the string
     while len(coords) < 3:

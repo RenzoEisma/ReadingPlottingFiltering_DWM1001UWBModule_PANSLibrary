@@ -1,6 +1,6 @@
 # ===================== PROGRAM_INFO ==================================================================================
 """ Author: Renzo Eisma
-    Date: 03/19/2026
+    Date: 04/2026
     Description: UWB Sensor Measurement with Dynamic Data Routing"""
 
 # =====================================================================================================================
@@ -14,6 +14,17 @@ import os
 import numpy as np
 from datetime import datetime
 import re
+
+import socket
+import json
+
+# Setup UDP configurations
+UDP_IP = "127.0.0.1"  # Localhost (same laptop)
+UDP_PORT_UWB = 5005
+UDP_PORT_OPTI = 5006
+
+# Create the socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 try:
     import matlab.engine
@@ -180,28 +191,84 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
             ser.dtr = False
             ser.rts = False
 
-            # 1. Stop any rogue streams from a crashed session
-            ser.write(b'\r')
-            time.sleep(0.3)
-
-            # 2. Wake up the shell
-            ser.write(b'\r\r')
-            time.sleep(1.0)
-            ser.reset_input_buffer()
-
-            # 3. Add to lists
             active_serials.append(ser)
             filters.append(UWBSmoother())
             buffers.append("")
 
-            # 4. Fetch Anchors
-            anchors = update_anchor_list(ser, save_dir)
-            all_anchors.extend(anchors)
-
-            # 5. Start Live Stream (No extra \r\r needed, it is already awake!)
-            ser.reset_input_buffer()
-            ser.write(b'lec\r')
+            # 1. Stop any existing stream by sending Enter twice with a pause
+            ser.write(b'\r')
             time.sleep(0.2)
+            ser.write(b'\r')
+            time.sleep(0.2)
+
+            # 2. Clear the buffer of all old "POS" data (like the tester does)
+            ser.read_all()
+
+            # 3. Now wake it up properly
+            ser.write(b'\r\r')
+            time.sleep(0.5)
+
+            # 4. Check for the prompt
+            response = ser.read_all().decode('utf-8', errors='ignore')
+            if "dwm>" in response:
+                print(f"[UWB] Shell active. Sending 'lec'...")
+                ser.write(b'lec\r')
+            else:
+                print("[UWB] Shell did not respond. Trying 'lec' anyway...")
+                ser.write(b'lec\r')
+
+
+            #
+            # print("[UWB] Port opened successfully! Sending \\r\\r to wake up...")
+            # ser.write(b'\r\r')
+            # time.sleep(1)
+            #
+            # # Read everything sitting in the buffer
+            # response = ser.read_all().decode('utf-8', errors='ignore').strip()
+            # print(f"Wake-up Response: '{response}'")
+            #
+            # if not response:
+            #     print("\n[UWB] CRITICAL FAILURE: The module did not respond at all.")
+            #     print("[UWB] Causes: Wrong COM port, charge-only USB cable, or module needs a hard reset.")
+            # else:
+            #     print("\n [UWB] Module responded! Sending 'lec'...")
+            #     ser.write(b'lec\r')
+            #     time.sleep(0.5)
+
+            # if ser.in_waiting > 0:
+            #     data = ser.readline().decode('utf-8', errors='ignore').strip()
+            #     if data:
+            #         print(f"DATA: {data}")
+            # time.sleep(0.1)
+
+
+            # Old startup sequence ------------------------------------------------------------------------------------
+
+            # # 1. Stop any rogue streams from a crashed session
+            # ser.write(b'\r')
+            # time.sleep(0.3)
+            #
+            # # 2. Wake up the shell
+            # ser.write(b'\r\r')
+            # time.sleep(1.0)
+            # ser.reset_input_buffer()
+            #
+            # # 3. Add to lists
+            # active_serials.append(ser)
+            # filters.append(UWBSmoother())
+            # buffers.append("")
+            #
+            # # 4. Fetch Anchors
+            # anchors = update_anchor_list(ser, save_dir)
+            # all_anchors.extend(anchors)
+            #
+            # # 5. Start Live Stream (No extra \r\r needed, it is already awake!)
+            # ser.reset_input_buffer()
+            # ser.write(b'lec\r')
+            # time.sleep(0.2)
+
+
+
 
             # Create CSVs for this specific listener
             f_raw = open(os.path.join(save_dir, f"[Log]_uwb_listener{i + 1}_{session_name}.csv"), 'w', newline='')
@@ -299,10 +366,22 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                             # ==========================================
                             # MODE A: TAG POSITION
                             # ==========================================
-                            if read_type == 'Tag Position' and line.startswith('POS'):
-                                parts = [p for p in line.split(',') if p]
+
+                            # if read_type == 'Tag Position' and line.startswith('POS'):
+                            #     parts = [p for p in line.split(',') if p]
+                            #     if len(parts) >= 6:
+                            #         raw_x, raw_y, raw_z = float(parts[3]), float(parts[4]), float(parts[5])
+
+                            # Use 'in' instead of 'startswith' to handle the command echo
+                            if read_type == 'Tag Position' and 'POS' in line:
+                                # Ensure we only take the data after the 'POS' tag
+                                data_part = line.split('POS')[-1]
+                                parts = [p for p in data_part.split(',') if p]
+
                                 if len(parts) >= 6:
-                                    raw_x, raw_y, raw_z = float(parts[3]), float(parts[4]), float(parts[5])
+                                    # The coordinates are now always in the same relative position
+                                    # raw_x, raw_y, raw_z = float(parts[1]), float(parts[2]), float(parts[3])
+                                    raw_x, raw_y, raw_z = float(parts[2]), float(parts[3]), float(parts[4])
                                     print(f"[UWB] Read Position: X={raw_x}, Y={raw_y}, Z={raw_z}")
 
                                     raw_writers[i].writerow([arr_time, raw_x, raw_y, raw_z])
@@ -318,8 +397,8 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                             data_queue.put(('UWB', filt_x, filt_y, filt_z))
 
                                         if send_matlab and eng is not None:
-                                            # Call the UWB_Matlab_Example.m script directly
-                                            result = eng.UWB_Matlab_Example(float(arr_time), float(filt_x),
+                                            # Call the FilterUWB.m script directly
+                                            result = eng.FilterUWB(float(arr_time), float(filt_x),
                                                                             float(filt_y), float(filt_z), nargout=1)
                                             if result:
                                                 print(f"[MATLAB Success] Filtered Point: {filt_x}, {filt_y}, {filt_z}")
@@ -329,8 +408,8 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                             data_queue.put(('UWB', raw_x, raw_y, raw_z))
 
                                         if send_matlab and eng is not None:
-                                            # Call the UWB_Matlab_Example.m script directly
-                                            result = eng.UWB_Matlab_Example(float(arr_time), float(raw_x),
+                                            # Call the FilterUWB.m script directly
+                                            result = eng.FilterUWB(float(arr_time), float(raw_x),
                                                                             float(raw_y), float(raw_z), nargout=1)
                                             if result:
                                                 print(f"[MATLAB Success] Raw Point: {raw_x}, {raw_y}, {raw_z}")
@@ -348,7 +427,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                     if send_matlab and eng is not None:
                                         mat_dist = matlab.double(distances)
                                         eng.workspace['current_distances'] = mat_dist
-                                        eng.eval("UWB_Matlab_Example_distances(current_distances);", nargout=0)
+                                        eng.eval("FilterUWB_distances(current_distances);", nargout=0)
 
             time.sleep(0.001)
 

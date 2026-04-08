@@ -1,7 +1,7 @@
 import serial
 import time
 
-port = 'COM3'  # <-- VERIFY THIS IS CORRECT
+port = 'COM5'  # <-- VERIFY THIS IS CORRECT
 baud = 115200
 
 print(f"--- UWB RAW HARDWARE TEST ---")

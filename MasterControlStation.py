@@ -1,6 +1,6 @@
 # ===================== PROGRAM_INFO ==================================================================================
 """ Author: Renzo Eisma
-    Date: 03/19/2026
+    Date: 04/2026
     Description: Master Script for everything to do with measuring, plotting and configuring Qorvo UWB modules"""
 
 # =====================================================================================================================
@@ -364,8 +364,14 @@ class MasterControlApp:
         }
 
         if self.enable_gt.get() and self.gt_type.get() == "OptiTrack":
-            opti_config = {'server_ip': self.opti_server.get(), 'client_ip': "192.168.1.15", 'multicast': False,
-                           'latency': 0} # PC = .15 and Laptop is .42 IP
+            opti_config = {
+                # 'server_ip': "192.168.1.187",
+                # 'client_ip': "192.168.1.42",
+                'server_ip': self.opti_server.get(),
+                'client_ip': self.opti_client.get(),
+                'multicast': True,
+                'latency': 0
+            }
 
             # Notice self.data_queue is the 4th item in the args tuple
             t_opti = threading.Thread(
