@@ -26,9 +26,18 @@ from drivers import ComparisonReportMaker
 
 from drivers import ReadUWBBluetooth  # <-- Add this import
 
+try:
+    import matlab.engine
+    MATLAB_AVAILABLE = True
+except ImportError:
+    MATLAB_AVAILABLE = False
+    print("[WARNING] matlab.engine is not installed in this Python environment.")
+
 stop_event = threading.Event()
 
 
+# Class for intercepting print statements and displaying them inside the Tkinter text widget
+# ---------------------------------------------------------------------------------------------------------------------
 class ConsoleRedirector:
     def __init__(self, text_widget):
         self.text_widget = text_widget
@@ -37,30 +46,40 @@ class ConsoleRedirector:
         self.text_widget.insert(tk.END, string)
         self.text_widget.see(tk.END)
 
+    # Required method when overriding standard output in Python
     def flush(self):
         pass
 
 
+# Main application class that builds and manages the graphical user interface
+# ---------------------------------------------------------------------------------------------------------------------
 class MasterControlApp:
+    # Setup for the main application window
+    # -----------------------------------------------------------------------------------------------------------------
     def __init__(self, root):
         self.root = root
-        self.root.title("Drone Localization Control Station")
-        self.root.geometry("900x750")
+        self.root.title("Drone Localization Control Station") # GUI title
+        self.root.geometry("900x750") # Define size of GUI
 
-        self.settings_file = "logger_settings.json"
+        # Define settings files
+        self.settings_file = "logger_settings.json" # File for storing saved settings
         self.uwb_config_file = "uwb_network_config.json"
 
+        # Define Tkinter notebook, this is used for making tabs in the GUI
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
+        # Make three tabs
         self.tab_logging = ttk.Frame(self.notebook)
         self.tab_report = ttk.Frame(self.notebook)
         self.tab_anchors = ttk.Frame(self.notebook)
 
+        # Make three tabs
         self.notebook.add(self.tab_logging, text="Live Logging")
         self.notebook.add(self.tab_report, text="Report Maker")
         self.notebook.add(self.tab_anchors, text="UWB Anchors")
 
+        # Call all the startup functions
         self.init_logging_vars()
         self.init_report_vars()
         self.init_anchor_vars()
@@ -73,6 +92,8 @@ class MasterControlApp:
 
         sys.stdout = ConsoleRedirector(self.console_output)
 
+    # Creates and stores the Tkinter variables related to Hardware Setup and Data Routing
+    # -----------------------------------------------------------------------------------------------------------------
     def init_logging_vars(self):
         # Hardware Config
         self.enable_uwb = tk.BooleanVar(value=True)
@@ -91,10 +112,13 @@ class MasterControlApp:
         self.read_type = tk.StringVar(value="Tag Position")
         self.anchor_count = tk.StringVar(value="4 Anchors (1 Listener)")
 
+        # Create arrays for the 3D plot
         self.data_queue = queue.Queue()
         self.plot_x_uwb, self.plot_y_uwb, self.plot_z_uwb = [], [], []
         self.plot_x_gt, self.plot_y_gt, self.plot_z_gt = [], [], []
 
+    # Creates and stores the Tkinter variables used in the Report Maker Tab
+    # -----------------------------------------------------------------------------------------------------------------
     def init_report_vars(self):
         self.rep_name = tk.StringVar(value="UWB_Measurement_Default")
         self.rep_notes = tk.StringVar(value="None")
@@ -102,6 +126,10 @@ class MasterControlApp:
         self.rep_save_pdf = tk.BooleanVar(value=True)
         self.rep_save_pngs = tk.BooleanVar(value=True)
 
+    # Creates and stores the Tkinter variables used in the UWB Configuration Tab
+    # Initializes an empty list to hold module data and creates Tkinter variables corresponding to the properties
+    # of a single UWB module
+    # -----------------------------------------------------------------------------------------------------------------
     def init_anchor_vars(self):
         # We will keep an empty list, and load a default if nothing exists
         self.uwb_modules = []
@@ -118,6 +146,12 @@ class MasterControlApp:
         self.mod_turned_on = tk.BooleanVar()
         self.mod_led_enabled = tk.BooleanVar() # New!
 
+    # =================================================================================================================
+    # Data Logger Tab
+    # =================================================================================================================
+
+    # Attempts to open and read local JSON files containing previous configurations.
+    # -----------------------------------------------------------------------------------------------------------------
     def load_settings(self):
         if os.path.exists(self.settings_file):
             try:
@@ -159,6 +193,8 @@ class MasterControlApp:
             except Exception as e:
                 print(f"Could not load UWB config: {e}")
 
+    # Gathers all current inputs from the GUI variables and writes them back into JSON files for persistence.
+    # -----------------------------------------------------------------------------------------------------------------
     def save_settings(self):
         self.save_current_module_edits()
 
@@ -195,6 +231,8 @@ class MasterControlApp:
         except Exception as e:
             print(f"Could not save UWB config: {e}")
 
+    # Builds the visual layout for the Live Logging tab
+    # -----------------------------------------------------------------------------------------------------------------
     def setup_logging_tab(self):
         # --- Create Main Layout Panes ---
         left_pane = tk.Frame(self.tab_logging)
@@ -230,7 +268,7 @@ class MasterControlApp:
         tk.Label(hardware_frame, text="Opti Server IP:").grid(row=4, column=1, padx=5, sticky="e")
         tk.Entry(hardware_frame, textvariable=self.opti_server, width=15).grid(row=4, column=2)
 
-        tk.Label(hardware_frame, text="Local Client IP:").grid(row=5, column=1, padx=5, sticky="e")
+        tk.Label(hardware_frame, text="Opti Local Client IP:").grid(row=5, column=1, padx=5, sticky="e")
         tk.Entry(hardware_frame, textvariable=self.opti_client, width=15).grid(row=5, column=2)
 
         # 2. Data Routing
@@ -293,6 +331,11 @@ class MasterControlApp:
         self.canvas = FigureCanvasTkAgg(self.fig, master=plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+    # Triggered when the user clicks "Start Logging"
+    # Saves current settings, disables the start button, clears any old plotting data, resets the stopping event, and
+    # launches the main logging sequence in a separate background thread so the GUI remains responsive. It also starts
+    # the recursive GUI plot-updating loop.
+    # -----------------------------------------------------------------------------------------------------------------
     def start_logging(self):
         self.save_settings()
         self.start_btn.config(state=tk.DISABLED)
@@ -319,12 +362,27 @@ class MasterControlApp:
         # Start the GUI update loop
         self.root.after(100, self.update_live_plot)
 
+    # Triggered when the user clicks "Stop Logging"
+    # Sets a threading event flag that tells all background measurement threads to safely terminate
+    # -----------------------------------------------------------------------------------------------------------------
     def stop_logging(self):
         print("\n[MASTER] Shutdown initiated...")
         stop_event.set()
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
 
+        # Turn off Matlab Master
+        if hasattr(self, 'matlab_eng') and self.matlab_eng is not None:
+            print("[MASTER] Shutting down MATLAB Engine...")
+            self.matlab_eng.quit()
+            self.matlab_eng = None
+
+    # The core background process
+    # Generates new timestamped folder for each session, writes a text file documenting chosen configuration, and
+    # packages dictionaries of settings.
+    # It then starts individual threads for recording OptiTrack ground truth data and UWB sensor data. It loops until
+    # the stop flag is triggered, at which point it joins all threads before closing
+    # -----------------------------------------------------------------------------------------------------------------
     def run_master_process(self):
         print("=== MASTER LOGGER STARTING ===")
         base_dir = "measurements"
@@ -338,7 +396,8 @@ class MasterControlApp:
         config_file = os.path.join(self.current_session_dir, f"[Log]_configuration_{session_name}.txt")
         with open(config_file, 'w') as f:
             f.write(
-                f"UWB_CONFIG: port1={self.uwb_port1.get()}, port2={self.uwb_port2.get() if self.enable_uwb_port2.get() else 'None'}, baud=115200\n")
+                f"UWB_CONFIG: port1={self.uwb_port1.get()}, port2={self.uwb_port2.get() if self.enable_uwb_port2.get() 
+                else 'None'}, baud=115200\n")
 
             if self.enable_gt.get():
                 f.write(f"GT_CONFIG: type={self.gt_type.get()}, server={self.opti_server.get()}\n")
@@ -369,7 +428,7 @@ class MasterControlApp:
                 # 'client_ip': "192.168.1.42",
                 'server_ip': self.opti_server.get(),
                 'client_ip': self.opti_client.get(),
-                'multicast': True,
+                'multicast': False,
                 'latency': 0
             }
 
@@ -392,6 +451,27 @@ class MasterControlApp:
             threads.append(t_uwb)
             print("[MASTER] UWB thread started.")
 
+            # ==========================================
+            # MATLAB LAUNCHER BLOCK (Also matlab code in stop logging)
+            # ==========================================
+            if self.send_matlab.get():
+                if MATLAB_AVAILABLE:
+                    def launch_matlab_master():
+                        try:
+                            print("[MASTER] Launching MATLAB Master Control...")
+                            # Save the engine to 'self' so we can close it later
+                            self.matlab_eng = matlab.engine.start_matlab()
+                            self.matlab_eng.MatlabMasterUWBControl(nargout=0)
+                        except Exception as e:
+                            print(f"[MATLAB Launch Error] {e}")
+
+                    # Wait 1.5 seconds to let the Python UDP sockets open completely
+                    time.sleep(1.5)
+                    threading.Thread(target=launch_matlab_master, daemon=True).start()
+                else:
+                    print("[MASTER] Cannot launch MATLAB. The matlab.engine module is missing.")
+            # ==========================================
+
         print(f"\n[MASTER] Saving data to: {self.current_session_dir}")
         print("[MASTER] Running. Press 'Stop Logging' to halt.\n")
 
@@ -403,6 +483,12 @@ class MasterControlApp:
 
         print("[MASTER] All sensors stopped.")
 
+    # =================================================================================================================
+    # Report Maker Tab
+    # =================================================================================================================
+
+    # Builds the visual layout for the Report Maker tab
+    # -----------------------------------------------------------------------------------------------------------------
     def setup_report_tab(self):
         report_frame = tk.Frame(self.tab_report, padx=20, pady=20)
         report_frame.pack(fill=tk.BOTH, expand=True)
@@ -434,6 +520,8 @@ class MasterControlApp:
         tk.Button(btn_frame, text="Select Folder & Generate", command=self.manual_report_trigger, bg="#0052cc",
                   fg="white", width=25).pack(side=tk.LEFT)
 
+    # Prompts the user with a file dialogue to select a specific session folder for making a measurement report
+    # -----------------------------------------------------------------------------------------------------------------
     def manual_report_trigger(self):
         self.save_settings()
         folder = filedialog.askdirectory(title="Select Measurement Session Folder")
@@ -456,6 +544,12 @@ class MasterControlApp:
             except Exception as e:
                 print(f"Error generating report: {e}")
 
+    # =================================================================================================================
+    # Bluetooth Configuration Tab
+    # =================================================================================================================
+
+    # Builds the visual layout for the UWB Anchors tab
+    # -----------------------------------------------------------------------------------------------------------------
     def setup_anchor_tab(self):
         container = tk.Frame(self.tab_anchors, padx=10, pady=10)
         container.pack(fill=tk.BOTH, expand=True)
@@ -530,7 +624,9 @@ class MasterControlApp:
         # Load UI
         self.refresh_listbox()
 
-    # --- UWB Configuration Logic ---
+    # Opens a file dialogue allowing the user to select and load an entire network setup from a previously saved JSON
+    # file into the listbox
+    # -----------------------------------------------------------------------------------------------------------------
     def load_uwb_config(self):
         filepath = filedialog.askopenfilename(initialdir=self.config_dir, title="Select Configuration",
                                               filetypes=[("JSON Files", "*.json")])
@@ -543,6 +639,9 @@ class MasterControlApp:
             except Exception as e:
                 print(f"[GUI] Failed to load configuration: {e}")
 
+    # Opens a file dialogue so the user can export the current list of UWB modules and their configurations to a new
+    # JSON file
+    # -----------------------------------------------------------------------------------------------------------------
     def save_uwb_config_as(self):
         filepath = filedialog.asksaveasfilename(initialdir=self.config_dir, defaultextension=".json",
                                                 filetypes=[("JSON Files", "*.json")])
@@ -555,6 +654,8 @@ class MasterControlApp:
             except Exception as e:
                 print(f"[GUI] Failed to save configuration: {e}")
 
+    # Adds a module to the list
+    # -----------------------------------------------------------------------------------------------------------------
     def add_module(self):
         self.save_current_module_edits()
         new_module = {
@@ -571,6 +672,8 @@ class MasterControlApp:
         self.module_listbox.selection_set(tk.END)
         self.load_module_details(len(self.uwb_modules) - 1)
 
+    # Removes a module from the list
+    # -----------------------------------------------------------------------------------------------------------------
     def remove_module(self):
         if not self.uwb_modules: return
         selections = self.module_listbox.curselection()
@@ -585,6 +688,9 @@ class MasterControlApp:
             else:
                 self.current_module_index = -1
 
+    # Clears the visual list of modules and repopulates it by looping through the internal data list, formatting the
+    # strings to show both the module name and its role type
+    # -----------------------------------------------------------------------------------------------------------------
     def refresh_listbox(self):
         self.module_listbox.delete(0, tk.END)
         for mod in self.uwb_modules:
@@ -595,12 +701,17 @@ class MasterControlApp:
             self.module_listbox.selection_set(0)
             self.load_module_details(0)
 
+    # A callback function triggered whenever the user clicks a different module in the listbox
+    # -----------------------------------------------------------------------------------------------------------------
     def on_module_select(self, event):
         self.save_current_module_edits()
         selections = self.module_listbox.curselection()
         if selections:
             self.load_module_details(selections[0])
 
+    # Fetches the data dictionary of a specific module based on its index and updates all the Tkinter variables in the
+    # right-hand panel to match the stored data.
+    # -----------------------------------------------------------------------------------------------------------------
     def load_module_details(self, index):
         if index < 0 or index >= len(self.uwb_modules): return
         self.current_module_index = index
@@ -618,6 +729,8 @@ class MasterControlApp:
         led_en = mod.get("led_enabled", True)
         self.mod_led_enabled.set(str(led_en).lower() != "false")
 
+    # Save
+    # -----------------------------------------------------------------------------------------------------------------
     def save_current_module_edits(self):
         if not self.uwb_modules or self.current_module_index < 0: return
         mod = self.uwb_modules[self.current_module_index]
@@ -629,6 +742,8 @@ class MasterControlApp:
         mod["turned_on"] = self.mod_turned_on.get()
         mod["led_enabled"] = self.mod_led_enabled.get()
 
+    # Apply
+    # -----------------------------------------------------------------------------------------------------------------
     def apply_module_edit(self):
         """Saves current edits and visually updates the listbox text"""
         self.save_current_module_edits()
@@ -640,6 +755,9 @@ class MasterControlApp:
             self.module_listbox.insert(index, f"{mod.get('name')} [{mod.get('type')}]")
             self.module_listbox.selection_set(index)
 
+    # Spawns a background thread that takes the current internal list of UWB modules and passes them to the
+    # ReadUWBBluetooth script so that modules can be updated.
+    # -----------------------------------------------------------------------------------------------------------------
     def push_ble_config(self):
         self.save_current_module_edits()
         print("\n[GUI] Spawning Bluetooth Configuration Thread...")
@@ -650,6 +768,9 @@ class MasterControlApp:
         )
         ble_thread.start()
 
+    # Loop that runs every 0.1 seconds. It checks the data queue for incoming X,Y and Z coordinates. It appends
+    # the coordinates to the respective plotline object, recalculates the bounds of the 3D axis and redraws the canvas.
+    # -----------------------------------------------------------------------------------------------------------------
     def update_live_plot(self):
         if stop_event.is_set():
             return
@@ -691,6 +812,9 @@ class MasterControlApp:
 
         self.root.after(100, self.update_live_plot)
 
+# =====================================================================================================================
+# End Program
+# =====================================================================================================================
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -1,0 +1,103 @@
+% =========================================================================
+% ROBOT CONTROL SCRIPT FOR BEBOP DRONES
+% Author: Renzo Eisma
+% Date: 09/04/2026
+%
+% Description:
+% ...
+%
+% Features:
+% * ...
+% =========================================================================
+
+classdef RobotControlCodeBebopClass < handle
+    properties
+        RobotObj     
+        JoyObj       
+        Angulo = 5;
+        AngMax = 30;
+        AngMin = 5;
+        AddAngFlag = false;
+        SubAngFlag = false;
+        EmergencyTriggered = false;
+        robot_is_flying = false;
+    end
+    
+    methods
+        function obj = RobotControlCodeBebopClass()
+            disp('[BEBOP] Initializing Drone and Joystick...');
+            try
+                % It is assumed rosinit has already been called in the Master script
+                obj.RobotObj = Bebop(1,'B1');
+                obj.JoyObj = JoyControl;
+            catch ME
+                disp('[BEBOP] Error loading Bebop classes:');
+                disp(ME.message);
+            end
+        end
+        
+        function perform_movement(obj)
+            disp('[BEBOP] Taking off...');
+            obj.RobotObj.rTakeOff();
+            robot_is_flying = true;
+            pause(5);
+        end
+        
+        function update(obj, uwb_pos, opti_pos)
+            % 1. Reset Control Signals
+            obj.RobotObj.pSC.Ud = zeros(6,1);
+            
+            % 2. Read Joystick
+            obj.RobotObj = obj.JoyObj.mControl(obj.RobotObj);
+            
+            button_joystick = obj.JoyObj.pDigital(2);
+            aumenta_angulo = obj.JoyObj.pDigital(6);
+            diminui_angulo = obj.JoyObj.pDigital(5);
+
+            % 3. Process Angle Adjustments
+            if aumenta_angulo
+                if obj.AddAngFlag == false
+                    if obj.Angulo < obj.AngMax
+                        obj.Angulo = obj.Angulo + 5;
+                        obj.AddAngFlag = true;
+                    end
+                end
+            else
+                obj.AddAngFlag = false;
+            end
+
+            if diminui_angulo
+                if obj.SubAngFlag == false
+                    if obj.Angulo > obj.AngMin
+                        obj.Angulo = obj.Angulo - 5;
+                        obj.SubAngFlag = true;
+                    end
+                end
+            else
+                obj.SubAngFlag = false;
+            end
+
+            % 4. Apply Scaling and Command
+            cmd_percent = obj.Angulo / obj.AngMax;
+            obj.RobotObj.pSC.Ud = obj.RobotObj.pSC.Ud .* cmd_percent;
+            
+            % 5. Check Emergency Flags
+            if obj.RobotObj.pFlag.EmergencyStop ~= 0 || button_joystick ~= 0
+                obj.EmergencyTriggered = true;
+                return;
+            end
+            
+            % 6. Send to ROS
+            obj.RobotObj.rCommand();
+        end
+        
+        function landAndStop(obj)
+            disp('[BEBOP] Initiating Landing and Shutdown...');
+            for i = 1:5
+                obj.RobotObj.pSC.Ud = zeros(6,1);
+                obj.RobotObj.rLand();
+                pause(0.1);
+            end
+        end
+    end
+end

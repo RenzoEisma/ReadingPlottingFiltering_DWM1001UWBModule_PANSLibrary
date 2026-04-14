@@ -29,16 +29,18 @@ import json # Make sure this is added to your imports at the top of the file
 # CONFIGURATION
 # =====================================================================================================================
 
-measurement_name = 'UWB_TwoAWallTwoACornersMat_Att2'
-measurement_notes = '---'
-
 # 1. Report Info
+measurement_name = '-'
+measurement_notes = '-'
 REPORT_INFO = {
     'name': measurement_name,
     'notes': measurement_notes
 }
 
 # 2. Define your datasets here.
+# If one is found in the selected file it will be graphed
+# If a signal is selected as ground truth the other signals will be compared to it
+# Offsets can be defined
 DATASETS = [
     {
         'prefix': '[Log]_optitrack', 'label': 'OptiTrack (GT)', 'color': 'red', 'style': '--',
@@ -49,24 +51,24 @@ DATASETS = [
         # 'offset': [4.2604, 3.5112, -0.1], # Wall Anchors (UWB 000 != Opti 000)
         # 'multiplier': [-1.0, -1.0, 1.0], # Wall Anchors (UWB 000 != Opti 000)
     },
-    # {
-    #     'prefix': '[Log]_uwb','label': 'UWB Raw','color': 'blue','style': '-',
-    #     'is_ground_truth': False,
-    #     'offset': [0,0,-0.25], #[-4.2604, -3.5112, -0.3094]
-    #     'multiplier': [1.0, 1.0, 1.0],
-    #     'time_offset': -0.5,
-    # },
-    # {
-    #     'prefix': '[Log]_uwbFiltered','label': 'UWB Filtered','color': 'orange','style': '-',
-    #     'is_ground_truth': False,
-    #     'offset': [0,0,-0.25],
-    #     'multiplier': [1.0, 1.0, 1.0],
-    #     'time_offset': -0.5,
-    # },
     {
         'prefix': '[Log]_uwb_listener1','label': 'UWB Raw 1','color': 'orange','style': '-',
         'is_ground_truth': False,
-        'offset': [0,0,-0.25],
+        'offset': [0, 0, 0],
+        'multiplier': [1.0, 1.0, 1.0],
+        'time_offset': -0.5,
+    },
+    {
+        'prefix': '[Log]_uwbFiltered_listener1', 'label': 'UWB Filt 1', 'color': 'green', 'style': '--',
+        'is_ground_truth': False,
+        'offset': [0, 0, 0],
+        'multiplier': [1.0, 1.0, 1.0],
+        'time_offset': -0.5,
+    },
+    {
+        'prefix': '[Log]_uwbFilteredMatlab_listener1', 'label': 'UWB FilteredM 1', 'color': 'yellow', 'style': '-',
+        'is_ground_truth': False,
+        'offset': [0, 0, 0],
         'multiplier': [1.0, 1.0, 1.0],
         'time_offset': -0.5,
     },
@@ -75,13 +77,6 @@ DATASETS = [
         'is_ground_truth': False,
         'offset': [4.2604, 3.5112, -1.24],
         'multiplier': [-1.0, -1.0, 1.0],
-        'time_offset': -0.5,
-    },
-    {
-        'prefix': '[Log]_uwbFilteredMatlab_listener1','label': 'UWB FilteredM 1','color': 'yellow','style': '-',
-        'is_ground_truth': False,
-        'offset': [0,0,-0.25],
-        'multiplier': [1.0, 1.0, 1.0],
         'time_offset': -0.5,
     },
 ]
@@ -103,8 +98,13 @@ EXPORT_LIST = {
     'y_axis_comparison': True
 }
 
+# =====================================================================================================================
+# Functions
+# =====================================================================================================================
 
-
+# Generates a graphical popup windows using Tkinter to ask the user for report configurations
+# This is so that this script can be used without the MasterControlStation GUI
+# ---------------------------------------------------------------------------------------------------------------------
 class SettingsDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -143,8 +143,10 @@ class SettingsDialog(tk.Toplevel):
         self.destroy()
 
 
+# Finds the most recent log file by searching the directory manually
+# This is not used currently
+# ---------------------------------------------------------------------------------------------------------------------
 def get_latest_file(prefix, folder_path):
-    """Finds the most recent log file by searching the directory manually, avoiding glob's bracket issue."""
     if not os.path.exists(folder_path):
         return None
 
@@ -160,12 +162,13 @@ def get_latest_file(prefix, folder_path):
     if not matching_files:
         return None
 
-    # Return the most recent one (max works perfectly because your timestamps sort alphabetically)
+    # Return the most recent one
     return max(matching_files)
 
 
+# This function takes a file path and reads the CSV data using the pandas library.
+# ---------------------------------------------------------------------------------------------------------------------
 def load_position_data(filepath):
-    """Loads the new 4-column format: Time, POSX, POSY, POSZ."""
     try:
         df = pd.read_csv(filepath)
         # Standardize column names for internal use
@@ -176,8 +179,10 @@ def load_position_data(filepath):
         return None
 
 
+# This function computes how fast the tracked object is moving. It does this by calculating the physical distance
+# between consecutive 3D points and dividing that distance by the time elapsed between those specific measurements.
+# ---------------------------------------------------------------------------------------------------------------------
 def calculate_velocity(df):
-    """Calculates point-to-point speed using the actual time between samples."""
     coords = df[['x', 'y', 'z']].values
     times = df['pc_timestamp'].values
 
@@ -191,6 +196,11 @@ def calculate_velocity(df):
     return np.insert(dists / dt, 0, 0.0)
 
 
+# This function stands for Absolute Trajectory Error. It compares the estimated UWB positions against the actual ground
+# truth positions. It calculates the overall 3D distances between the points to find the mean error, maximum error, and
+# root-mean-square error. It also calculates the error for the individual X, Y, and Z axes and returns a formatted list
+# of strings to be displayed in the final report table.
+# ---------------------------------------------------------------------------------------------------------------------
 def calculate_ate(df_est, df_gt, label):
     """Calculates the Error and returns formatting for the table."""
     min_len = min(len(df_est), len(df_gt))
@@ -214,27 +224,15 @@ def calculate_ate(df_est, df_gt, label):
             f"{x_err:.2f} cm", f"{y_err:.2f} cm", f"{z_err:.2f} cm"]
 
 
-def plot_fading_line(ax, x, y, z=None, color='blue', style='-'):
-    """Draws a line collection that fades from 10% opacity to 100% opacity"""
-    points = np.array([x, y, z]).T.reshape(-1, 1, 3) if z is not None else np.array([x, y]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-    alphas = np.linspace(0.1, 1.0, len(segments))
-    rgba = mcolors.to_rgba(color)
-    colors = [(rgba[0], rgba[1], rgba[2], a) for a in alphas]
-
-    if z is not None:
-        lc = Line3DCollection(segments, colors=colors, linestyle=style, linewidth=2)
-        ax.add_collection3d(lc)
-    else:
-        lc = LineCollection(segments, colors=colors, linestyle=style, linewidth=2)
-        ax.add_collection(lc)
 
 
+
+# This function acts as an auto calibration tool. It takes the UWB data and the ground truth data and uses a
+# mathematical optimization algorithm called Nelder Mead. The algorithm tests different spatial shifts for X, Y, and Z,
+# as well as time shifts, to find the exact offset values that make the two datasets align as good as possible. It then
+# prints these suggested offset values to the console.
+# ---------------------------------------------------------------------------------------------------------------------
 def find_best_alignment(df_uwb, df_gt, label="UWB"):
-    """
-    Finds the optimal [dx, dy, dz, dt] to align UWB to OptiTrack.
-    """
     # 1. Normalize time to start at 0
     uwb_t = (df_uwb['pc_timestamp'] - df_uwb['pc_timestamp'].iloc[0]).values
     gt_t = (df_gt['pc_timestamp'] - df_gt['pc_timestamp'].iloc[0]).values
@@ -265,44 +263,46 @@ def find_best_alignment(df_uwb, df_gt, label="UWB"):
     res = minimize(objective_function, initial_guess, method='Nelder-Mead')
     dx, dy, dz, dt = res.x
 
-    # print("\n" + "=" * 30)
-    # print("CALCULATED OPTIMAL PARAMETERS")
-    # print("=" * 30)
-    # print(f"Copy these into your CONFIGURATION:")
-    # print(f"X Offset: {dx:.4f}")
-    # print(f"Y Offset: {dy:.4f}")
-    # print(f"Z Offset: {dz:.4f}")
-    # print(f"TIME_OFFSET = {dt:.4f}")
-    # print("=" * 30 + "\n")
-
     print(f"\nOptimization results for: {label}")
     print("-" * 40)
     print(f"Suggested 'offset': [{dx:.4f}, {dy:.4f}, {dz:.4f}]")
     print(f"Suggested 'time_offset': {dt:.4f}")
     print("-" * 40)
 
-    # We return the values but won't force them into the data automatically
+    # Return the values but won't force them into the data automatically
     return dx, dy, dz, dt
 
 
+# =====================================================================================================================
+# This function builds a fully interactive web based dashboard. It uses the Plotly library to create a grid containing
+# a 3D trajectory map, a 2D top down view, individual axis stability graphs, and a total error graph. It synchronizes
+# the time across all datasets, calculates live error metrics, plots the UWB anchor locations, and exports the entire
+# interactive figure as an HTML file.
+# =====================================================================================================================
 def generate_plotly_dashboard(loaded_data, session_folder, report_name):
     """
-    Creates an interactive HTML dashboard with 3D, 2D, and time-series plots.
+    Creates an interactive HTML dashboard with 3D, 2D, time-series plots, and advanced diagnostics.
     """
-    # Create a 3x2 grid of subplots
+    from scipy.interpolate import interp1d
+
+    # Create a 5x2 grid of subplots
     fig = make_subplots(
-        rows=3, cols=2,
+        rows=5, cols=2,
         specs=[
             [{'type': 'scene'}, {'type': 'xy'}],  # 3D Path | 2D Top Down
             [{'type': 'xy'}, {'type': 'xy'}],  # X Position | Y Position
-            [{'type': 'xy'}, {'type': 'xy'}]  # Z Stability | Error
+            [{'type': 'xy'}, {'type': 'xy'}],  # Z Stability | Total Error
+            [{'type': 'xy'}, {'type': 'xy'}],  # Error CDF | Velocity vs Error
+            [{'type': 'xy', 'colspan': 2}, None]  # Sample Timing
         ],
         subplot_titles=(
             "3D Trajectory Map", "2D Top-Down View",
             "X-Axis Position (m)", "Y-Axis Position (m)",
-            "Z-Axis Stability (m)", "Total Error (cm)"
+            "Z-Axis Stability (m)", "Total 3D Error (cm)",
+            "Error Distribution (CDF)", "Velocity vs. Error",
+            "Sample Rate Consistency (Time Between Points)"
         ),
-        vertical_spacing=0.1
+        vertical_spacing=0.05
     )
 
     # Find Ground Truth for Error calculation
@@ -346,51 +346,77 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
             go.Scatter(x=time_index, y=df['z'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
             row=3, col=1)
 
-        # 6. Error Calculation (relative to GT)
+        # 6. Sample Rate Consistency (Delta T)
+        deltas = df['pc_timestamp'].diff().dropna()
+        fig.add_trace(go.Scatter(
+            x=time_index[1:], y=deltas, mode='lines',
+            name=f"{lbl} Timing", line=dict(color=color, width=1),
+            showlegend=False
+        ), row=5, col=1)
+
+        # 7. Error Calculation (relative to GT)
         if gt_key and lbl != gt_key:
             df_gt = loaded_data[gt_key]
-            df_sync = pd.merge_asof(
-                df.sort_values('pc_timestamp'),
-                df_gt.sort_values('pc_timestamp'),
-                on='pc_timestamp', suffixes=('_est', '_gt'), direction='nearest'
-            )
 
-            rel_time = df_sync['pc_timestamp'] - global_start_time
+            # Interpolation instead of merge_asof for better accuracy
+            f_x = interp1d(df_gt['pc_timestamp'], df_gt['x'], fill_value="extrapolate")
+            f_y = interp1d(df_gt['pc_timestamp'], df_gt['y'], fill_value="extrapolate")
+            f_z = interp1d(df_gt['pc_timestamp'], df_gt['z'], fill_value="extrapolate")
 
-            # Calculate 3D and individual axis errors in cm
-            errs = np.linalg.norm(
-                df_sync[['x_est', 'y_est', 'z_est']].values - df_sync[['x_gt', 'y_gt', 'z_gt']].values, axis=1) * 100
-            err_x = np.abs(df_sync['x_est'] - df_sync['x_gt']).values * 100
-            err_y = np.abs(df_sync['y_est'] - df_sync['y_gt']).values * 100
-            err_z = np.abs(df_sync['z_est'] - df_sync['z_gt']).values * 100
+            gt_interp_x = f_x(df['pc_timestamp'])
+            gt_interp_y = f_y(df['pc_timestamp'])
+            gt_interp_z = f_z(df['pc_timestamp'])
+
+            # Calculate Errors in cm
+            err_3d = np.linalg.norm(
+                np.stack([df['x'] - gt_interp_x, df['y'] - gt_interp_y, df['z'] - gt_interp_z], axis=1), axis=1) * 100
+            err_x = np.abs(df['x'] - gt_interp_x) * 100
+            err_y = np.abs(df['y'] - gt_interp_y) * 100
+            err_z = np.abs(df['z'] - gt_interp_z) * 100
 
             # Total 3D Error (Solid Line)
             fig.add_trace(go.Scatter(
-                x=rel_time, y=errs, mode='lines',
+                x=time_index, y=err_3d, mode='lines',
                 name=f"{lbl} (3D Err)", line=dict(color='purple', width=2),
                 hovertemplate="Time: %{x:.2f}s<br>3D Error: %{y:.2f} cm<extra></extra>"
             ), row=3, col=2)
 
             # X Error (Red Dotted)
             fig.add_trace(go.Scatter(
-                x=rel_time, y=err_x, mode='lines',
+                x=time_index, y=err_x, mode='lines',
                 name=f"{lbl} (X Err)", line=dict(color='red', dash='dot', width=1.5),
                 hovertemplate="Time: %{x:.2f}s<br>X Error: %{y:.2f} cm<extra></extra>"
             ), row=3, col=2)
 
             # Y Error (Green Dotted)
             fig.add_trace(go.Scatter(
-                x=rel_time, y=err_y, mode='lines',
+                x=time_index, y=err_y, mode='lines',
                 name=f"{lbl} (Y Err)", line=dict(color='green', dash='dot', width=1.5),
                 hovertemplate="Time: %{x:.2f}s<br>Y Error: %{y:.2f} cm<extra></extra>"
             ), row=3, col=2)
 
             # Z Error (Blue Dotted)
             fig.add_trace(go.Scatter(
-                x=rel_time, y=err_z, mode='lines',
+                x=time_index, y=err_z, mode='lines',
                 name=f"{lbl} (Z Err)", line=dict(color='deepskyblue', dash='dot', width=1.5),
                 hovertemplate="Time: %{x:.2f}s<br>Z Error: %{y:.2f} cm<extra></extra>"
             ), row=3, col=2)
+
+            # 8. CDF Plot
+            sorted_err = np.sort(err_3d)
+            y_vals = np.arange(len(sorted_err)) / float(len(sorted_err))
+            fig.add_trace(go.Scatter(
+                x=sorted_err, y=y_vals, mode='lines',
+                name=f"{lbl} CDF", line=dict(color=color)
+            ), row=4, col=1)
+
+            # 9. Velocity vs Error
+            v_uwb = calculate_velocity(df)
+            fig.add_trace(go.Scatter(
+                x=v_uwb, y=err_3d, mode='markers',
+                marker=dict(size=4, opacity=0.4, color=color),
+                name=f"{lbl} V vs E", showlegend=False
+            ), row=4, col=2)
 
     # Plot Anchors in 3D and 2D
     if SHOW_ANCHORS:
@@ -404,23 +430,32 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
                 an = np.array(current_anchors)
                 fig.add_trace(go.Scatter3d(x=an[:, 0], y=an[:, 1], z=an[:, 2], mode='markers',
-                                           marker=dict(symbol='diamond', size=5, color='lime'), name='Anchors'), row=1, col=1)
+                                           marker=dict(symbol='diamond', size=5, color='lime'), name='Anchors'), row=1,
+                              col=1)
                 fig.add_trace(
-                    go.Scatter(x=an[:, 0], y=an[:, 1], mode='markers', marker=dict(symbol='diamond', size=10, color='lime'),
+                    go.Scatter(x=an[:, 0], y=an[:, 1], mode='markers',
+                               marker=dict(symbol='diamond', size=10, color='lime'),
                                name='Anchors', showlegend=False), row=1, col=2)
             except Exception as e:
                 print(f"Error reading anchor CSV: {e}")
 
-    fig.update_layout(height=1200, title_text=f"Interactive Report: {report_name}", template="plotly_white")
+    fig.update_layout(height=1800, title_text=f"Interactive Report: {report_name}", template="plotly_white")
 
-    # html_path = os.path.join(session_folder, f"Interactive_Report_{report_name.replace(' ', '_')}.html")
-    # safe_name = "[Report]_Interactive_Report.html"
     safe_name = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}.html"
     html_path = os.path.join(session_folder, safe_name)
     fig.write_html(html_path)
     print(f" -> Interactive Plotly report saved: {html_path}")
 
 
+# =====================================================================================================================
+# This is the master function that orchestrates the entire plotting process. It handles fetching the target folder,
+# either through a popup dialog or a saved configuration file. It sets up a large Matplotlib canvas with a specific
+# grid layout. It then loops through the configured datasets, loads the latest CSV files, applies any manual coordinate
+# or time offsets, and normalizes the timestamps. It populates all the subplots with standard lines and time series
+# data, generates the error comparison table, formats the axis labels, and saves the final result as a PDF. It also
+# handles exporting individual graphs as PNGs, calls the interactive dashboard generator, and attempts to rename the
+# original folder to match the finalized report name.
+# =====================================================================================================================
 def run_dashboard(session_folder=None, skip_popup=False):
     global REPORT_INFO, SHOW_ANCHORS, SAVE_PDF, SAVE_INDIVIDUAL_PNGS
 
@@ -504,6 +539,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
     fig.canvas.manager.set_window_title('Drone Localization Dashboard')
 
     # 1. Plot Anchors
+    # -----------------------------------------------------------------------------------------------------------------
     if SHOW_ANCHORS:
         anchor_csv = os.path.join(session_folder, "[Log]_anchor_positions.csv")
 
@@ -533,6 +569,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
     table_data = []
 
     # 2. Load Data First
+    # -----------------------------------------------------------------------------------------------------------------
     for ds in DATASETS:
         # AUTOMATICALLY find the latest file based on the prefix
         filepath = get_latest_file(ds['prefix'], session_folder)
@@ -573,6 +610,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
     global_start_time = min(df['pc_timestamp'].min() for df in loaded_data.values())
 
     # 2.5 Plot Traces using Global Time
+    # -----------------------------------------------------------------------------------------------------------------
     for ds in DATASETS:
         lbl = ds['label']
         if lbl not in loaded_data: continue
@@ -603,6 +641,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
         find_best_alignment(loaded_data["UWB Raw"], loaded_data[gt_key])
 
     # 3. Calculate Errors and Build Table (Time-Synchronized)
+    # -----------------------------------------------------------------------------------------------------------------
     if gt_key and gt_key in loaded_data:
         df_gt = loaded_data[gt_key]
         # Normalize Ground Truth time for the separate plots
@@ -647,13 +686,6 @@ def run_dashboard(session_folder=None, skip_popup=False):
                 f"{np.mean(err_z) * 100:.1f} cm"
             ])
 
-    # if table_data:
-    #     columns = ['Sensor Data', 'Mean Error (cm)', 'Max Error (cm)', 'RMSE (Official)']
-    #     table = ax_table.table(cellText=table_data, colLabels=columns, loc='center', cellLoc='center')
-    #     table.auto_set_font_size(False)
-    #     table.set_fontsize(12)
-    #     table.scale(1, 1.8)  # Stretch cells slightly for readability
-
     if table_data:
         columns = ['Sensor', 'Mean (3D)', 'Max (3D)', 'RMSE (3D)', 'Err X', 'Err Y', 'Err Z']
         table = ax_table.table(cellText=table_data, colLabels=columns, loc='center', cellLoc='center')
@@ -662,6 +694,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
         table.scale(1, 1.8)
 
     # 4. Graph Formatting
+    # -----------------------------------------------------------------------------------------------------------------
     ax1.set_title('3D Trajectory Map')
     ax1.set_xlabel('X (m)')
     ax1.set_ylabel('Y (m)')
@@ -757,26 +790,167 @@ if __name__ == "__main__":
 
 
 
-#OLD
-# 3. Define your Anchor coordinates [X, Y, Z] in meters
-# ANCHORS = [
-#     # #Tripod Top Anchors
-#     # [-1.9,-1.75,1.17], [-1.86,1.35,1.19],
-#     # [2.26,1.34,1.19], [2.25,-1.75,1.18],
-#     #
-#     # #Bottom Anchors
-#     # [-1.9,-1.75,0.07], [-1.86,1.35,0.07],
-#     # [2.26,1.34,0.07], [2.25,-1.75,0.07]
+# OLD
+
+# # This is a visual helper function used in plotting. It starts the line transparent and gradually becomes fully opaque
+# # towards the end.
+# # ---------------------------------------------------------------------------------------------------------------------
+# def plot_fading_line(ax, x, y, z=None, color='blue', style='-'):
+#     points = np.array([x, y, z]).T.reshape(-1, 1, 3) if z is not None else np.array([x, y]).T.reshape(-1, 1, 2)
+#     segments = np.concatenate([points[:-1], points[1:]], axis=1)
 #
-#     # #Wall anchors:
-#     # [0.00, 0.00, 2.48], [2.96, 0.00, 2.48],
-#     # [5.8, 0.1, 2.40], [8.03, 0.1, 2.38],
-#     # [7.36, 6.53, 2.22], [5.88, 6.92, 2.59],
-#     # [2.39, 6.8, 2.65], [0.54, 6.99, 2.56]
+#     alphas = np.linspace(0.1, 1.0, len(segments))
+#     rgba = mcolors.to_rgba(color)
+#     colors = [(rgba[0], rgba[1], rgba[2], a) for a in alphas]
 #
-#     # 4 middle wall anchors measured with red pole (kind of accurate but not really) (2,3,6,7)
-#     # And offset not applied yet
-#     [0.790,3.542,2.430], [-1.740,3.533,2.390],
-#     [-1.330,-3.532,2.475], [1.590,-3.521,2.510],
+#     if z is not None:
+#         lc = Line3DCollection(segments, colors=colors, linestyle=style, linewidth=2)
+#         ax.add_collection3d(lc)
+#     else:
+#         lc = LineCollection(segments, colors=colors, linestyle=style, linewidth=2)
+#         ax.add_collection(lc)
+
+
+# OLD Plotly without new plots
+
+
+# # =====================================================================================================================
+# # This function builds a fully interactive web based dashboard. It uses the Plotly library to create a grid containing
+# # a 3D trajectory map, a 2D top down view, individual axis stability graphs, and a total error graph. It synchronizes
+# # the time across all datasets, calculates live error metrics, plots the UWB anchor locations, and exports the entire
+# # interactive figure as an HTML file.
+# # =====================================================================================================================
+# def generate_plotly_dashboard(loaded_data, session_folder, report_name):
+#     """
+#     Creates an interactive HTML dashboard with 3D, 2D, and time-series plots.
+#     """
+#     # Create a 3x2 grid of subplots
+#     fig = make_subplots(
+#         rows=3, cols=2,
+#         specs=[
+#             [{'type': 'scene'}, {'type': 'xy'}],  # 3D Path | 2D Top Down
+#             [{'type': 'xy'}, {'type': 'xy'}],  # X Position | Y Position
+#             [{'type': 'xy'}, {'type': 'xy'}]  # Z Stability | Error
+#         ],
+#         subplot_titles=(
+#             "3D Trajectory Map", "2D Top-Down View",
+#             "X-Axis Position (m)", "Y-Axis Position (m)",
+#             "Z-Axis Stability (m)", "Total Error (cm)"
+#         ),
+#         vertical_spacing=0.1
+#     )
 #
-# ]
+#     # Find Ground Truth for Error calculation
+#     gt_key = next(
+#         (k for k, v in loaded_data.items() if any(d['label'] == k and d.get('is_ground_truth') for d in DATASETS)),
+#         None)
+#
+#     global_start_time = min(df['pc_timestamp'].min() for df in loaded_data.values())
+#
+#     for lbl, df in loaded_data.items():
+#         time_index = df['pc_timestamp'] - global_start_time
+#         color = next((d['color'] for d in DATASETS if d['label'] == lbl), 'gray')
+#
+#         # 1. 3D Trajectory
+#         fig.add_trace(go.Scatter3d(
+#             x=df['x'], y=df['y'], z=df['z'],
+#             mode='lines', name=lbl, line=dict(color=color, width=4),
+#             hovertemplate="Time: %{text}s<br>X: %{x:.2f}<br>Y: %{y:.2f}<br>Z: %{z:.2f}<extra></extra>",
+#             text=[f"{t:.2f}" for t in time_index]
+#         ), row=1, col=1)
+#
+#         # 2. 2D Top Down
+#         fig.add_trace(go.Scatter(
+#             x=df['x'], y=df['y'], mode='lines', name=lbl,
+#             line=dict(color=color), showlegend=False,
+#             hovertemplate="X: %{x:.2f}<br>Y: %{y:.2f}<extra></extra>"
+#         ), row=1, col=2)
+#
+#         # 3. X Position
+#         fig.add_trace(
+#             go.Scatter(x=time_index, y=df['x'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+#             row=2, col=1)
+#
+#         # 4. Y Position
+#         fig.add_trace(
+#             go.Scatter(x=time_index, y=df['y'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+#             row=2, col=2)
+#
+#         # 5. Z Stability
+#         fig.add_trace(
+#             go.Scatter(x=time_index, y=df['z'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+#             row=3, col=1)
+#
+#         # 6. Error Calculation (relative to GT)
+#         if gt_key and lbl != gt_key:
+#             df_gt = loaded_data[gt_key]
+#             df_sync = pd.merge_asof(
+#                 df.sort_values('pc_timestamp'),
+#                 df_gt.sort_values('pc_timestamp'),
+#                 on='pc_timestamp', suffixes=('_est', '_gt'), direction='nearest'
+#             )
+#
+#             rel_time = df_sync['pc_timestamp'] - global_start_time
+#
+#             # Calculate 3D and individual axis errors in cm
+#             errs = np.linalg.norm(
+#                 df_sync[['x_est', 'y_est', 'z_est']].values - df_sync[['x_gt', 'y_gt', 'z_gt']].values, axis=1) * 100
+#             err_x = np.abs(df_sync['x_est'] - df_sync['x_gt']).values * 100
+#             err_y = np.abs(df_sync['y_est'] - df_sync['y_gt']).values * 100
+#             err_z = np.abs(df_sync['z_est'] - df_sync['z_gt']).values * 100
+#
+#             # Total 3D Error (Solid Line)
+#             fig.add_trace(go.Scatter(
+#                 x=rel_time, y=errs, mode='lines',
+#                 name=f"{lbl} (3D Err)", line=dict(color='purple', width=2),
+#                 hovertemplate="Time: %{x:.2f}s<br>3D Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # X Error (Red Dotted)
+#             fig.add_trace(go.Scatter(
+#                 x=rel_time, y=err_x, mode='lines',
+#                 name=f"{lbl} (X Err)", line=dict(color='red', dash='dot', width=1.5),
+#                 hovertemplate="Time: %{x:.2f}s<br>X Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # Y Error (Green Dotted)
+#             fig.add_trace(go.Scatter(
+#                 x=rel_time, y=err_y, mode='lines',
+#                 name=f"{lbl} (Y Err)", line=dict(color='green', dash='dot', width=1.5),
+#                 hovertemplate="Time: %{x:.2f}s<br>Y Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # Z Error (Blue Dotted)
+#             fig.add_trace(go.Scatter(
+#                 x=rel_time, y=err_z, mode='lines',
+#                 name=f"{lbl} (Z Err)", line=dict(color='deepskyblue', dash='dot', width=1.5),
+#                 hovertemplate="Time: %{x:.2f}s<br>Z Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#     # Plot Anchors in 3D and 2D
+#     if SHOW_ANCHORS:
+#         anchor_csv = os.path.join(session_folder, "[Log]_anchor_positions.csv")
+#
+#         if os.path.exists(anchor_csv):
+#             try:
+#                 anchor_df = pd.read_csv(anchor_csv)
+#                 current_anchors = anchor_df[['X', 'Y', 'Z']].values.tolist()
+#                 print(f"Successfully loaded {len(current_anchors)} anchors from CSV.")
+#
+#                 an = np.array(current_anchors)
+#                 fig.add_trace(go.Scatter3d(x=an[:, 0], y=an[:, 1], z=an[:, 2], mode='markers',
+#                                            marker=dict(symbol='diamond', size=5, color='lime'), name='Anchors'), row=1, col=1)
+#                 fig.add_trace(
+#                     go.Scatter(x=an[:, 0], y=an[:, 1], mode='markers', marker=dict(symbol='diamond', size=10, color='lime'),
+#                                name='Anchors', showlegend=False), row=1, col=2)
+#             except Exception as e:
+#                 print(f"Error reading anchor CSV: {e}")
+#
+#     fig.update_layout(height=1200, title_text=f"Interactive Report: {report_name}", template="plotly_white")
+#
+#     # html_path = os.path.join(session_folder, f"Interactive_Report_{report_name.replace(' ', '_')}.html")
+#     # safe_name = "[Report]_Interactive_Report.html"
+#     safe_name = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}.html"
+#     html_path = os.path.join(session_folder, safe_name)
+#     fig.write_html(html_path)
+#     print(f" -> Interactive Plotly report saved: {html_path}")

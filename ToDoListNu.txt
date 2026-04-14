@@ -1,0 +1,87 @@
+Vanmiddag:
+- Vragen
+	- vragen over router
+	- vragen over contact met wolmar
+	- vragen of we een laptop extra hebben als linux ros server
+- Hardware:
+	- Accelerometer data uitlezen
+	- en hoe ga ik meer dan 4 anchors uitlezen.
+	- en individuele afstanden uitlezen.
+
+
+Vanavond: 
+Bezig met PCB
+- Jlink staat ook al op bestel lijst
+- Best veel ruimte onderop dev board van crazyflie
+Meetprogramma verbeteren
+- cumulative distribution function plot (CDF zegt dat 95% van measurements binnen 10cm zijn bijvoorbeeld)
+- merge_asof jutter probleem
+- delta T (visualize sample rate consistency (dropped packets))
+- velocity vs error
+ReadMe code updaten en kijken of anderen het kunnen gebruike
+- onderzoek naar ROS op laptop draaien
+
+
+
+
+Morgen:
+- Metingen
+	- Oefen meting doen
+- Bezig met drone control in een figure 8 en via laptop besturen (of met Limo)
+	- werkende ethernet adapter
+	- proberen met alleen uwb te sturen
+
+
+
+
+
+
+
+[MASTER] Opening UDP Ports...
+[LIMU] Initializing Limu Robot and Joystick...
+[LIMU] Error loading Limu classes:
+The global ROS node is not initialized. Use "rosinit" to start the global node and connect to a ROS network.
+[MASTER] Waiting for UDP data to configure logging and ROS...
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: 0.23
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: 0.23
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: 0.23
+[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+
+
+[MASTER] Opening UDP Ports...
+[LIMU] Initializing Limu Robot and Joystick...
+Warning: 'vrjoystick' will be removed in a future release. Use 'sim3d.io.Joystick' instead. 
+> In vrjoystick
+In JoyControl/mConnect (line 26)
+In JoyControl (line 21)
+In RobotControlCodeLimuClass (line 59)
+In MatlabMasterUWBControl (line 33) 
+Simulink 3D Animation is not installed or has no license available. Please install Simulink 3D Animation to use the joystick interface.
+Possible error: Joystick could not be connected.
+Possible error: Simulink Virtual Reality 3D is missing.
+[MASTER] Waiting for UDP data to configure logging and ROS...
+[MASTER] CSV Logging Initialized at: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304
+[MASTER] Robot control is DISABLED. Data Logging Mode only.
+[MATLAB] UWB Packet -> X: 0.73, Y: 0.30, Z: 0.53
+[MATLAB] UWB Packet -> X: 0.80, Y: 0.26, Z: 0.60
+
+
+[MASTER] Opening UDP Ports...
+[LIMU] Initializing Limu Robot and Joystick...
+Warning: 'vrjoystick' will be removed in a future release. Use 'sim3d.io.Joystick' instead. 
+> In vrjoystick
+In JoyControl/mConnect (line 26)
+In JoyControl (line 21)
+In RobotControlCodeLimuClass (line 59)
+In MatlabMasterUWBControl (line 33) 
+Simulink 3D Animation is not installed or has no license available. Please install Simulink 3D Animation to use the joystick interface.
+Possible error: Joystick could not be connected.
+Possible error: Simulink Virtual Reality 3D is missing.
+[MASTER] Waiting for UDP data to configure logging and ROS...
+[MASTER]1776190633.838786,0.89,0.23,0.6,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.0190902,0.87,0.23,0.61,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.038349,0.87,0.24,0.61,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.2871747,0.88,0.25,0.6,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.2956717,0.87,0.25,0.61,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01

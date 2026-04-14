@@ -1,73 +1,113 @@
-function success = UWB_Matlab_Example(timestamp, raw_x, raw_y, raw_z)
-    % persistent variables retain their values between Python calls
-    persistent isInitialized pub_uwb msg_uwb state_x state_y state_z fid
-
-    % =========================================================
-    % 1. INITIALIZATION (Runs only once on the very first data point)
-    % =========================================================
-    if isempty(isInitialized)
-        disp('[MATLAB] First point received. Initializing ROS and Files...');
+% =========================================================================
+% MATLAB UWB KALMAN FILTER
+% Author: Renzo Eisma
+% Date: 09/04/2026
+% Description: 3D Constant Velocity Kalman Filter with Outlier Rejection
+% =========================================================================
+classdef FilterUWB < handle
+    properties
+        IsInitialized = false;
         
-%         % A. Start ROS
-%         try
-%             rosinit('192.168.0.100'); % Update with your ROS_MASTER IP
-%         catch
-%             disp('[MATLAB] ROS already running or failed to connect.');
-%         end
-%         pub_uwb = rospublisher('/uwb', 'geometry_msgs/Point');
-%         msg_uwb = rosmessage(pub_uwb);
-
-        % B. Get Configuration from Python Workspace
-        try
-            filter_type = evalin('base', 'uwb_filter_type');
-            save_dir = evalin('base', 'save_dir'); 
-        catch
-            disp('[MATLAB] Warning: Could not read Python variables. Using defaults.');
-            save_dir = pwd;
-        end
-
-        % C. Setup CSV File in the Measurement Folder
-        filename = fullfile(save_dir, '[Log]_uwbFilteredMatlab_listener1.csv');
-        fid = fopen(filename, 'a');
-        fprintf(fid, 'Time,Filt_X,Filt_Y,Filt_Z\n');
-
-        % D. Initialize Filter States
-        state_x = raw_x; state_y = raw_y; state_z = raw_z;
-
-        isInitialized = true;
+        % Filter State: [x; y; z; vx; vy; vz]
+        X; 
+        
+        % State Covariance Matrix (Uncertainty)
+        P; 
+        
+        % Time step (Set this to your actual UWB update rate, e.g., 0.1 for 10Hz)
+        dt = 0.1; 
+        
+        % Maximum allowed speed (m/s) for outlier rejection
+        MaxSpeed = 15.0; 
+        
+        % Matrices
+        F; % State Transition
+        H; % Measurement Mapping
+        Q; % Process Noise (Trust in physics model)
+        R; % Measurement Noise (Trust in UWB sensor)
     end
-
-    % =========================================================
-    % 2. FILTERING (Runs every time Python sends a point)
-    % =========================================================
     
-    % --- Replace this with your custom Kalman/Fusion Math ---
-    % Example: Simple Low-Pass Filter (Alpha = 0.1)
-    alpha = 0.1;
-    filt_x = (1 - alpha) * state_x + alpha * raw_x;
-    filt_y = (1 - alpha) * state_y + alpha * raw_y;
-    filt_z = (1 - alpha) * state_z + alpha * raw_z;
-
-    % Save the state so we have it for the next loop
-    state_x = filt_x; 
-    state_y = filt_y; 
-    state_z = filt_z;
-
-    % =========================================================
-    % 3. OUTPUT & LOGGING
-    % =========================================================
-    
-    % Publish to ROS
-%     msg_uwb.X = filt_x;
-%     msg_uwb.Y = filt_y;
-%     msg_uwb.Z = filt_z;
-%     send(pub_uwb, msg_uwb);
-
-    % Log to CSV (using MATLAB's internal time for the timestamp)
-    current_time = posixtime(datetime('now')); %unused
-    fprintf(fid, '%.3f,%.4f,%.4f,%.4f\n', ...
-            timestamp, filt_x, filt_y, filt_z);
-
-    % Tell Python we finished successfully
-    success = true; 
+    methods
+        function obj = FilterUWB(dt_val)
+            if nargin > 0
+                obj.dt = dt_val;
+            end
+            
+            % Initialize Matrices
+            % State transition: Position = old_pos + velocity * dt
+            obj.F = [1 0 0 obj.dt 0 0;
+                     0 1 0 0 obj.dt 0;
+                     0 0 1 0 0 obj.dt;
+                     0 0 0 1 0 0;
+                     0 0 0 0 1 0;
+                     0 0 0 0 0 1];
+                 
+            % Measurement matrix: We only measure [x, y, z], not velocity
+            obj.H = [1 0 0 0 0 0;
+                     0 1 0 0 0 0;
+                     0 0 1 0 0 0];
+                 
+            % Tune these values based on your setup
+            % Higher Q = more responsive (less lag), but more noise
+            obj.Q = eye(6) * 0.5; 
+            
+            % Higher R = smoother, but more lag (trusts measurement less)
+            obj.R = eye(3) * 2.0; 
+        end
+        
+        function [filt_x, filt_y, filt_z] = process(obj, raw_x, raw_y, raw_z)
+            Z = [raw_x; raw_y; raw_z];
+            
+            % 1. INITIALIZATION
+            if ~obj.IsInitialized
+                obj.X = [Z; 0; 0; 0]; % Start with current pos, 0 velocity
+                obj.P = eye(6) * 10;  % High initial uncertainty
+                obj.IsInitialized = true;
+                filt_x = Z(1); filt_y = Z(2); filt_z = Z(3);
+                return;
+            end
+            
+            % 2. PREDICT STAGE
+            % Predict where the drone is based on its last known velocity
+            X_pred = obj.F * obj.X;
+            P_pred = obj.F * obj.P * obj.F' + obj.Q;
+            
+            % 3. OUTLIER REJECTION (Kinematic Gate)
+            % Calculate distance from prediction to new measurement
+            predicted_pos = X_pred(1:3);
+            dist = norm(Z - predicted_pos);
+            
+            % If the implied speed (dist/dt) is impossible, ignore the measurement
+            if (dist / obj.dt) > obj.MaxSpeed
+                % Outlier detected! Rely purely on the prediction.
+                obj.X = X_pred;
+                obj.P = P_pred;
+                
+                filt_x = obj.X(1); filt_y = obj.X(2); filt_z = obj.X(3);
+                return; 
+            end
+            
+            % 4. UPDATE STAGE
+            % Calculate Kalman Gain
+            S = obj.H * P_pred * obj.H' + obj.R;
+            K = P_pred * obj.H' / S;
+            
+            % Update State with measurement
+            y = Z - (obj.H * X_pred); % Measurement residual
+            obj.X = X_pred + (K * y);
+            
+            % Update Covariance
+            I = eye(6);
+            obj.P = (I - K * obj.H) * P_pred;
+            
+            % 5. OUTPUT
+            filt_x = obj.X(1);
+            filt_y = obj.X(2);
+            filt_z = obj.X(3);
+        end
+        
+        function reset(obj)
+            obj.IsInitialized = false;
+        end
+    end
 end

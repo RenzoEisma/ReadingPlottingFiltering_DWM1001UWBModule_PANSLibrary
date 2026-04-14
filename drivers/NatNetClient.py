@@ -2335,6 +2335,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # MAIN
 # =====================================================================================================================
 
+
 def run_simple_logger(stop_event, config, save_dir, data_queue=None):
 
     # Initialize client inside the function
@@ -2402,3 +2403,77 @@ def run_simple_logger(stop_event, config, save_dir, data_queue=None):
             print("[Opti] Stopped.")
         else:
             print("[Opti] Failed to connect.")
+
+
+
+# Attempted fix for lagging with opti in multicast
+
+# def run_simple_logger(stop_event, config, save_dir, data_queue=None):
+#     # Initialize client inside the function
+#     streaming_client = NatNetClient()
+#     streaming_client.set_print_level(0)
+#
+#     # Get configuration data from MasterControlStation
+#     latency_offset = config['latency']
+#     streaming_client.set_server_address(config['server_ip'])
+#     streaming_client.set_client_address(config['client_ip'])
+#     streaming_client.set_use_multicast(config['multicast'])
+#
+#     # Declare session name equal to current date/time and declare filename
+#     session_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     filename = os.path.join(save_dir, f"[Log]_optitrack_{session_name}.csv")
+#
+#     # Use a generic update tracker for flushing, plotting, and printing
+#     last_update_time = [0.0]
+#
+#     # Open the specified file in write mode ('w').
+#     with open(filename, mode="w", newline="") as f:
+#
+#         # Initialize the CSV writer object
+#         writer = csv.writer(f)
+#         writer.writerow(['Time', 'POSX', 'POSY', 'POSZ'])
+#
+#         # Define the callback function that the OptiTrack client will trigger
+#         # every time it receives a new frame of rigid body data.
+#         def handler(new_id, pos, rot):
+#             if not stop_event.is_set():
+#                 # Calculate the synchronized timestamp by subtracting the known system latency
+#                 true_time = time.time() - latency_offset
+#
+#                 # 1. ALWAYS write to CSV for accurate ground truth (Do not flush here yet)
+#                 writer.writerow([true_time, round(pos[0], 4), round(pos[1], 4), round(pos[2], 4)])
+#
+#                 # 2. ALWAYS send UDP to MATLAB so the control loop gets high-speed data
+#                 data_msg = f"{pos[0]},{pos[1]},{pos[2]}"
+#                 sock.sendto(data_msg.encode(), (UDP_IP, UDP_PORT_OPTI))
+#
+#                 # 3. THROTTLE heavy operations (GUI updates, file flushing, printing) to 10 Hz
+#                 current_time = time.time()
+#                 if current_time - last_update_time[0] >= 0.1:
+#
+#                     # Force the buffer to disk safely (10 times a second instead of 120+)
+#                     f.flush()
+#
+#                     # Send data to the GUI Plotting Queue
+#                     if data_queue is not None:
+#                         data_queue.put(('GT', pos[0], pos[1], pos[2]))
+#
+#                     # Print to console
+#                     print(f"[OptiTrack] Read Position: X={pos[0]:.2f}, Y={pos[1]:.2f}, Z={pos[2]:.2f}")
+#
+#                     last_update_time[0] = current_time
+#
+#         # Attach the custom handler function to the streaming client's event listener
+#         streaming_client.rigid_body_listener = handler
+#
+#         # Tell the streaming client to start running in a background thread
+#         if streaming_client.run('d'):  # Starts data threads
+#             print(f"[Opti] Logging to {filename}")
+#             # Until stop event keep running in while loop
+#             while not stop_event.is_set():
+#                 time.sleep(0.1)
+#
+#             streaming_client.shutdown()
+#             print("[Opti] Stopped.")
+#         else:
+#             print("[Opti] Failed to connect.")
