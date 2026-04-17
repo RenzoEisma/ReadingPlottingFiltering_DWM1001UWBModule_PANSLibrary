@@ -1,3 +1,0 @@
-UWB_CONFIG: port1=COM5, port2=None, baud=115200
-GT_CONFIG: Disabled
-ROUTING_CONFIG: send_matlab=True, filter=Python Filter, read=Tag Position, scale=4 Anchors (1 Listener), send_ros=True

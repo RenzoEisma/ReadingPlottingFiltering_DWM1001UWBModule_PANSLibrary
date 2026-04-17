@@ -166,6 +166,46 @@ Direct configuration of DWM1001C modules via BLE[cite: 18, 19].
 3. The script assigns roles (Tag/Anchor/Listener), pushes positions, and
    optionally streams location data[cite: 25, 26, 28].
 
+[3.4] USING ROS
+In ROS heb je configurations voor robots. De bebop heeft zijn configuration op de linux pc, de limu heeft het intern.
+Die configuration is bebop_lau_1 bijvoorbeeld. Dit heeft allemaal dingen geconfigureerd. Als je dingen wilt aanpassen
+kan je nog de configurations pakken zoals ip en het veranderen.
+- List topics for seeing all available topics
+		○ Belangrijk: land, takeoff, cmd_vel
+
+Limu Instructions:
+	- First do 'roscore' in terminal (initiaization)
+
+	- Turn on Limu
+	- Open roscore terminal
+	- Open another roscore terminal
+	- sudo ssh agilex@192.168.0.103 (username always the same but ip can change, ip is on the frame of the limu. (103))
+	- Password for pc: admin
+	- Password Limu: agx
+	- Password Linux PC: admin
+	- Launch ros node: roslaunch limo_base limo_base.launch namespace:=L1
+		○ Press tab twice to see options
+		○ Namespace:=L1 represents name of robot in matlab code
+	- Red lights on limu = error mode, fix by pressing power button once
+Create rigidbody:
+	- When creating rigid body, have it facing in x axis
+	- Have balls center be robot center
+In ros:
+	- Rostopic list
+	- Rostopic pub /L1/cmd_vel geometry_msgs -> then press tab tab
+    - Je kan ook rostopic + tab tab doen om alle opties te zien
+
+
+Bebop Instructions:
+	- Turn on
+		○ Press once, wait
+		○ Press three times
+	- Ping ip: 192.168.0.21x
+	- Roslaunch bebop_driver bebop_lai_1.launch ip:=… namespace:=…
+	- Driver for bebop is inside computer and limu is inside limo
+	- Rostopic pub /B7/land std_msgs/Empty "{}"
+    - Rostopic pub /B7/takeoff std_msgs/Empty "{}"
+
 
 -----------------------------------------------------------------------------------------------------------------------
 4. DATA OUTPUT SCHEMA
@@ -319,71 +359,31 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 7. TO-DO LISTS
 -----------------------------------------------------------------------------------------------------------------------
 
-
-
 [6.1] MASTERLOGGER
-
-[6.1.1] Now
-- ...
-
-[6.1.2] Later
 - Maybe use CPP for certain scripts that need to be faster
 
-
-
 [6.2] COMPARISONREPORTMAKER
-
-[6.2.1] To Do Now:
 - Think of what is important to measure and implement it
 - Offsets in general
 - Settings in masterlogger are not connected to reportmaker
 automatische file selectie methode er uit halen (wordt vgm niet eens gebruikt)
-
-
-[6.2.1] Later To Do:
+- 95% error
+- median error ipv mean
+- Begin en einde van meting af trimmen
 - Automatically calculate Angle offset
 
-
-
 [6.3] READUWBBLUETOOTH
-[6.3.1] To Do Now:
 - Snappen hoe die networks werken en modules kunnen wisselen van netwerk
-
-
-
-[6.4] UWB_SENSOR
-
-[6.4.1] To Do Now:
-
-[6.4.2] Later To Do:
-
-
-
-
-
-
-Daarna:
--	Aan chat vragen wat professioneler kan
--	Comments toevoegen
--	Readme aanpassen
--	Geprinte tekst in textveld netter maken
-
-
-
 - networks van modules kunnen aanpassen in dit programma
 
 
+Instructies toevoegen van hoe je uwb_sensor kan vervangen met iets anders
 
 
 Offset is now calculated in the following way
 - Python: offset of uwb antenna from opti center
 - Matlab: offset of robot center from opti center
     - opti center in matlab is same as uwb center as it is already converted
-
-
-
-
-
 
 
 -----------------------------------------------------------------------------------------------------------------------

@@ -42,6 +42,8 @@ REPORT_INFO = {
 # If a signal is selected as ground truth the other signals will be compared to it
 # Offsets can be defined
 DATASETS = [
+    # Ground Truths
+    # -----------------------------------------------------------------------------------------------------------------
     {
         'prefix': '[Log]_optitrack', 'label': 'OptiTrack (GT)', 'color': 'red', 'style': '--',
         'is_ground_truth': True,
@@ -51,6 +53,8 @@ DATASETS = [
         # 'offset': [4.2604, 3.5112, -0.1], # Wall Anchors (UWB 000 != Opti 000)
         # 'multiplier': [-1.0, -1.0, 1.0], # Wall Anchors (UWB 000 != Opti 000)
     },
+    # UWB network 1
+    # -----------------------------------------------------------------------------------------------------------------
     {
         'prefix': '[Log]_uwb_listener1','label': 'UWB Raw 1','color': 'orange','style': '-',
         'is_ground_truth': False,
@@ -59,7 +63,7 @@ DATASETS = [
         'time_offset': -0.5,
     },
     {
-        'prefix': '[Log]_uwbFiltered_listener1', 'label': 'UWB Filt 1', 'color': 'green', 'style': '--',
+        'prefix': '[Log]_uwbFiltered_listener1', 'label': 'UWB Filt 1', 'color': 'blue', 'style': '--',
         'is_ground_truth': False,
         'offset': [0, 0, 0],
         'multiplier': [1.0, 1.0, 1.0],
@@ -72,6 +76,8 @@ DATASETS = [
         'multiplier': [1.0, 1.0, 1.0],
         'time_offset': -0.5,
     },
+    # UWB network 2
+    # -----------------------------------------------------------------------------------------------------------------
     {
         'prefix': '[Log]_uwb_listener2','label': 'UWB Raw 2','color': 'yellow','style': '-',
         'is_ground_truth': False,
@@ -281,28 +287,33 @@ def find_best_alignment(df_uwb, df_gt, label="UWB"):
 # =====================================================================================================================
 def generate_plotly_dashboard(loaded_data, session_folder, report_name):
     """
-    Creates an interactive HTML dashboard with 3D, 2D, time-series plots, and advanced diagnostics.
+    Creates an interactive HTML dashboard with 3D, 2D, time-series plots, advanced diagnostics, and an error table.
     """
     from scipy.interpolate import interp1d
+    from datetime import datetime
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
 
-    # Create a 5x2 grid of subplots
+    # Create a 6x2 grid of subplots (added row 6 for the table)
     fig = make_subplots(
-        rows=5, cols=2,
+        rows=6, cols=2,
         specs=[
-            [{'type': 'scene'}, {'type': 'xy'}],  # 3D Path | 2D Top Down
-            [{'type': 'xy'}, {'type': 'xy'}],  # X Position | Y Position
-            [{'type': 'xy'}, {'type': 'xy'}],  # Z Stability | Total Error
-            [{'type': 'xy'}, {'type': 'xy'}],  # Error CDF | Velocity vs Error
-            [{'type': 'xy', 'colspan': 2}, None]  # Sample Timing
+            [{'type': 'scene'}, {'type': 'xy'}],  # Row 1: 3D Path | 2D Top Down
+            [{'type': 'xy'}, {'type': 'xy'}],  # Row 2: X Position | Y Position
+            [{'type': 'xy'}, {'type': 'xy'}],  # Row 3: Z Stability | Total Error
+            [{'type': 'xy'}, {'type': 'xy'}],  # Row 4: Error CDF | Velocity vs Error
+            [{'type': 'xy', 'colspan': 2}, None],  # Row 5: Sample Timing
+            [{'type': 'table', 'colspan': 2}, None]  # Row 6: Error Metrics Table
         ],
         subplot_titles=(
             "3D Trajectory Map", "2D Top-Down View",
-            "X-Axis Position (m)", "Y-Axis Position (m)",
-            "Z-Axis Stability (m)", "Total 3D Error (cm)",
-            "Error Distribution (CDF)", "Velocity vs. Error",
-            "Sample Rate Consistency (Time Between Points)"
+            "X-Axis Position", "Y-Axis Position",
+            "Z-Axis (Altitude) Stability", "Total 3D Error",
+            "Error Distribution (CDF)", "Velocity vs. Error (Does speed cause error?)",
+            "Sample Rate Consistency (Time Between Points)",
+            "Statistical Error Summary"
         ),
-        vertical_spacing=0.05
+        vertical_spacing=0.04
     )
 
     # Find Ground Truth for Error calculation
@@ -312,6 +323,10 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
     global_start_time = min(df['pc_timestamp'].min() for df in loaded_data.values())
 
+    # Data structures for the Table
+    table_headers = ['Sensor', 'Mean (3D)', 'Max (3D)', 'RMSE (3D)', 'Err X', 'Err Y', 'Err Z']
+    table_cells = [[] for _ in range(7)]
+
     for lbl, df in loaded_data.items():
         time_index = df['pc_timestamp'] - global_start_time
         color = next((d['color'] for d in DATASETS if d['label'] == lbl), 'gray')
@@ -320,7 +335,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
         fig.add_trace(go.Scatter3d(
             x=df['x'], y=df['y'], z=df['z'],
             mode='lines', name=lbl, line=dict(color=color, width=4),
-            hovertemplate="Time: %{text}s<br>X: %{x:.2f}<br>Y: %{y:.2f}<br>Z: %{z:.2f}<extra></extra>",
+            hovertemplate="Time: %{text}s<br>X: %{x:.2f} m<br>Y: %{y:.2f} m<br>Z: %{z:.2f} m<extra></extra>",
             text=[f"{t:.2f}" for t in time_index]
         ), row=1, col=1)
 
@@ -328,22 +343,25 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
         fig.add_trace(go.Scatter(
             x=df['x'], y=df['y'], mode='lines', name=lbl,
             line=dict(color=color), showlegend=False,
-            hovertemplate="X: %{x:.2f}<br>Y: %{y:.2f}<extra></extra>"
+            hovertemplate="X: %{x:.2f} m<br>Y: %{y:.2f} m<extra></extra>"
         ), row=1, col=2)
 
         # 3. X Position
         fig.add_trace(
-            go.Scatter(x=time_index, y=df['x'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+            go.Scatter(x=time_index, y=df['x'], mode='lines', name=lbl, line=dict(color=color), showlegend=False,
+                       hovertemplate="Time: %{x:.2f}s<br>X: %{y:.2f} m<extra></extra>"),
             row=2, col=1)
 
         # 4. Y Position
         fig.add_trace(
-            go.Scatter(x=time_index, y=df['y'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+            go.Scatter(x=time_index, y=df['y'], mode='lines', name=lbl, line=dict(color=color), showlegend=False,
+                       hovertemplate="Time: %{x:.2f}s<br>Y: %{y:.2f} m<extra></extra>"),
             row=2, col=2)
 
         # 5. Z Stability
         fig.add_trace(
-            go.Scatter(x=time_index, y=df['z'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+            go.Scatter(x=time_index, y=df['z'], mode='lines', name=lbl, line=dict(color=color), showlegend=False,
+                       hovertemplate="Time: %{x:.2f}s<br>Z: %{y:.2f} m<extra></extra>"),
             row=3, col=1)
 
         # 6. Sample Rate Consistency (Delta T)
@@ -351,7 +369,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
         fig.add_trace(go.Scatter(
             x=time_index[1:], y=deltas, mode='lines',
             name=f"{lbl} Timing", line=dict(color=color, width=1),
-            showlegend=False
+            showlegend=False, hovertemplate="Time: %{x:.2f}s<br>Delta: %{y:.4f} s<extra></extra>"
         ), row=5, col=1)
 
         # 7. Error Calculation (relative to GT)
@@ -374,10 +392,19 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
             err_y = np.abs(df['y'] - gt_interp_y) * 100
             err_z = np.abs(df['z'] - gt_interp_z) * 100
 
+            # --- Populate Table Data ---
+            table_cells[0].append(lbl)
+            table_cells[1].append(f"{np.mean(err_3d):.1f} cm")
+            table_cells[2].append(f"{np.max(err_3d):.1f} cm")
+            table_cells[3].append(f"{np.sqrt(np.mean(err_3d ** 2)):.1f} cm")
+            table_cells[4].append(f"{np.mean(err_x):.1f} cm")
+            table_cells[5].append(f"{np.mean(err_y):.1f} cm")
+            table_cells[6].append(f"{np.mean(err_z):.1f} cm")
+
             # Total 3D Error (Solid Line)
             fig.add_trace(go.Scatter(
                 x=time_index, y=err_3d, mode='lines',
-                name=f"{lbl} (3D Err)", line=dict(color='purple', width=2),
+                name=f"{lbl} (3D Err)", line=dict(color=color, width=2),
                 hovertemplate="Time: %{x:.2f}s<br>3D Error: %{y:.2f} cm<extra></extra>"
             ), row=3, col=2)
 
@@ -407,16 +434,26 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
             y_vals = np.arange(len(sorted_err)) / float(len(sorted_err))
             fig.add_trace(go.Scatter(
                 x=sorted_err, y=y_vals, mode='lines',
-                name=f"{lbl} CDF", line=dict(color=color)
+                name=f"{lbl} CDF", line=dict(color=color),
+                hovertemplate="Error: %{x:.2f} cm<br>Probability: %{y:.2f}<extra></extra>"
             ), row=4, col=1)
 
             # 9. Velocity vs Error
             v_uwb = calculate_velocity(df)
             fig.add_trace(go.Scatter(
                 x=v_uwb, y=err_3d, mode='markers',
-                marker=dict(size=4, opacity=0.4, color=color),
-                name=f"{lbl} V vs E", showlegend=False
+                marker=dict(size=4, opacity=0.5, color=color),
+                name=f"{lbl} Velocity vs Error", showlegend=False,
+                hovertemplate="Speed: %{x:.2f} m/s<br>Error: %{y:.2f} cm<extra></extra>"
             ), row=4, col=2)
+
+    # 10. Draw the Table
+    if table_cells[0]:
+        fig.add_trace(go.Table(
+            header=dict(values=table_headers, fill_color='paleturquoise', align='center',
+                        font=dict(size=13, color='black')),
+            cells=dict(values=table_cells, fill_color='lavender', align='center', font=dict(size=12, color='black'))
+        ), row=6, col=1)
 
     # Plot Anchors in 3D and 2D
     if SHOW_ANCHORS:
@@ -430,21 +467,64 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
                 an = np.array(current_anchors)
                 fig.add_trace(go.Scatter3d(x=an[:, 0], y=an[:, 1], z=an[:, 2], mode='markers',
-                                           marker=dict(symbol='diamond', size=5, color='lime'), name='Anchors'), row=1,
-                              col=1)
-                fig.add_trace(
-                    go.Scatter(x=an[:, 0], y=an[:, 1], mode='markers',
-                               marker=dict(symbol='diamond', size=10, color='lime'),
-                               name='Anchors', showlegend=False), row=1, col=2)
+                                           marker=dict(symbol='diamond', size=5, color='lime'), name='Anchors',
+                                           hovertemplate="Anchor<br>X: %{x:.2f}<br>Y: %{y:.2f}<br>Z: %{z:.2f}<extra></extra>"),
+                              row=1, col=1)
+                fig.add_trace(go.Scatter(x=an[:, 0], y=an[:, 1], mode='markers',
+                                         marker=dict(symbol='diamond', size=10, color='lime'), name='Anchors',
+                                         showlegend=False,
+                                         hovertemplate="Anchor<br>X: %{x:.2f}<br>Y: %{y:.2f}<extra></extra>"), row=1,
+                              col=2)
             except Exception as e:
                 print(f"Error reading anchor CSV: {e}")
 
-    fig.update_layout(height=1800, title_text=f"Interactive Report: {report_name}", template="plotly_white")
+    # =================================================================================================================
+    # LABEL ALL AXES
+    # =================================================================================================================
+
+    # Row 1: 3D Map
+    fig.update_layout(
+        scene=dict(xaxis_title='X Position (m)', yaxis_title='Y Position (m)', zaxis_title='Z Altitude (m)'))
+
+    # Row 1: 2D Map (Scale anchored to keep aspect ratio 1:1)
+    fig.update_xaxes(title_text="X Position (m)", row=1, col=2)
+    fig.update_yaxes(title_text="Y Position (m)", scaleanchor="x", scaleratio=1, row=1, col=2)
+
+    # Row 2: X and Y Position vs Time
+    fig.update_xaxes(title_text="Elapsed Time (s)", row=2, col=1)
+    fig.update_yaxes(title_text="X Position (m)", row=2, col=1)
+    fig.update_xaxes(title_text="Elapsed Time (s)", row=2, col=2)
+    fig.update_yaxes(title_text="Y Position (m)", row=2, col=2)
+
+    # Row 3: Z Stability and Error over time
+    fig.update_xaxes(title_text="Elapsed Time (s)", row=3, col=1)
+    fig.update_yaxes(title_text="Z Altitude (m)", row=3, col=1)
+    fig.update_xaxes(title_text="Elapsed Time (s)", row=3, col=2)
+    fig.update_yaxes(title_text="Absolute Error (cm)", row=3, col=2)
+
+    # Row 4: CDF and Velocity vs Error
+    fig.update_xaxes(title_text="3D Error magnitude (cm)", row=4, col=1)
+    fig.update_yaxes(title_text="Cumulative Probability", row=4, col=1)
+    fig.update_xaxes(title_text="Speed / Velocity (m/s)", row=4, col=2)
+    fig.update_yaxes(title_text="3D Error (cm)", row=4, col=2)
+
+    # Row 5: Sample Rate
+    fig.update_xaxes(title_text="Elapsed Time (s)", row=5, col=1)
+    fig.update_yaxes(title_text="Delta T (Seconds between points)", row=5, col=1)
+
+    # Generate the Title with Export Date and Notes
+    current_date = datetime.now().strftime('%Y-%m-%d %H:%M')
+    notes = REPORT_INFO['notes']
+    title_html = f"<b>Interactive Report: {report_name}</b><br><sup style='color:gray'>Export Date: {current_date} | Notes: {notes}</sup>"
+
+    # Increase total height to 2200 to give the table plenty of breathing room
+    fig.update_layout(height=2200, title_text=title_html, template="plotly_white", margin=dict(t=120))
 
     safe_name = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}.html"
     html_path = os.path.join(session_folder, safe_name)
     fig.write_html(html_path)
     print(f" -> Interactive Plotly report saved: {html_path}")
+
 
 
 # =====================================================================================================================
@@ -950,6 +1030,179 @@ if __name__ == "__main__":
 #
 #     # html_path = os.path.join(session_folder, f"Interactive_Report_{report_name.replace(' ', '_')}.html")
 #     # safe_name = "[Report]_Interactive_Report.html"
+#     safe_name = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}.html"
+#     html_path = os.path.join(session_folder, safe_name)
+#     fig.write_html(html_path)
+#     print(f" -> Interactive Plotly report saved: {html_path}")
+
+
+
+
+#
+#
+#
+# def generate_plotly_dashboard(loaded_data, session_folder, report_name):
+#     """
+#     Creates an interactive HTML dashboard with 3D, 2D, time-series plots, and advanced diagnostics.
+#     """
+#     from scipy.interpolate import interp1d
+#
+#     # Create a 5x2 grid of subplots
+#     fig = make_subplots(
+#         rows=5, cols=2,
+#         specs=[
+#             [{'type': 'scene'}, {'type': 'xy'}],  # 3D Path | 2D Top Down
+#             [{'type': 'xy'}, {'type': 'xy'}],  # X Position | Y Position
+#             [{'type': 'xy'}, {'type': 'xy'}],  # Z Stability | Total Error
+#             [{'type': 'xy'}, {'type': 'xy'}],  # Error CDF | Velocity vs Error
+#             [{'type': 'xy', 'colspan': 2}, None]  # Sample Timing
+#         ],
+#         subplot_titles=(
+#             "3D Trajectory Map", "2D Top-Down View",
+#             "X-Axis Position (m)", "Y-Axis Position (m)",
+#             "Z-Axis Stability (m)", "Total 3D Error (cm)",
+#             "Error Distribution (CDF)", "Velocity vs. Error",
+#             "Sample Rate Consistency (Time Between Points)"
+#         ),
+#         vertical_spacing=0.05
+#     )
+#
+#     # Find Ground Truth for Error calculation
+#     gt_key = next(
+#         (k for k, v in loaded_data.items() if any(d['label'] == k and d.get('is_ground_truth') for d in DATASETS)),
+#         None)
+#
+#     global_start_time = min(df['pc_timestamp'].min() for df in loaded_data.values())
+#
+#     for lbl, df in loaded_data.items():
+#         time_index = df['pc_timestamp'] - global_start_time
+#         color = next((d['color'] for d in DATASETS if d['label'] == lbl), 'gray')
+#
+#         # 1. 3D Trajectory
+#         fig.add_trace(go.Scatter3d(
+#             x=df['x'], y=df['y'], z=df['z'],
+#             mode='lines', name=lbl, line=dict(color=color, width=4),
+#             hovertemplate="Time: %{text}s<br>X: %{x:.2f}<br>Y: %{y:.2f}<br>Z: %{z:.2f}<extra></extra>",
+#             text=[f"{t:.2f}" for t in time_index]
+#         ), row=1, col=1)
+#
+#         # 2. 2D Top Down
+#         fig.add_trace(go.Scatter(
+#             x=df['x'], y=df['y'], mode='lines', name=lbl,
+#             line=dict(color=color), showlegend=False,
+#             hovertemplate="X: %{x:.2f}<br>Y: %{y:.2f}<extra></extra>"
+#         ), row=1, col=2)
+#
+#         # 3. X Position
+#         fig.add_trace(
+#             go.Scatter(x=time_index, y=df['x'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+#             row=2, col=1)
+#
+#         # 4. Y Position
+#         fig.add_trace(
+#             go.Scatter(x=time_index, y=df['y'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+#             row=2, col=2)
+#
+#         # 5. Z Stability
+#         fig.add_trace(
+#             go.Scatter(x=time_index, y=df['z'], mode='lines', name=lbl, line=dict(color=color), showlegend=False),
+#             row=3, col=1)
+#
+#         # 6. Sample Rate Consistency (Delta T)
+#         deltas = df['pc_timestamp'].diff().dropna()
+#         fig.add_trace(go.Scatter(
+#             x=time_index[1:], y=deltas, mode='lines',
+#             name=f"{lbl} Timing", line=dict(color=color, width=1),
+#             showlegend=False
+#         ), row=5, col=1)
+#
+#         # 7. Error Calculation (relative to GT)
+#         if gt_key and lbl != gt_key:
+#             df_gt = loaded_data[gt_key]
+#
+#             # Interpolation instead of merge_asof for better accuracy
+#             f_x = interp1d(df_gt['pc_timestamp'], df_gt['x'], fill_value="extrapolate")
+#             f_y = interp1d(df_gt['pc_timestamp'], df_gt['y'], fill_value="extrapolate")
+#             f_z = interp1d(df_gt['pc_timestamp'], df_gt['z'], fill_value="extrapolate")
+#
+#             gt_interp_x = f_x(df['pc_timestamp'])
+#             gt_interp_y = f_y(df['pc_timestamp'])
+#             gt_interp_z = f_z(df['pc_timestamp'])
+#
+#             # Calculate Errors in cm
+#             err_3d = np.linalg.norm(
+#                 np.stack([df['x'] - gt_interp_x, df['y'] - gt_interp_y, df['z'] - gt_interp_z], axis=1), axis=1) * 100
+#             err_x = np.abs(df['x'] - gt_interp_x) * 100
+#             err_y = np.abs(df['y'] - gt_interp_y) * 100
+#             err_z = np.abs(df['z'] - gt_interp_z) * 100
+#
+#             # Total 3D Error (Solid Line)
+#             fig.add_trace(go.Scatter(
+#                 x=time_index, y=err_3d, mode='lines',
+#                 name=f"{lbl} (3D Err)", line=dict(color='purple', width=2),
+#                 hovertemplate="Time: %{x:.2f}s<br>3D Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # X Error (Red Dotted)
+#             fig.add_trace(go.Scatter(
+#                 x=time_index, y=err_x, mode='lines',
+#                 name=f"{lbl} (X Err)", line=dict(color='red', dash='dot', width=1.5),
+#                 hovertemplate="Time: %{x:.2f}s<br>X Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # Y Error (Green Dotted)
+#             fig.add_trace(go.Scatter(
+#                 x=time_index, y=err_y, mode='lines',
+#                 name=f"{lbl} (Y Err)", line=dict(color='green', dash='dot', width=1.5),
+#                 hovertemplate="Time: %{x:.2f}s<br>Y Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # Z Error (Blue Dotted)
+#             fig.add_trace(go.Scatter(
+#                 x=time_index, y=err_z, mode='lines',
+#                 name=f"{lbl} (Z Err)", line=dict(color='deepskyblue', dash='dot', width=1.5),
+#                 hovertemplate="Time: %{x:.2f}s<br>Z Error: %{y:.2f} cm<extra></extra>"
+#             ), row=3, col=2)
+#
+#             # 8. CDF Plot
+#             sorted_err = np.sort(err_3d)
+#             y_vals = np.arange(len(sorted_err)) / float(len(sorted_err))
+#             fig.add_trace(go.Scatter(
+#                 x=sorted_err, y=y_vals, mode='lines',
+#                 name=f"{lbl} CDF", line=dict(color=color)
+#             ), row=4, col=1)
+#
+#             # 9. Velocity vs Error
+#             v_uwb = calculate_velocity(df)
+#             fig.add_trace(go.Scatter(
+#                 x=v_uwb, y=err_3d, mode='markers',
+#                 marker=dict(size=4, opacity=0.4, color=color),
+#                 name=f"{lbl} V vs E", showlegend=False
+#             ), row=4, col=2)
+#
+#     # Plot Anchors in 3D and 2D
+#     if SHOW_ANCHORS:
+#         anchor_csv = os.path.join(session_folder, "[Log]_anchor_positions.csv")
+#
+#         if os.path.exists(anchor_csv):
+#             try:
+#                 anchor_df = pd.read_csv(anchor_csv)
+#                 current_anchors = anchor_df[['X', 'Y', 'Z']].values.tolist()
+#                 print(f"Successfully loaded {len(current_anchors)} anchors from CSV.")
+#
+#                 an = np.array(current_anchors)
+#                 fig.add_trace(go.Scatter3d(x=an[:, 0], y=an[:, 1], z=an[:, 2], mode='markers',
+#                                            marker=dict(symbol='diamond', size=5, color='lime'), name='Anchors'), row=1,
+#                               col=1)
+#                 fig.add_trace(
+#                     go.Scatter(x=an[:, 0], y=an[:, 1], mode='markers',
+#                                marker=dict(symbol='diamond', size=10, color='lime'),
+#                                name='Anchors', showlegend=False), row=1, col=2)
+#             except Exception as e:
+#                 print(f"Error reading anchor CSV: {e}")
+#
+#     fig.update_layout(height=1800, title_text=f"Interactive Report: {report_name}", template="plotly_white")
+#
 #     safe_name = f"[Report]_{REPORT_INFO['name'].replace(' ', '_')}.html"
 #     html_path = os.path.join(session_folder, safe_name)
 #     fig.write_html(html_path)

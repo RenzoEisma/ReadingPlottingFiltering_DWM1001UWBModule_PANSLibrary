@@ -1,3 +1,0 @@
-UWB_CONFIG: port1=COM4, port2=None, baud=115200
-GT_CONFIG: type=OptiTrack, server=192.168.1.187
-ROUTING_CONFIG: send_matlab=False, filter=Python Filter, read=Tag Position, scale=4 Anchors (1 Listener), send_ros=False

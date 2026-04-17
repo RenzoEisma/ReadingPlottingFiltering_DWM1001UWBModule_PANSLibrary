@@ -1,87 +1,132 @@
-Vanmiddag:
-- Vragen
-	- vragen over router
-	- vragen over contact met wolmar
-	- vragen of we een laptop extra hebben als linux ros server
-- Hardware:
-	- Accelerometer data uitlezen
-	- en hoe ga ik meer dan 4 anchors uitlezen.
-	- en individuele afstanden uitlezen.
+OCHTEND:
 
 
-Vanavond: 
-Bezig met PCB
-- Jlink staat ook al op bestel lijst
-- Best veel ruimte onderop dev board van crazyflie
-Meetprogramma verbeteren
-- cumulative distribution function plot (CDF zegt dat 95% van measurements binnen 10cm zijn bijvoorbeeld)
-- merge_asof jutter probleem
-- delta T (visualize sample rate consistency (dropped packets))
-- velocity vs error
-ReadMe code updaten en kijken of anderen het kunnen gebruike
-- onderzoek naar ROS op laptop draaien
+ik heb alle data in uwb_sensor staan dus als uwb uit staat krijgt ros geen info van stuur robot of niet...
+- ik moet dus in mastercontrolscript een udp poort aanmaken waar het data in stuurt
 
 
 
+Testen robots:
+- vandaag proberen individuele afstanden uit te lezen uit de anchors
+	- dist command gebruiken: Sending the command dist will return a list of the anchors the tag is currently ranging with, along with the distance to each one in millimeters.
+- manier om python programma aan te hebben voor alleen loggen
+- nieuwe filter en plotter testen
 
-Morgen:
-- Metingen
-	- Oefen meting doen
-- Bezig met drone control in een figure 8 en via laptop besturen (of met Limo)
-	- werkende ethernet adapter
-	- proberen met alleen uwb te sturen
+- 2 listeners testen
+
+
+- accelerometer fusen met uwb
+
+- als ik data in vier afstanden krijg moet ik dat in python omzetten naar coordinaten zodat matlab altijd gewoon een positie binnen krijgt.
+
+
+- wil ik angle calculation in elke robot appart hebben of in mastercontrol? De sensoren zijn in elke robot anders
+
+
+Things to add to GUI:
+- Use uwb or optitrack as ground truth for moving robot
+- Enable ros
+- Enable robot movement (deze laatste twee zijn nu een soort combi)
 
 
 
 
+So you now have my Limu code. I also have a Bebop2 drone that I want to control. I already have some basic code here and I want you to fix it. Make the whole code so that it can also do a circle, infinity or setpoints and it needs to have a mode where it only takes off and then lands for testing. For now the controller can be removed from this as well
+
+Here are the two codes:
 
 
 
+
+
+MIDDAG:
+
+
+PCB maak plek, overstaande gebouw, eerste rechts en dan eerste links
+
+- en vragen pcbs bestellen
+- en vragen over wanneer jlink programmer komt
+- overleggen budget bestellen en hoeveel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+AVOND:
+
+PCB componenten bekijken
+Kijken waar ik componenten kan bestellen
+
+To do onderzoeken:
+- MPU6050 spul er omheen nodig?
+- ESP32 welk spul moet er omheen
+- totale power consumption
+- battery connector component
+- Power delivery welke chips
+- kijken of alles op mercado livre verkrijgbaar is en anders via daphne bestellen
+- welke pinnen op crazyflie geven power
+- Off and on Switch
+- Include a large decoupling capacitor (at least 220µF) specifically for the ESP32-C6 to buffer against those motor-induced voltage sags.
+
+Vanavond kijken naar hardware herprogrammeren
+- uitvinden hoeveel gedoe het zou zijn om bitcraze firmware te gaan gebruiken
+
+
+PowerPoint
+
+
+
+
+
+
+Succesful drone script:
+
+Shutting down global node /matlab_global_node_28245 with NodeURI http://192.168.0.107:62985/ and MasterURI http://192.168.0.100:11311.
 [MASTER] Opening UDP Ports...
-[LIMU] Initializing Limu Robot and Joystick...
-[LIMU] Error loading Limu classes:
-The global ROS node is not initialized. Use "rosinit" to start the global node and connect to a ROS network.
 [MASTER] Waiting for UDP data to configure logging and ROS...
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: 0.23
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: 0.23
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: 0.23
-[MATLAB] Opti Packet -> X: 1.05, Y: 0.24, Z: NaN
+[MASTER] First Packet Received: 1776445765.9748068,-0.06,-0.294,0.59,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260417_140315,20260417_140315,1
+[MASTER] Logging Initialized: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260417_140315\[Log]_uwbFilteredMatlab_listener1_20260417_140315.csv
+[MASTER] Initializing ROS Network...
+Warning: instrfindall will be removed in a future release. For objects of type
+ - serialport use serialportfind
+ - tcpclient use tcpclientfind
+ - tcpserver use tcpserverfind
+ - udpport use udpportfind
+ - visadev use visadevfind
+ - aardvark use aardvarkfind
+ - ni845x use ni845xfind
+ - icdevice with LegacyMode=false use icdevicefind 
+Initializing global node /matlab_global_node_50227 with NodeURI http://192.168.0.107:52619/ and MasterURI http://192.168.0.100:11311.
+[MASTER] Selected Robot: Bebop2
+[BEBOP] Initializing Drone...
+[BEBOP] Taking off...
+[BEBOP] Starting movement trajectory...
+[MASTER] ROS Connection Successful. Robot Movement Started.
+[MATLAB] UWB Packet -> X: 0.16, Y: -0.76, Z: 1.64
+[MASTER] Movement Time Finished. Initiating Stop Sequence.
+[BEBOP] Braking and stabilizing...
+[BEBOP] Initiating Landing...
+################ EMERGENCY ################
+[MASTER] Cleaning up resources...
+Shutting down global node /matlab_global_node_50227 with NodeURI http://192.168.0.107:52619/ and MasterURI http://192.168.0.100:11311.
+[MASTER] Shutdown Complete.
+>> 
 
 
-[MASTER] Opening UDP Ports...
-[LIMU] Initializing Limu Robot and Joystick...
-Warning: 'vrjoystick' will be removed in a future release. Use 'sim3d.io.Joystick' instead. 
-> In vrjoystick
-In JoyControl/mConnect (line 26)
-In JoyControl (line 21)
-In RobotControlCodeLimuClass (line 59)
-In MatlabMasterUWBControl (line 33) 
-Simulink 3D Animation is not installed or has no license available. Please install Simulink 3D Animation to use the joystick interface.
-Possible error: Joystick could not be connected.
-Possible error: Simulink Virtual Reality 3D is missing.
-[MASTER] Waiting for UDP data to configure logging and ROS...
-[MASTER] CSV Logging Initialized at: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304
-[MASTER] Robot control is DISABLED. Data Logging Mode only.
-[MATLAB] UWB Packet -> X: 0.73, Y: 0.30, Z: 0.53
-[MATLAB] UWB Packet -> X: 0.80, Y: 0.26, Z: 0.60
 
 
-[MASTER] Opening UDP Ports...
-[LIMU] Initializing Limu Robot and Joystick...
-Warning: 'vrjoystick' will be removed in a future release. Use 'sim3d.io.Joystick' instead. 
-> In vrjoystick
-In JoyControl/mConnect (line 26)
-In JoyControl (line 21)
-In RobotControlCodeLimuClass (line 59)
-In MatlabMasterUWBControl (line 33) 
-Simulink 3D Animation is not installed or has no license available. Please install Simulink 3D Animation to use the joystick interface.
-Possible error: Joystick could not be connected.
-Possible error: Simulink Virtual Reality 3D is missing.
-[MASTER] Waiting for UDP data to configure logging and ROS...
-[MASTER]1776190633.838786,0.89,0.23,0.6,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.0190902,0.87,0.23,0.61,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.038349,0.87,0.24,0.61,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.2871747,0.88,0.25,0.6,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260414_151304,20260414_151304,11776190634.2956717,0.87,0.25,0.61,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01
+
+
+
+
+

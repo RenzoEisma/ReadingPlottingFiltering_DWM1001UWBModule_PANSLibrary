@@ -1,0 +1,484 @@
+
+
+
+
+%
+%
+%
+% % =========================================================================
+% % MATLAB MASTER UWB CONTROL
+% % Author: Renzo Eisma
+% % Date: 09/04/2026
+% %
+% % Description:
+% % Master control script, receives optitrack and uwb via udp from a python
+% % script. Filters the UWB data. Sends UWB and Optitrack to robot control.
+% % Initializes robot control script.
+% % =========================================================================
+%
+% function MatlabMasterUWBControl()
+%     %% 0. SYSTEM CLEANUP & INIT
+%     clear classes; close all; clc;
+%     rosshutdown; pause(0.5); % Ensure old ROS connections are killed immediately to clear ghost nodes
+%
+%     %% 1. IMPORTANT VARIABLES
+%     SelectedRobot = "Limu"; % "Bebop2", "Crazyflie"
+%
+%     % There needs to be a variable for enabling ros and then also reading
+%     % accel data and a variable for enabling robot control.
+%
+%
+%
+%     %% 2. HARDWARE SETUP
+%     disp('[MASTER] Opening UDP Ports...');
+%     try fclose(udpport("all")); catch; end % Ensure ports are free before opening
+%     u_uwb  = udpport("LocalHost", "127.0.0.1", "LocalPort", 5005); % , "Timeout", 0.05);
+%     u_opti = udpport("LocalHost", "127.0.0.1", "LocalPort", 5006); % , "Timeout", 0.05);
+%
+%     uwb_filter = FilterUWB(0.1);
+%
+%     robot = [];
+%     fid = -1;
+%     ROS_INITIALIZED = false;
+%     ENABLE_ROBOT_CONTROL = false;
+%     robot_is_moving = false;
+%     robot_movement = true;
+%     current_accel = [0,0,0];
+%
+%     ros_ip = '192.168.0.100';
+%
+%     disp('[MASTER] Waiting for UDP data to configure logging and ROS...');
+%
+%     %% 3. MAIN LOOP VARIABLES
+%     T_exp = 2400;
+%     T_run = 1/30;
+%     movement_time = 10;
+%
+%     latest_uwb_filt = [0, 0, 0];
+%     latest_opti = [0, 0, 0];
+%
+%     t_exp = tic;
+%     t_run = tic;
+%     print_counter_uwb = 0;
+%     print_counter_opti = 0;
+%
+%     %% 4. HIGH SPEED EXECUTION LOOP
+%     try
+%         while toc(t_exp) < T_exp
+%
+%             % A. UDP Reception and Setup
+%             if u_uwb.NumBytesAvailable > 0
+%                 raw_data = read(u_uwb, u_uwb.NumBytesAvailable, "string");
+%
+%                 % Split the incoming data chunk by newlines
+%                 packets = strsplit(raw_data, newline);
+%
+%                 % Find the most recent non-empty packet in the buffer
+%                 latest_packet = "";
+%                 for k = length(packets):-1:1
+%                     if strlength(strtrim(packets(k))) > 0
+%                         latest_packet = packets(k);
+%                         break;
+%                     end
+%                 end
+%
+%                 if latest_packet ~= ""
+%                     data_parts = strsplit(latest_packet, ',');
+%
+%                     if length(data_parts) >= 7
+%                         % Parse incoming Python config
+%                         array_time   = str2double(data_parts(1));
+%                         raw_x        = str2double(data_parts(2));
+%                         raw_y        = str2double(data_parts(3));
+%                         raw_z        = str2double(data_parts(4));
+%                         received_dir = strtrim(data_parts(5));
+%                         session_name = strtrim(data_parts(6));
+%
+%                         % Read the ROS flag directly from Python again
+%                         ENABLE_ROBOT_CONTROL = strcmpi(strtrim(data_parts(7)), '1');
+%
+%                         % --- INITIALIZE ON FIRST VALID PACKET ---
+%                         if fid == -1
+%                             fprintf('[MASTER] First Packet Received: %s\n', latest_packet);
+%
+%                             % 1. File Logging Setup
+%                             csv_name = "[Log]_uwbFilteredMatlab_listener1_" + session_name + ".csv";
+%                             log_filename = fullfile(received_dir, csv_name);
+%                             fid = fopen(log_filename, 'a');
+%
+%                             if fid ~= -1
+%                                 fprintf(fid, 'Time,Filt_X,Filt_Y,Filt_Z\n');
+%                                 disp(['[MASTER] Logging Initialized: ', char(log_filename)]);
+%                                 fileCleaner = onCleanup(@() fclose(fid));
+%                             else
+%                                 disp('[MASTER] Warning: Could not open CSV at provided path. Using pwd.');
+%                                 fid = fopen(csv_name, 'a');
+%                             end
+%
+%                             % 2. ROS Initialization
+%                             if ENABLE_ROS && ~ROS_INITIALIZED
+%                                 disp('[MASTER] Initializing ROS Network...');
+%                                 try
+%                                     try fclose(instrfindall); catch; end
+%                                     rosshutdown;
+%                                     pause(1);
+%
+%                                     rosinit(ros_ip);
+%
+%                                     if SelectedRobot == "Limu"
+%                                         robot = RobotControlCodeLimuClass();
+%                                     elseif SelectedRobot == "Bebop2"
+%                                         robot = RobotControlCodeLimuClass();
+%                                     elseif SelectedRobot == "Crazyflie"
+%                                         robot = RobotControlCodeLimuClass();
+%                                     end
+%
+%                                     if ENABLE_ROBOT_CONTROL
+%                                         robot.perform_movement();
+%                                         robot_is_moving = true;
+%                                         disp('[MASTER] ROS Connection Successful. Robot Movement Started.');
+%                                     else
+%                                         disp('[MASTER] ROS Connection Successful. Robot Movement Disabled.');
+%                                     end
+%
+%                                     ROS_INITIALIZED = true;
+%                                 catch ME
+%                                     fprintf('[MASTER] ROS Error: %s\n', ME.message);
+%                                     ENABLE_ROS = false;
+%                                     ENABLE_ROBOT_CONTROL = false;
+%                                     ENABLE_ACCEL_READ = false;
+%                                 end
+%                             end
+%
+%                             if fid == -1; fid = -2; end % Failsafe
+%                         end
+%
+%                         % Get latest Accelerometer data
+%                         if ENABLE_ACCEL_READ && ROS_INITIALIZED && ~isempty(robot)
+%                             if SelectedRobot == "Limu"
+%                                 current_accel = robot.latest_accel;
+%                             elseif SelectedRobot == "Bebop2"
+%                                 % Future Bebop2 accelerometer implementation
+%                             elseif SelectedRobot == "Crazyflie"
+%                                 % Future Crazyflie accelerometer implementation
+%                             end
+%
+%                             print_counter_accel = print_counter_accel + 1;
+%                             if mod(print_counter_accel, 200) == 0
+%                                 fprintf('[LIMU] Accel -> X: %.2f, Y: %.2f, Z: %.2f\n', current_accel(1), current_accel(2), current_accel(3));
+%                             end
+%                         end
+%
+%                         % Filter and Update Data
+%                         [fx, fy, fz] = uwb_filter.process(raw_x, raw_y, raw_z);
+%                         latest_uwb_filt = [fx, fy, fz];
+%                         print_counter_uwb = print_counter_uwb + 1;
+%                         if mod(print_counter_uwb, 10) == 0
+%                             fprintf('[MATLAB] UWB Packet -> X: %.2f, Y: %.2f, Z: %.2f\n', fx, fy, fz);
+%                         end
+%
+%                         % Logging to CSV
+%                         if fid > 0
+%                             fprintf(fid, '%.3f,%.4f,%.4f,%.4f\n', array_time, fx, fy, fz);
+%                         end
+%                     end
+%                 end
+%             end
+%
+%
+%             % C. OptiTrack Reception
+%             % ------------------------------------------------------------
+%             if u_opti.NumBytesAvailable > 0
+%                 raw_str_opti = read(u_opti, u_opti.NumBytesAvailable, "string");
+%                 parts_opti = strsplit(raw_str_opti(end), ',');
+%                 if length(parts_opti) >= 3
+%                     latest_opti = [str2double(parts_opti(1)), str2double(parts_opti(2)), str2double(parts_opti(3))];
+%
+%                     print_counter_opti = print_counter_opti + 1;
+%                     if mod(print_counter_opti, 200) == 0
+%                         fprintf('[MATLAB] Opti Packet -> X: %.2f, Y: %.2f, Z: %.2f\n', latest_opti(1), latest_opti(2), latest_opti(3));
+%                     end
+%                 end
+%             end
+%
+%             % D. Synchronous Robot Control (30Hz)
+%             % ------------------------------------------------------------
+%             if toc(t_run) > T_run
+%                 t_run = tic;
+%
+%                 if ENABLE_ROBOT_CONTROL && ROS_INITIALIZED && ~isempty(robot)
+%                     robot.update(latest_uwb_filt, latest_opti);
+%
+%                     % Automatic Landing/Stop after movement_time
+%                     if toc(t_exp) > movement_time && robot_is_moving
+%                         disp('[MASTER] Movement Time Finished. Initiating Stop Sequence.');
+%                         robot.landAndStop();
+%                         robot_is_moving = false;
+%                         break;
+%                     end
+%
+%                     if robot.EmergencyTriggered
+%                         disp('################ EMERGENCY ################');
+%                         break;
+%                     end
+%                 end
+%                 drawnow;
+%             end
+%             pause(0.001);
+%         end
+%     catch ME
+%         % Fix for the "incompatible sizes" crash on line 142
+%         fprintf('[MASTER] CRASH: %s\n', ME.message);
+%     end
+%
+%     %% 5. SAFE SHUTDOWN
+%     disp('[MASTER] Cleaning up resources...');
+%     if ~isempty(robot) && robot_is_moving
+%         robot.landAndStop();
+%     end
+%
+%     try
+%         rosshutdown;
+%     catch
+%     end
+%
+%     disp('[MASTER] Shutdown Complete.');
+% end
+%
+%
+
+
+
+% Error Message:
+
+% [MASTER] Opening UDP Ports...
+% [MASTER] Waiting for UDP data to configure logging and ROS...
+% [MASTER] First Packet Received: 1776269001.0376394,0.73,0.17600000000000002,0.55,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260415_130253,20260415_130253,1
+% [MASTER] Logging Initialized: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260415_130253\[Log]_uwbFilteredMatlab_listener1_20260415_130253.csv
+% [MASTER] Initializing ROS Network...
+% [MASTER] Pinging Linux Server at 192.168.0.100...
+% [MASTER] ROS Error: Error creating the ROS node /matlab_global_node_73153.
+% [MATLAB] UWB Packet -> X: 0.74, Y: 0.17, Z: 0.55
+% [MATLAB] UWB Packet -> X: 0.72, Y: 0.17, Z: 0.52
+% [MATLAB] UWB Packet -> X: 0.71, Y: 0.17, Z: 0.52
+
+
+
+
+
+% % =========================================================================
+% % MATLAB MASTER UWB CONTROL
+% % Author: Renzo Eisma
+% % Date: 09/04/2026
+% %
+% % Description:
+% % Master control script, receives optitrack and uwb via udp. Filters the
+% % UWB data. Sends UWB or Optitrack to robot control. Initializes robot
+% % control script.
+% %
+% % Features:
+% % * ...
+% % =========================================================================
+%
+% function MatlabMasterUWBControl()
+%     %% 1. SYSTEM CLEANUP & INIT
+%     clear classes; close all; clc;
+%
+%     %% 2. HARDWARE SETUP
+%     disp('[MASTER] Opening UDP Ports...');
+%     u_uwb  = udpport("LocalHost", "127.0.0.1", "LocalPort", 5005, "Timeout", 0.05);
+%     u_opti = udpport("LocalHost", "127.0.0.1", "LocalPort", 5006, "Timeout", 0.05);
+%
+%     uwb_filter = FilterUWB(0.1);
+%
+%     % Initialize placeholders for dynamic configuration
+%     fid = -1;
+%     ROS_INITIALIZED = false;
+%     ENABLE_ROBOT_CONTROL = false;
+%     robot = []; % Keep as empty until ROS is ready
+%
+%     ros_ip = '192.168.0.100';
+%     robot_movement = true;
+%
+%     % Initialize placeholders for dynamic configuration
+%     fid = -1; %...
+%     ROS_INITIALIZED = false; %...
+%     ENABLE_ROBOT_CONTROL = true; %...
+%     % robot = []; %...
+%
+%     disp('[MASTER] Waiting for UDP data to configure logging and ROS...');
+%
+%
+%
+%
+%
+%     %% 3. MAIN LOOP VARIABLES
+%     T_exp = 2400; %...
+%     T_run = 1/30; %...
+%     movement_time = 10; % Amount of time robot performs movement
+%
+%     latest_uwb_filt = [0, 0, 0]; % Variable for storing latest UWB data
+%     latest_opti = [0, 0, 0]; % Variable for storing latest Optitrack data
+%
+%     t_exp = tic; %...
+%     t_run = tic; %...
+%
+%     print_counter_uwb = 0; % Counter for printing every 10th UWB coordinate
+%     print_counter_opti = 0; % Counter for printing every 200th Optitrack coordinate
+%
+%     robot_is_moving = false; %...
+%
+%
+%
+%     %% 4. HIGH SPEED EXECUTION LOOP
+%     try
+%         while toc(t_exp) < T_exp
+%
+%             % A. Asynchronous UDP Reading
+%             if u_uwb.NumBytesAvailable > 0
+%                 raw_str = read(u_uwb, u_uwb.NumBytesAvailable, "string");
+%                 data_parts = strsplit(raw_str(end), ',');
+%
+%                 % Check for all 7 parameters: time, X, Y, Z, save_dir, session_name, ROS_flag
+%                 if length(data_parts) >= 7
+%                     disp('[MASTER]' + raw_str);
+%                     array_time = str2double(data_parts(1));
+%                     raw_x = str2double(data_parts(2));
+%                     raw_y = str2double(data_parts(3));
+%                     raw_z = str2double(data_parts(4));
+%                     received_dir = strtrim(data_parts(5));
+%                     session_name = strtrim(data_parts(6));
+%                     %if strtrim(data_parts(7)) == "1"
+%                     if strcmpi(strtrim(data_parts(7)), '1')
+%                         ENABLE_ROBOT_CONTROL = true;
+%                     else
+%                         ENABLE_ROBOT_CONTROL = false;
+%                     end
+%
+%                     % --- INITIALIZE ON FIRST PACKET ---
+%                     if fid == -1
+%                         % Define file name
+%                         csv_name = "[Log]_uwbFilteredMatlab_listener1_" + session_name + ".csv";
+%                         log_filename = fullfile(received_dir, csv_name);
+%                         fid = fopen(log_filename, 'a');
+%
+%                         % Initialize CSV
+%                         if fid ~= -1
+%                             fprintf(fid, 'Time,Filt_X,Filt_Y,Filt_Z\n');
+%                             disp(['[MASTER] CSV Logging Initialized at: ', char(received_dir)]);
+%                             fileCleaner = onCleanup(@() fclose(fid));
+%                         else
+%                             disp('[MASTER] Warning: Could not open CSV at provided path. Using pwd.');
+%                             fid = fopen(csv_name, 'a');
+%                         end
+%
+%                         % Dynamically start ROS if Python requested it
+%                         % if ENABLE_ROBOT_CONTROL && ~ROS_INITIALIZED
+%                             disp('[MASTER] Python enabled ROS. Initializing network...');
+%                             try
+%                                 rosshutdown; pause(1);
+%                                 rosinit(ros_ip, 'NodeHost', '192.168.0.107');
+%                                 ROS_INITIALIZED = true;
+%
+%                                 % NOW instantiate the robot class after rosinit is successful
+%                                 robot = RobotControlCodeLimuClass();
+%
+%                                 if robot_movement
+%                                     robot.perform_movement();
+%                                     robot_is_moving = true;
+%                                 end
+%                             catch ME
+%                                 disp('[MASTER] ROS Initialization Failed.');
+%                                 disp(ME.message);
+%                                 ENABLE_ROBOT_CONTROL = false;
+%                             end
+%                         % end
+%
+%                         if fid == -1; fid = -2; end
+%                     end
+%
+%                     % Filter raw UWB coordinates in FilterUWB script
+%                     [fx, fy, fz] = uwb_filter.process(raw_x, raw_y, raw_z);
+%                     latest_uwb_filt = [fx, fy, fz];
+%
+%                     % Print filtered UWB data every x times
+%                     print_counter_uwb = print_counter_uwb + 1;
+%                     if mod(print_counter_uwb, 10) == 0
+%                         fprintf('[MATLAB] UWB Packet -> X: %.2f, Y: %.2f, Z: %.2f\n', fx, fy, fz);
+%                     end
+%
+%                     % Write to CSV
+%                     if fid > 0
+%                         fprintf(fid, '%.3f,%.4f,%.4f,%.4f\n', array_time, fx, fy, fz);
+%                     end
+%                 end
+%             end
+%
+%             % Read Optitrack data
+%             if u_opti.NumBytesAvailable > 0
+%                 raw_str = read(u_opti, u_opti.NumBytesAvailable, "string");
+%                 data_parts = strsplit(raw_str(end), ',');
+%
+%                 if length(data_parts) >= 3
+%                     latest_opti = [str2double(data_parts(1)), str2double(data_parts(2)), str2double(data_parts(3))];
+%
+%                     % Print Optitrack data every x times
+%                     print_counter_opti = print_counter_opti + 1;
+%                     if mod(print_counter_opti, 200) == 0
+%                         fprintf('[MATLAB] Opti Packet -> X: %.2f, Y: %.2f, Z: %.2f\n', latest_opti(1), latest_opti(2), latest_opti(3));
+%                     end
+%                 end
+%             end
+%
+%             % B. Synchronous Robot Control
+%             if toc(t_run) > T_run
+%                 t_run = tic;
+%
+%                 if ENABLE_ROBOT_CONTROL && ROS_INITIALIZED
+%                     robot.update(latest_uwb_filt, latest_opti);
+%                     % Exit the loop after 10 seconds of movement
+%                     if toc(t_exp) > movement_time
+%                         disp('[MASTER] Time limit seconds reached. Ending robot movement.');
+%                         robot.landAndStop();
+%                         robot_is_moving = false;
+%                         break;
+%                     end
+%                     if robot.EmergencyTriggered
+%                         disp('################ EMERGENCY ################');
+%                         break;
+%                     end
+%                 end
+%
+%                 drawnow;
+%             end
+%
+%             pause(0.001);
+%         end
+%
+%     catch ME
+%         disp('[MASTER] Loop crashed. Initiating emergency failsafe.');
+%         disp(ME.message);
+%     end
+%
+%
+%
+%     %% 5. SAFE SHUTDOWN
+%     try
+%         if fid ~= -1
+%             fclose(fid);
+%         end
+%     catch
+%     end
+%
+%     if ENABLE_ROBOT_CONTROL && ROS_INITIALIZED
+%         if robot_is_moving
+%             robot.landAndStop();
+%         end
+%         rosshutdown;
+%     end
+%
+%     disp('[MASTER] Shutdown completed.');
+% end
+%
+%
+%

@@ -5,55 +5,55 @@
 % Object-oriented conversion of the Limu control script. Designed to be
 % instantiated by the MatlabMasterUWBControl script.
 % =========================================================================
-
 classdef RobotControlCodeLimuClass < handle
     properties
         RobotObj     
-        JoyObj       
         pub
         msg
 
-        %/////_____COORDINATE_BASE_SELECTION_____\\\\\%
-        use_uwb_for_control = true; 
-        %\\\\\___________________________________/////%
+        % IMU Data
+        imu_sub
+        latest_accel = [0, 0, 0];
+        latest_yaw = 0; % Added to store the robot heading
 
-        % (Estimated) Offset center of robot from opti centerpoint (in
-        % meters)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        % Coordinate Selection
+        use_uwb_for_control = false; % False for OptiTrack and True for UWB
+        
+        % Offsets (meters) of optitrack from 0,0,0 of robot
         x_offset = 0;
         y_offset = -0.006;
         z_offset = -0.18;        
-
+        
         % Configuration Flags
-        trajectory_mode = 'circle'; % Options: 'circle', 'infinity', 'setpoints'
-        
-        EmergencyTriggered = false;
-        
+        trajectory_mode = 'infinity'; % infinity % setpoints % circle
+
         % Timers and Trajectory Variables
+        rX = 1; % X radius movement (meters)
+        rY = 1; % Y radius movement (meters)
+        T = 15; % amount of time per movement (seconds)             
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
         t_start
-        rX = 0.5;
-        rY = 0.5;
-        T = 10;             
         w
         nLandMsg = 5;
+
+        EmergencyTriggered = false;
+        
     end
     
     methods
         function obj = RobotControlCodeLimuClass()
-            disp('[LIMU] Initializing Limu Robot and Joystick...');
+            disp('[LIMU] Initializing Limu Robot...');
             try
-                % ROS Publisher
                 obj.pub = rospublisher('/L1/cmd_vel','geometry_msgs/Twist');
-                % Use this instead if using Pioneer:
-                % obj.pub = rospublisher('/RosAria/cmd_vel','geometry_msgs/Twist');
+                obj.imu_sub = rossubscriber('/L1/imu', 'sensor_msgs/Imu', @obj.imuCallback);
                 obj.msg = rosmessage(obj.pub);
                 
-                % Initialize Robot and Joystick
                 obj.RobotObj = RPioneer(1,'RosAria',1);
-                obj.JoyObj = JoyControl;
-                
-                % Trajectory math
                 obj.w = 2*pi/obj.T;
-                
             catch ME
                 disp('[LIMU] Error loading Limu classes:');
                 disp(ME.message);
@@ -62,86 +62,70 @@ classdef RobotControlCodeLimuClass < handle
         
         function perform_movement(obj)
             disp('[LIMU] Starting movement trajectory...');
-            % Start the trajectory timer when the master script allows movement
             obj.t_start = tic; 
         end
         
         function update(obj, uwb_pos, opti_pos)
-            % 1. Safety check for timer
             if isempty(obj.t_start)
                 obj.t_start = tic;
             end
             t_atual = toc(obj.t_start);
             
-            % 2. Coordinate Selection and Array Padding
+            % Base Coordinate Selection
             if obj.use_uwb_for_control
                 current_pos = uwb_pos;
-                current_pos(0) = current_pos(0) + obj.x_offset;
-                current_pos(1) = current_pos(1) + obj.y_offset;
-                current_pos(2) = current_pos(2) + obj.z_offset;
             else
                 current_pos = opti_pos;
-                current_pos(0) = current_pos(0) + obj.x_offset;
-                current_pos(1) = current_pos(1) + obj.y_offset;
-                current_pos(2) = current_pos(2) + obj.z_offset;
             end
             
-            % Pad array to 6 elements to prevent index crashes when calling yaw (psi)
+            % Apply offsets safely (Typo fixed here)
+            current_pos(1) = current_pos(1) + obj.x_offset;
+            current_pos(2) = current_pos(2) + obj.y_offset;
+            current_pos(3) = current_pos(3) + obj.z_offset; 
+            
+            % Ensure state array is large enough
             if length(obj.RobotObj.pPos.X) < 6
                 obj.RobotObj.pPos.X = zeros(12,1);
             end
+            
+            % Update global position
             obj.RobotObj.pPos.X(1:3) = current_pos(:);
             
-            % 3. Trajectory Generation
+            % Trajectory Generation
             switch obj.trajectory_mode
                 case 'circle'
                     obj.RobotObj.pPos.Xd(1:2) = [obj.rX*cos(obj.w*t_atual); obj.rY*sin(obj.w*t_atual)];
                     obj.RobotObj.pPos.Xd(7:8) = [-obj.rX*obj.w*sin(obj.w*t_atual); obj.rY*obj.w*cos(obj.w*t_atual)]; 
-                    
                 case 'setpoints'
                     setPointsX = [1, -1, -1, 1];
                     setPointsY = [1, 1, -1, -1];
                     ptIndex = mod(floor(t_atual / 5), 4) + 1;
                     obj.RobotObj.pPos.Xd(1:2) = [setPointsX(ptIndex); setPointsY(ptIndex)];
                     obj.RobotObj.pPos.Xd(7:8) = [0; 0]; 
-                    
                 case 'infinity'
                     obj.RobotObj.pPos.Xd(1:2) = [obj.rX*sin(obj.w*t_atual); obj.rY*sin(2*obj.w*t_atual)];
                     obj.RobotObj.pPos.Xd(7:8) = [obj.rX*obj.w*cos(obj.w*t_atual); 2*obj.rY*obj.w*cos(2*obj.w*t_atual)];
             end
             
-            % 4. Robot Control Algorithm
+            % Robot Control Algorithm
             a = .15; 
-            psi = obj.RobotObj.pPos.X(6); % Yaw angle
+
+            obj.RobotObj.pPos.X(6) = obj.latest_yaw;
+
+            psi = obj.RobotObj.pPos.X(6); % IMPORTANT: This is currently always 0
             
             K = [cos(psi) -a*sin(psi);
                  sin(psi)  a*cos(psi)];
-             
+                 
             dXd = obj.RobotObj.pPos.Xd(7:8);
             Xd = obj.RobotObj.pPos.Xd(1:2);
             X = obj.RobotObj.pPos.X(1:2);
-            
             Kp = .5; 
             
             % Feedback linearization
             u = K \ (dXd + Kp*(Xd - X)); 
             
-            % 5. Joystick Control Override
-            mRead(obj.JoyObj);
-            
-            if abs(obj.JoyObj.pAnalog(2)) > 0.1 || abs(obj.JoyObj.pAnalog(5)) > 0.1 || abs(obj.JoyObj.pAnalog(3)) > 0.1
-                u(1) = -obj.JoyObj.pAnalog(5); 
-                u(2) = obj.JoyObj.pAnalog(3);  
-            end     
-            
-            % Check emergency button
-            button_joystick = obj.JoyObj.pDigital(2);
-            if button_joystick ~= 0
-                obj.EmergencyTriggered = true;
-                return;
-            end
-            
-            % 6. Send Control Signals
+            % Send Control Signals
             obj.msg.Linear.X = u(1);
             obj.msg.Angular.Z = u(2);
             send(obj.pub, obj.msg);
@@ -156,5 +140,206 @@ classdef RobotControlCodeLimuClass < handle
                 pause(0.1);
             end
         end
+        
+        function imuCallback(obj, ~, message)
+            % Extract linear acceleration
+            obj.latest_accel = [message.LinearAcceleration.X, ...
+                                message.LinearAcceleration.Y, ...
+                                message.LinearAcceleration.Z];
+            
+            % Extract orientation quaternion
+            qW = message.Orientation.W;
+            qX = message.Orientation.X;
+            qY = message.Orientation.Y;
+            qZ = message.Orientation.Z;
+            
+            % Convert Quaternion to Yaw Angle (psi in radians)
+            obj.latest_yaw = atan2(2*(qW*qZ + qX*qY), 1 - 2*(qY^2 + qZ^2));
+        end
     end
 end
+
+
+
+
+
+
+
+
+
+
+
+% 
+% 
+% % =========================================================================
+% % ROBOT CONTROL SCRIPT FOR WHEELED ROBOTS (LIMU / PIONEER)
+% %
+% % Description:
+% % Object-oriented conversion of the Limu control script. Designed to be
+% % instantiated by the MatlabMasterUWBControl script.
+% % =========================================================================
+% 
+% classdef RobotControlCodeLimuClass < handle
+%     properties
+%         RobotObj     
+%         JoyObj       
+%         pub
+%         msg
+%         % IMU Data
+%         imu_sub
+%         latest_accel = [0, 0, 0];
+% 
+%         %/////_____COORDINATE_BASE_SELECTION_____\\\\\%
+%         use_uwb_for_control = false; 
+%         %\\\\\___________________________________/////%
+% 
+%         % (Estimated) Offset center of robot from opti centerpoint (in
+%         % meters)
+%         x_offset = 0;
+%         y_offset = -0.006;
+%         z_offset = -0.18;        
+% 
+%         % Configuration Flags
+%         trajectory_mode = 'infinity'; % Options: 'circle', 'infinity', 'setpoints'
+% 
+%         EmergencyTriggered = false;
+% 
+%         % Timers and Trajectory Variables
+%         t_start
+%         rX = 1;
+%         rY = 1;
+%         T = 10;             
+%         w
+%         nLandMsg = 5;
+%     end
+% 
+%     methods
+%         function obj = RobotControlCodeLimuClass()
+%             disp('[LIMU] Initializing Limu Robot and Joystick...');
+%             try
+%                 % ROS Publisher
+%                 obj.pub = rospublisher('/L1/cmd_vel','geometry_msgs/Twist');
+%                 % ROS Subscriber for IMU
+%                 obj.imu_sub = rossubscriber('/L1/imu', 'sensor_msgs/Imu', @obj.imuCallback);
+%                 % Use this instead if using Pioneer:
+%                 % obj.pub = rospublisher('/RosAria/cmd_vel','geometry_msgs/Twist');
+%                 obj.msg = rosmessage(obj.pub);
+% 
+%                 % Initialize Robot and Joystick
+%                 obj.RobotObj = RPioneer(1,'RosAria',1);
+%                 % obj.JoyObj = JoyControl;
+% 
+%                 % Trajectory math
+%                 obj.w = 2*pi/obj.T;
+% 
+%             catch ME
+%                 disp('[LIMU] Error loading Limu classes:');
+%                 disp(ME.message);
+%             end
+%         end
+% 
+%         function perform_movement(obj)
+%             disp('[LIMU] Starting movement trajectory...');
+%             % Start the trajectory timer when the master script allows movement
+%             obj.t_start = tic; 
+%         end
+% 
+%         function update(obj, uwb_pos, opti_pos)
+%             % 1. Safety check for timer
+%             if isempty(obj.t_start)
+%                 obj.t_start = tic;
+%             end
+%             t_atual = toc(obj.t_start);
+% 
+%             % 2. Coordinate Selection and Array Padding
+%             if obj.use_uwb_for_control
+%                 current_pos = uwb_pos;
+%                 current_pos(1) = current_pos(1) + obj.x_offset;
+%                 current_pos(2) = current_pos(2) + obj.y_offset;
+%                 current_pos(3) = current_pos(3) + obj.z_offset;
+%             else
+%                 current_pos = opti_pos;
+%                 current_pos(1) = current_pos(1) + obj.x_offset;
+%                 current_pos(2) = current_pos(2) + obj.y_offset;
+%                 current_pos(3) = current_pos(3) + obj.z_offset;
+%             end
+% 
+%             % Pad array to 6 elements to prevent index crashes when calling yaw (psi)
+%             if length(obj.RobotObj.pPos.X) < 6
+%                 obj.RobotObj.pPos.X = zeros(12,1);
+%             end
+%             obj.RobotObj.pPos.X(1:3) = current_pos(:);
+% 
+%             % 3. Trajectory Generation
+%             switch obj.trajectory_mode
+%                 case 'circle'
+%                     obj.RobotObj.pPos.Xd(1:2) = [obj.rX*cos(obj.w*t_atual); obj.rY*sin(obj.w*t_atual)];
+%                     obj.RobotObj.pPos.Xd(7:8) = [-obj.rX*obj.w*sin(obj.w*t_atual); obj.rY*obj.w*cos(obj.w*t_atual)]; 
+% 
+%                 case 'setpoints'
+%                     setPointsX = [1, -1, -1, 1];
+%                     setPointsY = [1, 1, -1, -1];
+%                     ptIndex = mod(floor(t_atual / 5), 4) + 1;
+%                     obj.RobotObj.pPos.Xd(1:2) = [setPointsX(ptIndex); setPointsY(ptIndex)];
+%                     obj.RobotObj.pPos.Xd(7:8) = [0; 0]; 
+% 
+%                 case 'infinity'
+%                     obj.RobotObj.pPos.Xd(1:2) = [obj.rX*sin(obj.w*t_atual); obj.rY*sin(2*obj.w*t_atual)];
+%                     obj.RobotObj.pPos.Xd(7:8) = [obj.rX*obj.w*cos(obj.w*t_atual); 2*obj.rY*obj.w*cos(2*obj.w*t_atual)];
+%             end
+% 
+%             % 4. Robot Control Algorithm
+%             a = .15; 
+%             psi = obj.RobotObj.pPos.X(6); % Yaw angle
+% 
+%             K = [cos(psi) -a*sin(psi);
+%                  sin(psi)  a*cos(psi)];
+% 
+%             dXd = obj.RobotObj.pPos.Xd(7:8);
+%             Xd = obj.RobotObj.pPos.Xd(1:2);
+%             X = obj.RobotObj.pPos.X(1:2);
+% 
+%             Kp = .5; 
+% 
+%             % Feedback linearization
+%             u = K \ (dXd + Kp*(Xd - X)); 
+% 
+%             % 5. Joystick Control Override
+%             % mRead(obj.JoyObj);
+% 
+%             % if abs(obj.JoyObj.pAnalog(2)) > 0.1 || abs(obj.JoyObj.pAnalog(5)) > 0.1 || abs(obj.JoyObj.pAnalog(3)) > 0.1
+%             %     u(1) = -obj.JoyObj.pAnalog(5); 
+%             %     u(2) = obj.JoyObj.pAnalog(3);  
+%             % end     
+% 
+%             % Check emergency button
+%             % button_joystick = obj.JoyObj.pDigital(2);
+%             % if button_joystick ~= 0
+%             %     obj.EmergencyTriggered = true;
+%             %     return;
+%             % end
+% 
+%             % 6. Send Control Signals
+%             obj.msg.Linear.X = u(1);
+%             obj.msg.Angular.Z = u(2);
+%             send(obj.pub, obj.msg);
+%         end
+% 
+%         function landAndStop(obj)
+%             disp('[LIMU] Initiating Stop Sequence...');
+%             for i = 1:obj.nLandMsg
+%                 obj.msg.Linear.X = 0;
+%                 obj.msg.Angular.Z = 0;
+%                 send(obj.pub, obj.msg);
+%                 pause(0.1);
+%             end
+%         end
+% 
+%         function imuCallback(obj, ~, message)
+%             % Extract linear acceleration from the sensor_msgs/Imu message
+%             obj.latest_accel = [message.LinearAcceleration.X, ...
+%                                 message.LinearAcceleration.Y, ...
+%                                 message.LinearAcceleration.Z];
+%         end
+%     end
+% end

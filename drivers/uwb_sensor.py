@@ -321,7 +321,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
                                         if send_matlab:
                                             send_ros_flag = "1" if config.get('send_ros', False) else "0"
-                                            data_msg = f"{arr_time},{raw_x},{raw_y},{raw_z},{abs_save_dir},{session_name},{send_ros_flag}"
+                                            data_msg = f"{arr_time},{raw_x},{raw_y},{raw_z},{abs_save_dir},{session_name},{send_ros_flag}\n"
                                             sock.sendto(data_msg.encode(), (UDP_IP, UDP_PORT_UWB))
 
                                     else:
@@ -330,7 +330,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
                                         if send_matlab:
                                             send_ros_flag = "1" if config.get('send_ros', False) else "0"
-                                            data_msg = f"{arr_time},{raw_x},{raw_y},{raw_z},{abs_save_dir},{session_name},{send_ros_flag}"
+                                            data_msg = f"{arr_time},{raw_x},{raw_y},{raw_z},{abs_save_dir},{session_name},{send_ros_flag}\n"
                                             sock.sendto(data_msg.encode(), (UDP_IP, UDP_PORT_UWB))
 
                             # ==========================================
