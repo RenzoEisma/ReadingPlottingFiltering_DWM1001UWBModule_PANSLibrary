@@ -8,7 +8,6 @@
 = - hendrik mail afwachten
 = 
 = - presentatie datum regelen
-= - heeft rieno afstudeer locatie wel aangepast?
 = - vragen voor uitstel eindverslag tot einde week voor de presentatie
 = 
 = - bestellingen
@@ -41,40 +40,78 @@ punten die er in moeten:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 
-
-
-- the test plan document needs some work, not everything is in it yet and it needs to be neater 
-	- buiten anchor metingen doen met die tapijt blokken, dan heb je een vierkant en daarin kan je al voorgemaakte markers hebben. Daar doe je tripods op, in een cubus, en dan kan je zo accuraat mogelijk 	robot locatie meten. We hebben genoeg van die platen over. Laserpen nodig en blokken voor tripods om op te staan.
-
-
-- the research document has a lot of work to do, especially citing sources 
-	- omschrijven dat ik met optitrack de anchor coordinaten kan meten in het lab en dat ik dan met het mat die posities kan behouden en accurate anchor posities kan hebben in het onderzoek document
-	- hardware herprogrammeren ergens omschrijven hoe het in theorie zou moeten
-	- compare different UWB chips and modules, including price
-- testplan afmaken
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-=========================================================================================================
-
-
 woensdag:
+- bericht dhl
+- bericht funest
+- kijken naar kamernet / die andere
+- kijken naar studio in enschede
+- kijken klm vlucht verplaatsen
+	- ... extra geld (bellen met klm)
+	- verplaatsen naar 28 juni of zoiets
+- kijken naar mogelijke presentatie datums manaus. Afhankelijk van Sander zijn gesprek straks
+	- 3de week: ga niet halen
+	- 17e in 4e week: fantastisch
+	- avond in 4e week: fantastisch
+	- ergens in manaus week: niet fantastisch
+	- uitstellen naar na manaus week: niet fantastisch
 
 
-I forgot about our meeting monday, was too focussed. can we do it tomorrow???
+- Gesprek Mario voorbereiden
+	- zeggen wanneer ik presentatie heb
+	- mijn planning geven
+	- ik heb documentatie al af, alleen meer tests en paper schrijven moeten nog
 
-Fix the measuring program according to to do list
+
+- Voor de rest bezig met programmeren
+- pdf was removed to save code space, the old version can be found in github version x
+- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb geschreven gebasseerd op mijn oude
+
+
+
+- anchors maken voor UWB tests
+	- anchors printen die de uwb modules van de muur af doen
+	- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
+	- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
+
+
+
+corrections: the starting of matlab through matlabengine does not currently work and i am not planning on fixing it. I have to start the logging in python and the matlab program seperately.
+- I will have two situations where i need to get data from matlab to python.
+1. gps rtk, i am reading this data from ros in matlab and i will need to read the data with the get gps rtk data script in python and that will send the data to the mastercontrol for live logging. The excel generation will be done in matlab
+2. reading uwb data from the custom tag. same as gps rtk
+BUT, i will not be implementing this yet because the only good it will do is allow me to see the live logging in the 3d view. That is not necessary yet. First i want everything to work.
+
+
+
+1. i dont want to use matlabengine: the starting of matlab through matlabengine does not currently work and i am not planning on fixing it. I have to start the logging in python and the matlab program seperately.
+2. i think the way it currently is where every measurement script just makes their own excel file with data is good enough
+3. robot data does not need to go to the python scripts i think. The  data read from the robot is only accelerometer and angle and that is used for filters in the matlab scripts, not in the python scripts
+4. the sensor reading scripts should just be activated by mastercontrol and read the data and put it in a csv. Along with that they also send data to the mastercontrol script for the live logging. This live logging is only necessary right now for the thigns that are measured by python scripts. The things measured in matlab like gps rtk and the custom pcb uwb data will just not be live logged for now.
+5. the gui from mastercontrol station should still have three tabs. One for logging / robot control, one for making measurement reports and one for changing settings of uwb modules. The second two should remain unchanged
+6. moving udp routing into mastercontrolstation is a good idea. Option A specifically.
+7. The GUI options should be: 
+- Enable UWB with UWB port 1 definition and port 2 definition ofif enabled. Same as now
+- enable ground truth with selection of optitrack or gps rtk is used. Add definition boxes for opti server ip, opti local client ip, and add necessary boxes for gps rtk
+data routing and processing:
+- send data to matlab option
+- send data to ros option
+- control robots option
+- have the filter target option removed. The filter is always from matlab now
+- read mode option should stay choosing between tag distances and tag position. If tag distances is selected there should be a calculation to do custom uwb triangulation including
+
+
+
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+donderdag
+
 
 
 
@@ -84,25 +121,32 @@ Fix the measuring program according to to do list
 ---------------------------------------------------------------------------------------------------------
 
 
-
-- besluiten of ik het ga halen of of ik vakantie moet cancelen. Dan moet dat deze week geregeld worden ivm afzegtijd vakantie ding
-
-donderdag
 vrijdag
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+
 zaterdag
-zondag
-
-
-- Fotos maken van alles dat ik heb gemaakt tot nu toe inclusief UWB sensor en robots
-- GoPro werkend krijgen
+- the research document has a lot of work to do, especially citing sources 
+	- omschrijven dat ik met optitrack de anchor coordinaten kan meten in het lab en dat ik dan met het mat die posities kan behouden en accurate anchor posities kan hebben in het onderzoek document
+	- hardware herprogrammeren ergens omschrijven hoe het in theorie zou moeten
+	- compare different UWB chips and modules, including price
 - Argument voor waarom UWB PANS en niet Bitcraze:
 	- Bitcraze niet deel van opdracht
 	- Het moet alleen goed genoeg zijn voor demos. Voor echte metingen wordt of optitrack of GPS RTK gebruikt
+
+---------------------------------------------------------------------------------------------------------
+
+
+zondag
+- Fotos maken van alles dat ik heb gemaakt tot nu toe inclusief UWB sensor en robots
+- GoPro werkend krijgen
+
 - onderzoek doen naar de crazyflie pcb en of ik die firmware zelf ook kan gebruiken
-- anchors maken voor UWB tests
-	- anchors printen die de uwb modules van de muur af doen
-	- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
-	- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
+
 
 
 
@@ -117,15 +161,17 @@ zondag
 
 =========================================================================================================
 
+- besluiten of ik het ga halen of of ik vakantie moet cancelen. Dan moet dat deze week geregeld worden ivm afzegtijd vakantie ding
+- gesprek met johannes
 
 nog 2 weken
 - hopelijk maar twee dagen nemen om de pcbs te solderen en testen en klaar te zetten
 - behuizing 3d printen
 - verder met testen en accuraatheid verbeteren. Hopelijk ook een keer buiten testen en alles op een pc en laptop zetten.
-- met opzet geen lange pinnen besteld zodat ik ook niet op de crazyflie hoef te testen. En misschien is het wel lang genoeg
-- alle code op andere computers zetten
 
 maandag
+- Mario vragen voor een router, een powerbank, een linux laptop, en mogelijk een windows laptop maar die is niet verplicht
+- alle code op andere computers zetten
 dinsdag
 woensdag
 donderdag
@@ -180,15 +226,13 @@ alles met einddocument
 	- verbindingen beter labelel en de uwb tag kan verbonden worden met de router via wifi
 	- blokdiagram tag plaatje aanpassen
 	- kijken of alle blokken van de software nog kloppen.
+- description software framework
+- manual pcb document
 - make fonts and styles the same
 - meer over ros 1 uitleggen en zelf snappen. en waarom niet ros 2. Uitleg staat in chatgpt sources
 - gewicht meten pcb
 - zelfde tables en font enzo in elk document gebruiken
-- drawio opschonen
 - document format fixen en consistent hebben in elk document
-- finish PCB research document
-	- manual
-	- incorporate things at bottom of document
 
 
 
@@ -197,18 +241,14 @@ alles met einddocument
 =========================================================================================================
 
 
-Dingen die uitgesteld kunnen worden tot na het eindverslag:
-- handleiding jlc pcb
-- handleiding pcb gebruiken
+Na het eindverslag:
 - handleiding en gebruikvriendelijk maken van software.
-- pcb solderen en testen
+- verder pcb solderen en testen
 - meer fine tuning voor betere accuracy
-
 - iemand in lab laten zien hoe alles werkt
 
-
-Presentaties, gewoon deze week de presentatie voorbereiden en heel goed oefenen
-
+1 dag presentatie maken
+1 dag presentatie de hele dag oefenen
 
 
 
