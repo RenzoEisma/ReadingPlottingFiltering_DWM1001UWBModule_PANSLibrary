@@ -1,60 +1,57 @@
-OCHTEND:
+= elke dag:
+= 
+= Berichten: 
+= - Bericht Daniel:
+= 	- Hey Daniel, you were talking about an accelerometer test a while ago. I have more time now. I was already planning to fuse accelerometer with uwb data but if you know things i could use that would = =	be helpful. I don't have 	time to go very in depth but i can use it to get higher accuracy on the uwb system.
+= 	- Hey Daniel, this is Renzo. Last week you were talking about fusing accelerometer and IMU data for the UWB. I have almost finished my PCB design and then afterwards I will have time to work on = = = = =	filters and related things 	for the UWB setup. I am curious what you wanted to talk about.
+= 
+= - hendrik mail afwachten
+= 
+= - presentatie datum regelen
+= - heeft rieno afstudeer locatie wel aangepast?
+= - vragen voor uitstel eindverslag tot einde week voor de presentatie
+= 
+= - bestellingen
+= 	- status bekijken ali bestellingen
+= 	- status bekijken jlc bestelling
+= 
+= 
+==================================================================================================================
 
 
-ik heb alle data in uwb_sensor staan dus als uwb uit staat krijgt ros geen info van stuur robot of niet...
-- ik moet dus in mastercontrolscript een udp poort aanmaken waar het data in stuurt
+software framework stuff for documentation.
+
+Describe what it is, how it works. Reference the manual / read me.
+Object oriented programming benoemen in software stukje
+- Waarom heb ik voor python gekozen en waarom gebruik ik niet AI. En welke delen van het programma zijn nice to have en welke zijn echt nodig
+	- Voor python gekozen omdat eerder gebruikt. AI is gebruikt maar ook met AI is het een hele hoop zelf uitvogelen. Misschien had het meer kunnen helpen als ik iets als opencode of visualstudio + GPT had gebruikt
+	- Naast python ook matlab gebruik omdat daar al code van was en de rest in python omdat dat gebruiksvriendelijker en in mijn ervaring krachtiger is
+	- Meeste dingen zijn echt nodig
+		- Logging pagina: Ik moet veel metingen doen, dit bespaart veel tijd
+		- over het algemeen is het ook iets dat gebruikt moet gaan worden door anderen
+		- Meetrapporten voor de paper
+		- App vervangen omdat het niet veel werk was en dat zorgt ervoor dat je niet een aparte app hoeft te installeren. Iets professioneler voor laten zien buiten het lab
+		- Matlab filter en matlab robot control…
+		- ROS…
+punten die er in moeten:
+- Probleem in verslag zetten van matlab versie
+•	Toolbox problemen, versie met python problemen en cisco problemen
 
 
-
-Testen robots:
-- vandaag proberen individuele afstanden uit te lezen uit de anchors
-	- dist command gebruiken: Sending the command dist will return a list of the anchors the tag is currently ranging with, along with the distance to each one in millimeters.
-- manier om python programma aan te hebben voor alleen loggen
-- nieuwe filter en plotter testen
-
-- 2 listeners testen
-
-
-- accelerometer fusen met uwb
-
-- als ik data in vier afstanden krijg moet ik dat in python omzetten naar coordinaten zodat matlab altijd gewoon een positie binnen krijgt.
-
-
-- wil ik angle calculation in elke robot appart hebben of in mastercontrol? De sensoren zijn in elke robot anders
-
-
-Things to add to GUI:
-- Use uwb or optitrack as ground truth for moving robot
-- Enable ros
-- Enable robot movement (deze laatste twee zijn nu een soort combi)
-
-
-
-
-So you now have my Limu code. I also have a Bebop2 drone that I want to control. I already have some basic code here and I want you to fix it. Make the whole code so that it can also do a circle, infinity or setpoints and it needs to have a mode where it only takes off and then lands for testing. For now the controller can be removed from this as well
-
-Here are the two codes:
-
-
-
-
-
-MIDDAG:
-
-
-PCB maak plek, overstaande gebouw, eerste rechts en dan eerste links
-
-- en vragen pcbs bestellen
-- en vragen over wanneer jlink programmer komt
-- overleggen budget bestellen en hoeveel
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 
 
 
+- the test plan document needs some work, not everything is in it yet and it needs to be neater 
+	- buiten anchor metingen doen met die tapijt blokken, dan heb je een vierkant en daarin kan je al voorgemaakte markers hebben. Daar doe je tripods op, in een cubus, en dan kan je zo accuraat mogelijk 	robot locatie meten. We hebben genoeg van die platen over. Laserpen nodig en blokken voor tripods om op te staan.
 
 
-
-
+- the research document has a lot of work to do, especially citing sources 
+	- omschrijven dat ik met optitrack de anchor coordinaten kan meten in het lab en dat ik dan met het mat die posities kan behouden en accurate anchor posities kan hebben in het onderzoek document
+	- hardware herprogrammeren ergens omschrijven hoe het in theorie zou moeten
+	- compare different UWB chips and modules, including price
+- testplan afmaken
 
 
 
@@ -62,67 +59,160 @@ PCB maak plek, overstaande gebouw, eerste rechts en dan eerste links
 
 
 
-AVOND:
-
-PCB componenten bekijken
-Kijken waar ik componenten kan bestellen
-
-To do onderzoeken:
-- MPU6050 spul er omheen nodig?
-- ESP32 welk spul moet er omheen
-- totale power consumption
-- battery connector component
-- Power delivery welke chips
-- kijken of alles op mercado livre verkrijgbaar is en anders via daphne bestellen
-- welke pinnen op crazyflie geven power
-- Off and on Switch
-- Include a large decoupling capacitor (at least 220µF) specifically for the ESP32-C6 to buffer against those motor-induced voltage sags.
-
-Vanavond kijken naar hardware herprogrammeren
-- uitvinden hoeveel gedoe het zou zijn om bitcraze firmware te gaan gebruiken
-
-
-PowerPoint
 
 
 
 
 
 
-Succesful drone script:
 
-Shutting down global node /matlab_global_node_28245 with NodeURI http://192.168.0.107:62985/ and MasterURI http://192.168.0.100:11311.
-[MASTER] Opening UDP Ports...
-[MASTER] Waiting for UDP data to configure logging and ROS...
-[MASTER] First Packet Received: 1776445765.9748068,-0.06,-0.294,0.59,C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260417_140315,20260417_140315,1
-[MASTER] Logging Initialized: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260417_140315\[Log]_uwbFilteredMatlab_listener1_20260417_140315.csv
-[MASTER] Initializing ROS Network...
-Warning: instrfindall will be removed in a future release. For objects of type
- - serialport use serialportfind
- - tcpclient use tcpclientfind
- - tcpserver use tcpserverfind
- - udpport use udpportfind
- - visadev use visadevfind
- - aardvark use aardvarkfind
- - ni845x use ni845xfind
- - icdevice with LegacyMode=false use icdevicefind 
-Initializing global node /matlab_global_node_50227 with NodeURI http://192.168.0.107:52619/ and MasterURI http://192.168.0.100:11311.
-[MASTER] Selected Robot: Bebop2
-[BEBOP] Initializing Drone...
-[BEBOP] Taking off...
-[BEBOP] Starting movement trajectory...
-[MASTER] ROS Connection Successful. Robot Movement Started.
-[MATLAB] UWB Packet -> X: 0.16, Y: -0.76, Z: 1.64
-[MASTER] Movement Time Finished. Initiating Stop Sequence.
-[BEBOP] Braking and stabilizing...
-[BEBOP] Initiating Landing...
-################ EMERGENCY ################
-[MASTER] Cleaning up resources...
-Shutting down global node /matlab_global_node_50227 with NodeURI http://192.168.0.107:52619/ and MasterURI http://192.168.0.100:11311.
-[MASTER] Shutdown Complete.
->> 
+=========================================================================================================
 
 
+woensdag:
+
+
+I forgot about our meeting monday, was too focussed. can we do it tomorrow???
+
+Fix the measuring program according to to do list
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+
+
+- besluiten of ik het ga halen of of ik vakantie moet cancelen. Dan moet dat deze week geregeld worden ivm afzegtijd vakantie ding
+
+donderdag
+vrijdag
+zaterdag
+zondag
+
+
+- Fotos maken van alles dat ik heb gemaakt tot nu toe inclusief UWB sensor en robots
+- GoPro werkend krijgen
+- Argument voor waarom UWB PANS en niet Bitcraze:
+	- Bitcraze niet deel van opdracht
+	- Het moet alleen goed genoeg zijn voor demos. Voor echte metingen wordt of optitrack of GPS RTK gebruikt
+- onderzoek doen naar de crazyflie pcb en of ik die firmware zelf ook kan gebruiken
+- anchors maken voor UWB tests
+	- anchors printen die de uwb modules van de muur af doen
+	- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
+	- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
+
+
+
+
+
+
+
+
+
+
+
+
+=========================================================================================================
+
+
+nog 2 weken
+- hopelijk maar twee dagen nemen om de pcbs te solderen en testen en klaar te zetten
+- behuizing 3d printen
+- verder met testen en accuraatheid verbeteren. Hopelijk ook een keer buiten testen en alles op een pc en laptop zetten.
+- met opzet geen lange pinnen besteld zodat ik ook niet op de crazyflie hoef te testen. En misschien is het wel lang genoeg
+- alle code op andere computers zetten
+
+maandag
+dinsdag
+woensdag
+donderdag
+vrijdag
+zaterdag
+zondag
+
+
+The ESP32-C6 does not directly support ROS 1 as a native ROS node. It is better suited for micro-ROS, which belongs to ROS 2. In a ROS 1 setup, the practical solution is to let the ESP32-C6 send data over Wi-Fi using UDP/TCP or serial, and then use a ROS 1 node on the Linux PC to translate that data into ROS topics.
+
+
+
+
+
+
+
+
+
+
+
+
+
+=========================================================================================================
+
+
+nog 1 week
+
+
+- mario beoordelingsformulier laten invullen
+- paper maken en handleidingen schrijven
+- evaluatieformulier google sheets invullen en inleveren
+
+
+maandag
+dinsdag
+woensdag
+donderdag
+vrijdag
+zaterdag
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+zondag:
+
+alles met einddocument
+- Make sure every document name in the report matches the actual file name exactly.
+- Export the important Word documents to PDF as well, so the layout cannot shift when Johannes opens them.
+- blokdiagram aanpassen: 
+	- ground truths moeten verbonden zijn met router
+	- verbindingen beter labelel en de uwb tag kan verbonden worden met de router via wifi
+	- blokdiagram tag plaatje aanpassen
+	- kijken of alle blokken van de software nog kloppen.
+- make fonts and styles the same
+- meer over ros 1 uitleggen en zelf snappen. en waarom niet ros 2. Uitleg staat in chatgpt sources
+- gewicht meten pcb
+- zelfde tables en font enzo in elk document gebruiken
+- drawio opschonen
+- document format fixen en consistent hebben in elk document
+- finish PCB research document
+	- manual
+	- incorporate things at bottom of document
+
+
+
+
+
+=========================================================================================================
+
+
+Dingen die uitgesteld kunnen worden tot na het eindverslag:
+- handleiding jlc pcb
+- handleiding pcb gebruiken
+- handleiding en gebruikvriendelijk maken van software.
+- pcb solderen en testen
+- meer fine tuning voor betere accuracy
+
+- iemand in lab laten zien hoe alles werkt
+
+
+Presentaties, gewoon deze week de presentatie voorbereiden en heel goed oefenen
+
+
+
+
+=========================================================================================================
 
 
 

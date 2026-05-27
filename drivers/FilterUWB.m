@@ -14,7 +14,7 @@ classdef FilterUWB < handle
         % State Covariance Matrix (Uncertainty)
         P; 
         
-        % Time step (Set this to your actual UWB update rate, e.g., 0.1 for 10Hz)
+        % Time step (Set this to the actual UWB update rate, e.g., 0.1 for 10Hz)
         dt = 0.1; 
         
         % Maximum allowed speed (m/s) for outlier rejection
@@ -47,7 +47,7 @@ classdef FilterUWB < handle
                      0 1 0 0 0 0;
                      0 0 1 0 0 0];
                  
-            % Tune these values based on your setup
+            % Tune these values based on setup
             % Higher Q = more responsive (less lag), but more noise
             obj.Q = eye(6) * 0.5; 
             

@@ -1,40 +1,20 @@
 =======================================================================================================================
-  _____   _____   ____  _   _ ______    _____ ______ _   _  _____  ____  _____
- |  __ \ |  __ \ / __ \| \ | |  ____|  / ____|  ____| \ | |/ ____|/ __ \|  __ \
- | |  | || |__) | |  | |  \| | |__    | (___ | |__  |  \| | (___ | |  | | |__) |
- | |  | ||  _  /| |  | | . ` |  __|    \___ \|  __| | . ` |\___ \| |  | |  _  /
- | |__| || | \ \| |__| | |\  | |____   ____) | |____| |\  |____) | |__| | | \ \
- |_____/ |_|  \_\\____/|_| \_|______| |_____/|______|_| \_|_____/ \____/|_|  \_\
-
-                ______ _    _  _____ _____ ____  _   _
-               |  ____| |  | |/ ____|_   _/ __ \| \ | |
-               | |__  | |  | | (___   | || |  | |  \| |
-               |  __| | |  | |\___ \  | || |  | | . ` |
-               | |    | |__| |____) |_| || |__| | |\  |
-               |_|     \____/|_____/|_____\____/|_| \_|
+UNIFIED SOFTWARE FRAMEWORK
 =======================================================================================================================
 
 - Author:               Renzo Eisma
-- Date last Rev.:       14/04/2026
-- Version:              5
-- Project:              UWB vs Ground Truth Comparison
-- Lab:                  LabAir
-
-unified software framework
+- Date last Rev.:       26/05/2026
+- Lab:                  Air Lab - UFES - Espirito Santo
 
 -----------------------------------------------------------------------------------------------------------------------
 I. PROJECT OVERVIEW
 -----------------------------------------------------------------------------------------------------------------------
 
-This project is a comprehensive logging and analysis suite for drone positioning
-systems[cite: 1]. It simultaneously records data from multiple sensors like
-UWB, OptiTrack ground truth, and eventually GPS[cite: 1]. It provides tools to
-filter, compare, and visualize the accuracy of the positioning hardware
-[cite: 1]. The system is designed around a central logger that orchestrates
-individual sensor drivers[cite: 2, 3].
+NOTE: THE README IS NOT DONE YET, FAR FROM IT. THIS will be completed after finishing all the tests.
 
-A MATLAB script is also planned for the drivers folder to handle data filtering
-and routing to ROS.
+short description
+
+mention the graduation report document that i have. Could provide more information
 
 -----------------------------------------------------------------------------------------------------------------------
 II. TABLE OF CONTENTS
@@ -66,46 +46,57 @@ II. TABLE OF CONTENTS
 
 [1.1] Broad system overview
 The system uses a multi-threaded approach where the MasterLogger script acts as
-the primary orchestrator[cite: 2, 3]. It initializes separate threads for each
+the primary orchestrator. It initializes separate threads for each
 enabled sensor (UWB, OptiTrack, GPS) to ensure high-frequency data collection
-without blocking the main process[cite: 3].
+without blocking the main process.
 
 [1.2] Code Blockdiagram
 MasterLogger -> Thread 1: OptiTrack Driver (UDP)
              -> Thread 2: UWB Driver (UART/Serial)
-             -> Thread 3: GPS Driver (TBD) [cite: 3]
+             -> Thread 3: GPS Driver (TBD)
              -> Post-Process: ComparisonReportMaker (Data Fusion)
 
+[1.3] .
+System overview. Mention block diagram, i have it in the folder
+
 
 -----------------------------------------------------------------------------------------------------------------------
-2. READING SENSORS SETUP GUIDE
+2. SETUP GUIDE
 -----------------------------------------------------------------------------------------------------------------------
 
-[2.1] CLIENT COMPUTER SETUP (PYTHON)
+[2.1] WINDOWS COMPUTER SETUP
 1. Required Programs:
     - Matlab 2025b
         - Can be acquired for free with a 30 day free trial Matlab license
           License can be extended for free every month
         - Needs the ROS and UDP toolboxes
-    - Python installation between 3.x and 3.12 (3.13 and above won't work with matlabengine)
+    - Python installation between 3.x and 3.12 (3.13 and above won't work with matlabengine) [maybe leave out last part about matlabengine]
     - Python environment (Pycharm or Visual Studio Code are ideal)
+2. Have this Unified Software Framework installed on PC
 2. Install all necessary python libraries
     - Can be found in the requirements.txt file
 3. When launching MasterControlStation.py configure all settings according to your computer
     - IP address
     - COM Ports
-4. Connect UWB listener to a USB port
-    - Open Windows Device Manager to find COM port
+    - ...
 5. Connect Controller to a USB port (optional)
     - For backup control of robots
 
-[2.2] Linux PC & Network SETUP
+[2.2] Linux PC setup
 1. Required Programs
-    - ROS 1
+    - ROS 1 [insert ROS version here]
+    - ubuntu pc
 2. Connect Linux PC to Client PC with ethernet
-3. Network...
 
-[2.3] GROUND TRUTH SETUP
+[2.3] UWB sensors setup
+1. have an anchor system ready according to ideal anchor geometry
+2. have a tag
+3.1 If connecting tag via normal way (listeners)
+- Put one listener per network into a USB port on the windows computer
+3.2 If connecting tag via Wi-Fi
+- ...
+
+[2.4] GROUND TRUTH SETUP
 [2.3.1] Optitrack
 1. Open Motive on the server PC and ensure your drone's Rigid Body is
    tracking
@@ -118,7 +109,7 @@ MasterLogger -> Thread 1: OptiTrack Driver (UDP)
 * Note: Ensure Windows Firewall on the Motive PC allows UDP traffic on
   ports 1510 and 1511
 
-[2.3.2] GPS SETUP
+[2.3.2] GPS RTK SETUP
 [Placeholder: Instructions for RTK GPS base/rover configuration, NMEA
 formatting, and COM port setup will go here once integrated.]
 
@@ -130,6 +121,16 @@ formatting, and COM port setup will go here once integrated.]
 [2.4.2] Bebop2 Setup
 1. ...
     - ...
+
+[2.4.3] Crazyflie Setup
+1. ...
+    - ...
+
+
+[2.5] Connecting all components together
+1. Get the Wifi Router
+
+
 
 -----------------------------------------------------------------------------------------------------------------------
 3. USER GUIDES
@@ -246,10 +247,12 @@ Time, POSX, POSY, POSZ
   Cause: Device already connected to another host or MAC address mismatch.
   Fix: Reset DWM1001C power and verify the MAC address in the script[cite: 23, 35].
 
+- more ...
+
 
 
 -------------------------------------------------------------------------------
-6. Explanations
+6. Explanations Python scripts
 -------------------------------------------------------------------------------
 
 6.1. MasterControlStation Explanation
@@ -335,8 +338,14 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 ...
 
 
-6.6. matlab Scripts Explanations
------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+-------------------------------------------------------------------------------
+7. matlab Scripts Explanations
+-------------------------------------------------------------------------------
 
 - Master script
 - Filter script
@@ -344,27 +353,84 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 - Crazyflie control
 - Limo control
 
-- How to add a new robot
-
-
-
-
-
-
-
+- How to add a new robot very short guide
 
 
 
 -----------------------------------------------------------------------------------------------------------------------
-7. TO-DO LISTS
+8. TO-DO LISTS
 -----------------------------------------------------------------------------------------------------------------------
+
+General code cleanup and bugs
+- Fix the issue where UWB reading consistently goes wrong every other time.
+- Add support for two listeners again, since this is currently no longer in the code.
+- Make GUI updating easier if possible.
+- Add a way to start the program through MasterControl.
+  - Make Matlab launch only when UWB is enabled, not when only OptiTrack is used.
+- Add a way to run the Python program only for logging.
+- Add a way to choose which robot is being used in Python.
+- Instead of sending all settings in every UDP packet, send the settings once at the beginning.
+- Add compensation for data delay.
+
+GUI improvements
+- Make the GUI full screen.
+- Add more color to the GUI, More blue and white instead of gray
+- Show more live data in the GUI on the right side bar
+- Add GUI options for:
+  - using UWB or OptiTrack as position for a moving robot;
+  - enabling ROS;
+  - enabling robot movement.
+- Note: enabling ROS and enabling robot movement are currently partly combined.
+- Add an explanation in readme for why matplotlib
+
+UWB data reading
+- Try to read individual distances from the anchors. Use the dist command. Sending the command dist returns a list of the anchors the tag is currently ranging with, along with the distance to each one in millimeters.
+- Read the accuracy percentage via UART.
+
+Data structure and communication
+- There is currently a problem where all data is stored in uwb_sensor, so when UWB is turned off, ROS does not receive information about whether or not to control the robot.
+- A UDP port should be made in the MasterControl script where this data can be sent.
+- Add an explanation in readme for the use of threads with live visualization.
+
+Filtering and sensor fusion
+- Finish code for fusing two tags.
+- Prepare code for accelerometer fusion. Use accelerometer data from robots via ROS.
+- Add a filter for UWB with:
+  - outlier rejection;
+  - Kalman filter;
+- UWB does not provide angle, but angle is needed.
+  - The angle can be taken from the robot topic.
+  - Or the angle can be calculated from the known position and the change in position over time.
+
+Robot control
+- Prepare code for Bebop Matlab control.
+  - Get accelerometer data.
+  - Get angle data.
+  - General code.
+- Prepare code for LIMO Matlab control.
+  - Get accelerometer data.
+  - Get angle data.
+  - General code.
+- Program Figure 8 movement for the drone.
+- Get the drone control code from Miguel.
+- Add a trespass area for the drone.
+- Define what should happen if the connection with the drone is lost.
+
+GPS RTK
+- Add space/support for GPS RTK reading from ROS with Enzo
+
+ROS integration
+- Send filtered UWB data to ROS.
+- Make sure ROS still receives control-related information even when UWB is turned off.
+
+
+
+-------------------------------------
 
 [6.1] MASTERLOGGER
 - Maybe use CPP for certain scripts that need to be faster
 
 [6.2] COMPARISONREPORTMAKER
-- Think of what is important to measure and implement it
-- Offsets in general
 - Settings in masterlogger are not connected to reportmaker
 automatische file selectie methode er uit halen (wordt vgm niet eens gebruikt)
 - 95% error
@@ -374,30 +440,23 @@ automatische file selectie methode er uit halen (wordt vgm niet eens gebruikt)
 
 [6.3] READUWBBLUETOOTH
 - Snappen hoe die networks werken en modules kunnen wisselen van netwerk
-- networks van modules kunnen aanpassen in dit programma
 
-
-Instructies toevoegen van hoe je uwb_sensor kan vervangen met iets anders
-
-
-Offset is now calculated in the following way
+Note: Offset is now calculated in the following way
 - Python: offset of uwb antenna from opti center
 - Matlab: offset of robot center from opti center
     - opti center in matlab is same as uwb center as it is already converted
 
 
+
+
 -----------------------------------------------------------------------------------------------------------------------
-8. VERSION CHANGES
+9. VERSION CHANGES
 -----------------------------------------------------------------------------------------------------------------------
 
-- VERSION 1.0: Initial release; sensor reading only.
-- VERSION 2.0: Integrated ComparisonReportMaker functionality.
-- VERSION 3.0: Added Matlab integration and direct Bluetooth reading.
-- Version 3.1:
-    - Make a front end for the code
-    - Add a live plotter
-    - Eventually make the code open source (Add a GitHub for it)
-    - Have the name that you input be saved and used again (plotter script)
+- Look to the github for all different versions
+
+
+
 
 =======================================================================================================================
 END OF DOCUMENT
