@@ -6,6 +6,10 @@ UNIFIED SOFTWARE FRAMEWORK
 - Date last Rev.:       26/05/2026
 - Lab:                  Air Lab - UFES - Espirito Santo
 
+- pdf was removed to save code space, the old version can be found in github version x
+- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb geschreven gebasseerd op mijn oude
+- nieuwe matlab master is 3x zo lang als oude
+
 -----------------------------------------------------------------------------------------------------------------------
 I. PROJECT OVERVIEW
 -----------------------------------------------------------------------------------------------------------------------
@@ -363,37 +367,19 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 
 General code cleanup and bugs
 - Fix the issue where UWB reading consistently goes wrong every other time.
-- Add support for two listeners again, since this is currently no longer in the code.
 - Make GUI updating easier if possible.
-- Add a way to start the program through MasterControl.
-  - Make Matlab launch only when UWB is enabled, not when only OptiTrack is used.
 - Add a way to run the Python program only for logging.
-- Add a way to choose which robot is being used in Python.
-- Instead of sending all settings in every UDP packet, send the settings once at the beginning.
 - Add compensation for data delay.
 
 GUI improvements
 - Make the GUI full screen.
-- Add more color to the GUI, More blue and white instead of gray
 - Show more live data in the GUI on the right side bar
-- Add GUI options for:
-  - using UWB or OptiTrack as position for a moving robot;
-  - enabling ROS;
-  - enabling robot movement.
-- Note: enabling ROS and enabling robot movement are currently partly combined.
 - Add an explanation in readme for why matplotlib
 
-UWB data reading
-- Try to read individual distances from the anchors. Use the dist command. Sending the command dist returns a list of the anchors the tag is currently ranging with, along with the distance to each one in millimeters.
-- Read the accuracy percentage via UART.
-
 Data structure and communication
-- There is currently a problem where all data is stored in uwb_sensor, so when UWB is turned off, ROS does not receive information about whether or not to control the robot.
-- A UDP port should be made in the MasterControl script where this data can be sent.
 - Add an explanation in readme for the use of threads with live visualization.
 
 Filtering and sensor fusion
-- Finish code for fusing two tags.
 - Prepare code for accelerometer fusion. Use accelerometer data from robots via ROS.
 - Add a filter for UWB with:
   - outlier rejection;
@@ -427,14 +413,9 @@ ROS integration
 
 -------------------------------------
 
-[6.1] MASTERLOGGER
-- Maybe use CPP for certain scripts that need to be faster
+
 
 [6.2] COMPARISONREPORTMAKER
-- Settings in masterlogger are not connected to reportmaker
-automatische file selectie methode er uit halen (wordt vgm niet eens gebruikt)
-- 95% error
-- median error ipv mean
 - Begin en einde van meting af trimmen
 - Automatically calculate Angle offset
 

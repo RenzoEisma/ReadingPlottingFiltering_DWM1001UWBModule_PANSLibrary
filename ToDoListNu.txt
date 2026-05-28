@@ -39,32 +39,8 @@ punten die er in moeten:
 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
+donderdag
 
-woensdag:
-- bericht dhl
-- bericht funest
-- kijken naar kamernet / die andere
-- kijken naar studio in enschede
-- kijken klm vlucht verplaatsen
-	- ... extra geld (bellen met klm)
-	- verplaatsen naar 28 juni of zoiets
-- kijken naar mogelijke presentatie datums manaus. Afhankelijk van Sander zijn gesprek straks
-	- 3de week: ga niet halen
-	- 17e in 4e week: fantastisch
-	- avond in 4e week: fantastisch
-	- ergens in manaus week: niet fantastisch
-	- uitstellen naar na manaus week: niet fantastisch
-
-
-- Gesprek Mario voorbereiden
-	- zeggen wanneer ik presentatie heb
-	- mijn planning geven
-	- ik heb documentatie al af, alleen meer tests en paper schrijven moeten nog
-
-
-- Voor de rest bezig met programmeren
-- pdf was removed to save code space, the old version can be found in github version x
-- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb geschreven gebasseerd op mijn oude
 
 
 
@@ -73,44 +49,33 @@ woensdag:
 	- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
 	- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
 
-
-
-corrections: the starting of matlab through matlabengine does not currently work and i am not planning on fixing it. I have to start the logging in python and the matlab program seperately.
-- I will have two situations where i need to get data from matlab to python.
-1. gps rtk, i am reading this data from ros in matlab and i will need to read the data with the get gps rtk data script in python and that will send the data to the mastercontrol for live logging. The excel generation will be done in matlab
-2. reading uwb data from the custom tag. same as gps rtk
-BUT, i will not be implementing this yet because the only good it will do is allow me to see the live logging in the 3d view. That is not necessary yet. First i want everything to work.
+nieuwe programma testen
+verder met programmeren, to do list afgaan en filters toevoegen
 
 
 
-1. i dont want to use matlabengine: the starting of matlab through matlabengine does not currently work and i am not planning on fixing it. I have to start the logging in python and the matlab program seperately.
-2. i think the way it currently is where every measurement script just makes their own excel file with data is good enough
-3. robot data does not need to go to the python scripts i think. The  data read from the robot is only accelerometer and angle and that is used for filters in the matlab scripts, not in the python scripts
-4. the sensor reading scripts should just be activated by mastercontrol and read the data and put it in a csv. Along with that they also send data to the mastercontrol script for the live logging. This live logging is only necessary right now for the thigns that are measured by python scripts. The things measured in matlab like gps rtk and the custom pcb uwb data will just not be live logged for now.
-5. the gui from mastercontrol station should still have three tabs. One for logging / robot control, one for making measurement reports and one for changing settings of uwb modules. The second two should remain unchanged
-6. moving udp routing into mastercontrolstation is a good idea. Option A specifically.
-7. The GUI options should be: 
-- Enable UWB with UWB port 1 definition and port 2 definition ofif enabled. Same as now
-- enable ground truth with selection of optitrack or gps rtk is used. Add definition boxes for opti server ip, opti local client ip, and add necessary boxes for gps rtk
-data routing and processing:
-- send data to matlab option
-- send data to ros option
-- control robots option
-- have the filter target option removed. The filter is always from matlab now
-- read mode option should stay choosing between tag distances and tag position. If tag distances is selected there should be a calculation to do custom uwb triangulation including
+- Gesprek Mario voorbereiden
+	- zeggen wanneer ik presentatie heb
+	- mijn planning geven
+	- ik heb documentatie al af, alleen meer tests en paper schrijven moeten nog
+	- presentatie in die week is niet mogelijk
 
 
 
 
 
+- kamers
+	- bericht funest
+	- bericht aanpassen kamer aanmeld mail en foto's toevoegen
+	- kijken naar kamernet / die andere
+	- kijken naar studio in enschede
+- tattoeages
+- tinder bericht die ene meid
+- bericht dhl
+- kijken klm vlucht verplaatsen
+	- ... extra geld (bellen met klm)
+	- verplaatsen naar 28 juni of zoiets
 
-
-
-
-
----------------------------------------------------------------------------------------------------------
-
-donderdag
 
 
 
@@ -122,6 +87,15 @@ donderdag
 
 
 vrijdag
+
+- kijken naar mogelijke presentatie datums manaus. Afhankelijk van Sander zijn gesprek straks
+	- 3de week: ga niet halen
+	- 17e in 4e week: fantastisch (Mario kan waarschijnlijk niet)
+	- avond in 4e week: fantastisch (Mario kan waarschijnlijk niet, alleen in avond)
+	- ergens in manaus week: niet fantastisch
+	- uitstellen naar na manaus week: niet fantastisch
+
+Eerste base test doen
 
 
 
