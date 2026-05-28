@@ -1,0 +1,31 @@
+Time,Port,ListenerID,NetworkID,Line,Error
+1779988581.911993,COM5,1,1,[000110.430 INF] loc_data: 1,Could not parse anchor distances.
+1779988581.915519,COM5,1,1,"0) 4CAD[-1.31,0.17,0.39,47,x0C]",Could not parse anchor distances.
+1779988582.013009,COM5,1,1,[000110.530 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.0165184,COM5,1,1,"0) 4CAD[-1.33,0.18,0.39,48,x0C]",Could not parse anchor distances.
+1779988582.1129162,COM5,1,1,[000110.630 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.116542,COM5,1,1,"0) 4CAD[-1.32,0.17,0.40,46,x0C]",Could not parse anchor distances.
+1779988582.2123392,COM5,1,1,[000110.730 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.215922,COM5,1,1,"0) 4CAD[-1.31,0.17,0.40,47,x0C]",Could not parse anchor distances.
+1779988582.312047,COM5,1,1,[000110.830 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.3151038,COM5,1,1,"0) 4CAD[-1.32,0.18,0.40,48,x0C]",Could not parse anchor distances.
+1779988582.4133508,COM5,1,1,[000110.930 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.4164732,COM5,1,1,"0) 4CAD[-1.34,0.18,0.40,85,x0C]",Could not parse anchor distances.
+1779988582.5117168,COM5,1,1,[000111.030 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.5162573,COM5,1,1,"0) 4CAD[-1.34,0.17,0.38,48,x0C]",Could not parse anchor distances.
+1779988582.6127083,COM5,1,1,[000111.130 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.6158302,COM5,1,1,"0) 4CAD[-1.34,0.17,0.40,47,x0C]",Could not parse anchor distances.
+1779988582.7120814,COM5,1,1,[000111.230 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.7167575,COM5,1,1,"0) 4CAD[-1.33,0.17,0.39,48,x0C]",Could not parse anchor distances.
+1779988582.8127332,COM5,1,1,[000111.330 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.8158078,COM5,1,1,"0) 4CAD[-1.30,0.17,0.39,47,x0C]",Could not parse anchor distances.
+1779988582.9122245,COM5,1,1,[000111.430 INF] loc_data: 1,Could not parse anchor distances.
+1779988582.9172747,COM5,1,1,"0) 4CAD[-1.32,0.17,0.41,48,x0C]",Could not parse anchor distances.
+1779988583.012311,COM5,1,1,[000111.530 INF] loc_data: 1,Could not parse anchor distances.
+1779988583.0163317,COM5,1,1,"0) 4CAD[-1.35,0.18,0.41,48,x0C]",Could not parse anchor distances.
+1779988583.1126108,COM5,1,1,[000111.630 INF] loc_data: 1,Could not parse anchor distances.
+1779988583.1165016,COM5,1,1,"0) 4CAD[-1.33,0.18,0.39,49,x0C]",Could not parse anchor distances.
+1779988583.2130096,COM5,1,1,[000111.730 INF] loc_data: 1,Could not parse anchor distances.
+1779988583.2180603,COM5,1,1,"0) 4CAD[-1.31,0.18,0.38,48,x0C]",Could not parse anchor distances.
+1779988583.3129628,COM5,1,1,[000111.830 INF] loc_data: 1,Could not parse anchor distances.
+1779988583.3182278,COM5,1,1,"0) 4CAD[-1.34,0.18,0.39,47,x0C]",Could not parse anchor distances.

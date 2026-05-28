@@ -57,7 +57,8 @@ class MasterControlApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Drone Localization Control Station")  # GUI title
-        self.root.geometry("900x750")  # Define size of GUI
+        #self.root.geometry("900x750")  # Define size of GUI
+        self.root.state('zoomed')
 
         # Define settings files
         self.settings_file = "logger_settings.json"  # File for storing saved settings
@@ -453,7 +454,7 @@ class MasterControlApp:
     def run_master_process(self):
         print("=== MASTER LOGGER STARTING ===")
 
-        base_dir = "measurements"
+        base_dir = os.path.abspath("measurements")
         self.current_session_name = datetime.now().strftime("Session_%Y%m%d_%H%M%S")
         self.current_session_dir = os.path.join(base_dir, self.current_session_name)
 

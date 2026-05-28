@@ -372,13 +372,14 @@ def weighted_average_positions(results):
 # Opens a serial connection to the listener module.
 # ---------------------------------------------------------------------------------------------------------------------
 def open_serial_port(port, baud):
-    ser = serial.Serial(port, baud, timeout=0.1, dsrdtr=False, rtscts=False)
+    ser = serial.Serial(port, baud, timeout=1, dsrdtr=False, rtscts=False)
     ser.dtr = False
     ser.rts = False
     return ser
 
 
 # Wakes the DWM1001 shell and clears old serial data.
+# This version is intentionally close to the old working startup sequence.
 # ---------------------------------------------------------------------------------------------------------------------
 def wake_shell(ser):
     print(f"[UWB] Waking shell on {ser.port}...")
@@ -389,23 +390,41 @@ def wake_shell(ser):
     except Exception:
         pass
 
-    # Press Enter twice to enter shell mode. This is the normal PANS shell behaviour.
-    ser.write(b'\r\r')
-    time.sleep(0.5)
+    # Stop/settle existing stream
+    ser.write(b'\r')
+    time.sleep(1.0)
+
+    # Clear old output
     ser.read_all()
 
+    # Wake shell
+    ser.write(b'\r\r')
+    time.sleep(1.0)
 
-# Starts the UWB stream. For tag position 'lec' is used. For distances 'les' is used by default.
+
+# Starts the UWB stream.
+# This version first checks whether data is already streaming, similar to the old script.
 # ---------------------------------------------------------------------------------------------------------------------
 def start_stream(ser, command):
-    print(f"[UWB] Starting stream on {ser.port} with command: {command}")
+    # Give the module a moment after previous shell commands such as 'la'
+    time.sleep(0.5)
 
-    # Send Enter first to try to stop/settle any existing stream, then start the desired stream.
-    ser.write(b'\r')
-    time.sleep(0.2)
-    ser.reset_input_buffer()
+    if ser.in_waiting > 15:
+        print(f"[UWB] {ser.port} is already streaming data. Skipping '{command}' command.")
+        ser.reset_input_buffer()
+        return
+
+    print(f"[UWB] {ser.port} state unclear or not streaming. Sending '{command}' command...")
     ser.write((command + '\r').encode('utf-8'))
-    time.sleep(0.2)
+    time.sleep(1.0)
+
+    # If still no data, try waking the shell once more and send the command again.
+    if ser.in_waiting == 0:
+        print(f"[UWB] No stream detected after first '{command}'. Retrying...")
+        ser.write(b'\r\r')
+        time.sleep(0.5)
+        ser.write((command + '\r').encode('utf-8'))
+        time.sleep(1.0)
 
 
 # Stops the UWB stream before closing the port.
@@ -624,7 +643,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
         data_writer = csv.writer(data_file)
         data_writer.writerow(['Time', 'POSX', 'POSY', 'POSZ'])
 
-        error_path = os.path.join(abs_save_dir, f"[Log]_uwb_errors_{session_name}.csv")
+        error_path = os.path.join(abs_save_dir, f"[Log]_errors_uwb_{session_name}.csv")
         error_file = open(error_path, 'w', newline='')
         error_writer = csv.writer(error_file)
         error_writer.writerow(['Time', 'Port', 'ListenerID', 'NetworkID', 'Line', 'Error'])

@@ -7,7 +7,9 @@ UNIFIED SOFTWARE FRAMEWORK
 - Lab:                  Air Lab - UFES - Espirito Santo
 
 - pdf was removed to save code space, the old version can be found in github version x
-- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb geschreven gebasseerd op mijn oude
+- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb 
+geschreven gebasseerd op mijn oude code. Functioneel werkte bijna alles al maar voor finishing touches was het toch
+wel heel erg handig.
 - nieuwe matlab master is 3x zo lang als oude
 
 -----------------------------------------------------------------------------------------------------------------------
@@ -366,7 +368,6 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 -----------------------------------------------------------------------------------------------------------------------
 
 General code cleanup and bugs
-- Fix the issue where UWB reading consistently goes wrong every other time.
 - Make GUI updating easier if possible.
 - Add a way to run the Python program only for logging.
 - Add compensation for data delay.
@@ -374,16 +375,10 @@ General code cleanup and bugs
 GUI improvements
 - Make the GUI full screen.
 - Show more live data in the GUI on the right side bar
-- Add an explanation in readme for why matplotlib
-
-Data structure and communication
-- Add an explanation in readme for the use of threads with live visualization.
 
 Filtering and sensor fusion
 - Prepare code for accelerometer fusion. Use accelerometer data from robots via ROS.
-- Add a filter for UWB with:
-  - outlier rejection;
-  - Kalman filter;
+- Triangulate position from raw distances with kalman filter
 - UWB does not provide angle, but angle is needed.
   - The angle can be taken from the robot topic.
   - Or the angle can be calculated from the known position and the change in position over time.
@@ -412,6 +407,9 @@ ROS integration
 
 
 -------------------------------------
+Documentation
+- Add an explanation in readme for why matplotlib
+- Add an explanation in readme for the use of threads with live visualization.
 
 
 

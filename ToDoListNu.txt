@@ -50,7 +50,10 @@ donderdag
 	- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
 
 nieuwe programma testen
-verder met programmeren, to do list afgaan en filters toevoegen
+- kijken of ik meer dan 4 anchors uit kan lezen met distances
+	- eers
+- twee tags samenvoegen, maar de 2 netwerk structuur moet er nog bij
+- triangulation basis doen
 
 
 
@@ -60,8 +63,12 @@ verder met programmeren, to do list afgaan en filters toevoegen
 	- ik heb documentatie al af, alleen meer tests en paper schrijven moeten nog
 	- presentatie in die week is niet mogelijk
 
+- Als mario die hele week niet kan dan moet ik na de manaus vakantie presenteren. Het probleem hiermee is dat als ik het niet haal ik het niet meer kan fixen. Johannes vragen over feedback hierover. En vragen of hij denkt dat mijn resultaten goed genoeg zijn om het afstuderen te halen. Als dat niet zo is zou ik meer documentatie moeten gaan doen
 
+- moet met tag verbinden om individuele distances te lezen
 
+- pans documentation opslaan
+- paper pans opslaan
 
 
 - kamers
@@ -96,6 +103,11 @@ vrijdag
 	- uitstellen naar na manaus week: niet fantastisch
 
 Eerste base test doen
+
+uwb anchors op bovenkant bureaus neerzetten en met de stick method meten. Kijken of hoogte helpt
+
+
+- bezig met ros
 
 
 

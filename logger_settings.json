@@ -12,11 +12,11 @@
     "gps_rtk_ros_master": "http://localhost:11311",
     "gps_rtk_frame": "map",
     "send_matlab": true,
-    "send_ros": true,
-    "control_robots": true,
-    "read_type": "Tag Position",
+    "send_ros": false,
+    "control_robots": false,
+    "read_type": "Tag Distances",
     "network_scale": "1 Network / 1 Listener",
-    "rep_name": "FirstTestAfterConceptReportV2",
+    "rep_name": "FirstTestNewFilterConfiguration",
     "rep_notes": "...",
     "rep_show_anchors": true
 }

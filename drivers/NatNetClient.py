@@ -2432,7 +2432,7 @@ def run_simple_logger(stop_event, config, save_dir, data_queue=None):
     # File setup
     # ==========================================
     filename = os.path.join(save_dir, f"[Log]_optitrack_{session_name}.csv")
-    error_filename = os.path.join(save_dir, f"[Log]_optitrack_errors_{session_name}.csv")
+    error_filename = os.path.join(save_dir, f"[Log]_errors_optitrack_{session_name}.csv")
 
     last_print_time = [0.0]
 

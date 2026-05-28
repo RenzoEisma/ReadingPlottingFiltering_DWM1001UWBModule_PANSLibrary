@@ -1,0 +1,36 @@
+MASTER_CONTROL_CONFIGURATION
+============================================================
+SESSION_NAME: Session_20260528_125611
+SESSION_FOLDER: measurements\Session_20260528_125611
+DATE_TIME: 2026-05-28 12:56:11
+
+UWB_CONFIG
+------------------------------------------------------------
+enable_uwb=True
+uwb_source=Listener
+uwb_port1=COM5
+enable_uwb_port2=False
+uwb_port2=None
+read_type=Tag Position
+network_scale=1 Network / 1 Listener
+
+GROUND_TRUTH_CONFIG
+------------------------------------------------------------
+enable_ground_truth=True
+ground_truth_type=OptiTrack
+opti_server_ip=192.168.1.187
+opti_local_client_ip=192.168.1.134
+gps_rtk_topic=/gps/rtk
+gps_rtk_ros_master=http://localhost:11311
+gps_rtk_frame=map
+
+ROUTING_CONFIG
+------------------------------------------------------------
+send_data_to_matlab=True
+send_data_to_ros=False
+control_robots=False
+filter_target=MATLAB Filter
+matlab_host=127.0.0.1
+matlab_settings_port=5004
+matlab_uwb_port=5005
+matlab_gt_port=5006
