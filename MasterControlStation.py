@@ -20,6 +20,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog
 from datetime import datetime
 import queue
+import csv
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -78,6 +79,13 @@ class MasterControlApp:
         self.current_session_name = None
         self.current_session_dir = None
         self.measurement_running = False
+
+        # Measurement window timing.
+        self.logging_start_time = None
+        self.measurement_start_time = None
+        self.measurement_stop_time = None
+        self.measurement_active = False
+        self.measurement_window_path = None
 
         # Store the latest values that came from the sensor scripts.
         self.system_state = {
@@ -150,6 +158,7 @@ class MasterControlApp:
         self.rep_name = tk.StringVar(value="UWB_Measurement_Default")
         self.rep_notes = tk.StringVar(value="None")
         self.rep_show_anchors = tk.BooleanVar(value=True)
+        self.rep_use_measurement_window = tk.BooleanVar(value=True)
 
     # Creates and stores the Tkinter variables used in the UWB Configuration Tab
     # Initializes an empty list to hold module data and creates Tkinter variables corresponding to the properties
@@ -215,6 +224,7 @@ class MasterControlApp:
                 self.rep_name.set(data.get("rep_name", "UWB_Measurement_Default"))
                 self.rep_notes.set(data.get("rep_notes", "None"))
                 self.rep_show_anchors.set(data.get("rep_show_anchors", True))
+                self.rep_use_measurement_window.set(data.get("rep_use_measurement_window", True))
 
             except Exception as e:
                 print(f"Could not load logger settings: {e}")
@@ -257,7 +267,8 @@ class MasterControlApp:
 
             "rep_name": self.rep_name.get(),
             "rep_notes": self.rep_notes.get(),
-            "rep_show_anchors": self.rep_show_anchors.get()
+            "rep_show_anchors": self.rep_show_anchors.get(),
+            "rep_use_measurement_window": self.rep_use_measurement_window.get()
         }
 
         try:
@@ -357,15 +368,23 @@ class MasterControlApp:
                      state="readonly", width=24).grid(row=3, column=1, sticky="w", pady=2)
 
         # 3. Controls
-        control_frame = tk.Frame(left_pane, pady=10)
-        control_frame.pack()
+        control_frame = tk.LabelFrame(left_pane, text="Measurement Controls", padx=10, pady=10)
+        control_frame.pack(fill=tk.X, pady=5)
 
-        self.start_btn = tk.Button(control_frame, text="Start Logging", command=self.start_logging,
-                                   bg="green", fg="white", width=15)
+        self.start_btn = tk.Button(control_frame,text="Start Logging",command=self.start_logging,bg="green",
+            fg="white",width=15)
         self.start_btn.pack(side=tk.LEFT, padx=5)
 
-        self.stop_btn = tk.Button(control_frame, text="Stop Logging", command=self.stop_logging,
-                                  bg="red", fg="white", state=tk.DISABLED, width=15)
+        self.measure_start_btn = tk.Button(control_frame,text="Start Measuring",command=self.mark_measurement_start,
+            bg="#0052cc",fg="white",state=tk.DISABLED,width=15)
+        self.measure_start_btn.pack(side=tk.LEFT, padx=5)
+
+        self.measure_stop_btn = tk.Button(control_frame,text="Stop Measuring",command=self.mark_measurement_stop,
+            bg="#ff9900",fg="black",state=tk.DISABLED,width=15)
+        self.measure_stop_btn.pack(side=tk.LEFT, padx=5)
+
+        self.stop_btn = tk.Button(
+            control_frame,text="Stop Logging",command=self.stop_logging,bg="red",fg="white",state=tk.DISABLED,width=15)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
         # 4. Console
@@ -429,7 +448,18 @@ class MasterControlApp:
         }
 
         stop_event.clear()
+
+        self.logging_start_time = time.time()
+        self.measurement_start_time = None
+        self.measurement_stop_time = None
+        self.measurement_active = False
+        self.measurement_window_path = None
+
         self.measurement_running = True
+
+        self.measure_start_btn.config(state=tk.NORMAL)
+        self.measure_stop_btn.config(state=tk.DISABLED)
+
         self.log_thread = threading.Thread(target=self.run_master_process, daemon=True)
         self.log_thread.start()
 
@@ -441,10 +471,101 @@ class MasterControlApp:
     # -----------------------------------------------------------------------------------------------------------------
     def stop_logging(self):
         print("\n[MASTER] Shutdown initiated...")
+
+        # If the measurement was started but not stopped, stop it automatically.
+        if self.measurement_active:
+            self.mark_measurement_stop()
+
         stop_event.set()
         self.measurement_running = False
+
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
+        self.measure_start_btn.config(state=tk.DISABLED)
+        self.measure_stop_btn.config(state=tk.DISABLED)
+
+    # Triggered when the user clicks "Start Measuring"
+    # This stores the absolute PC timestamp at which the useful measurement starts.
+    # -----------------------------------------------------------------------------------------------------------------
+    def mark_measurement_start(self):
+        if not self.measurement_running:
+            print("[MEASUREMENT] Cannot start measuring. Logging is not running.")
+            return
+
+        if self.current_session_dir is None or self.current_session_name is None:
+            print("[MEASUREMENT] Cannot start measuring yet. Session folder is not ready.")
+            return
+
+        self.measurement_start_time = time.time()
+        self.measurement_stop_time = None
+        self.measurement_active = True
+
+        self.write_measurement_window_file()
+
+        self.measure_start_btn.config(state=tk.DISABLED)
+        self.measure_stop_btn.config(state=tk.NORMAL)
+
+        print(f"[MEASUREMENT] Start marked at PC time: {self.measurement_start_time:.5f}")
+
+    # Triggered when the user clicks "Stop Measuring"
+    # This stores the absolute PC timestamp at which the useful measurement stops.
+    # -----------------------------------------------------------------------------------------------------------------
+    def mark_measurement_stop(self):
+        if not self.measurement_running:
+            print("[MEASUREMENT] Cannot stop measuring. Logging is not running.")
+            return
+
+        if self.measurement_start_time is None:
+            print("[MEASUREMENT] Cannot stop measuring. No start time was marked.")
+            return
+
+        self.measurement_stop_time = time.time()
+        self.measurement_active = False
+
+        self.write_measurement_window_file()
+
+        self.measure_start_btn.config(state=tk.NORMAL)
+        self.measure_stop_btn.config(state=tk.DISABLED)
+
+        print(f"[MEASUREMENT] Stop marked at PC time: {self.measurement_stop_time:.5f}")
+
+    # Writes the measurement window CSV into the current measurement folder.
+    # The report maker uses this file to crop the plotted/analyzed data.
+    # -----------------------------------------------------------------------------------------------------------------
+    def write_measurement_window_file(self):
+        if self.current_session_dir is None or self.current_session_name is None:
+            return
+
+        self.measurement_window_path = os.path.join(
+            self.current_session_dir,
+            f"[Log]_measurement_window_{self.current_session_name}.csv"
+        )
+
+        try:
+            with open(self.measurement_window_path, "w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Event", "PC_Timestamp", "Description", "DateTime"])
+
+                if self.measurement_start_time is not None:
+                    writer.writerow([
+                        "start",
+                        f"{self.measurement_start_time:.5f}",
+                        "Measurement started",
+                        datetime.fromtimestamp(self.measurement_start_time).strftime("%Y-%m-%d %H:%M:%S.%f")
+                    ])
+
+                if self.measurement_stop_time is not None:
+                    writer.writerow([
+                        "stop",
+                        f"{self.measurement_stop_time:.5f}",
+                        "Measurement stopped",
+                        datetime.fromtimestamp(self.measurement_stop_time).strftime("%Y-%m-%d %H:%M:%S.%f")
+                    ])
+
+            print(f"[MEASUREMENT] Window file written: {self.measurement_window_path}")
+
+        except Exception as e:
+            print(f"[MEASUREMENT] Failed to write measurement window file: {e}")
 
     # The core background process
     # Generates new timestamped folder for each session, writes a text file documenting chosen configuration, and
@@ -457,6 +578,11 @@ class MasterControlApp:
         base_dir = os.path.abspath("measurements")
         self.current_session_name = datetime.now().strftime("Session_%Y%m%d_%H%M%S")
         self.current_session_dir = os.path.join(base_dir, self.current_session_name)
+
+        self.measurement_window_path = os.path.join(
+            self.current_session_dir,
+            f"[Log]_measurement_window_{self.current_session_name}.csv"
+        )
 
         if not os.path.exists(self.current_session_dir):
             os.makedirs(self.current_session_dir)
@@ -701,7 +827,9 @@ class MasterControlApp:
         tk.Label(report_frame, text="Notes:").grid(row=2, column=0, sticky="w", pady=5)
         tk.Entry(report_frame, textvariable=self.rep_notes, width=40).grid(row=2, column=1, columnspan=2, pady=5, sticky="w")
 
-        tk.Checkbutton(report_frame, text="Show Anchors", variable=self.rep_show_anchors).grid(row=3, column=0, sticky="w", pady=10)
+        tk.Checkbutton(report_frame,text="Show Anchors",variable=self.rep_show_anchors).grid(row=3, column=0, sticky="w", pady=5)
+
+        tk.Checkbutton(report_frame,text="Use Measurement Window CSV",variable=self.rep_use_measurement_window).grid(row=4, column=0, sticky="w", pady=5)
 
         btn_frame = tk.Frame(report_frame, pady=20)
         btn_frame.grid(row=5, column=0, columnspan=3, sticky="w")
@@ -721,6 +849,7 @@ class MasterControlApp:
                 'name': self.rep_name.get(),
                 'notes': self.rep_notes.get(),
                 'show_anchors': self.rep_show_anchors.get(),
+                'use_measurement_window': self.rep_use_measurement_window.get(),
                 'save_pdf': False,
                 'save_pngs': False
             }

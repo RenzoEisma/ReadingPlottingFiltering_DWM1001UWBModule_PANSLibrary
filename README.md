@@ -368,17 +368,11 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 -----------------------------------------------------------------------------------------------------------------------
 
 General code cleanup and bugs
-- Make GUI updating easier if possible.
-- Add a way to run the Python program only for logging.
 - Add compensation for data delay.
-
-GUI improvements
-- Make the GUI full screen.
-- Show more live data in the GUI on the right side bar
 
 Filtering and sensor fusion
 - Prepare code for accelerometer fusion. Use accelerometer data from robots via ROS.
-- Triangulate position from raw distances with kalman filter
+- Triangulate position from raw distances with kalman filter (can only be received from custom PCB)
 - UWB does not provide angle, but angle is needed.
   - The angle can be taken from the robot topic.
   - Or the angle can be calculated from the known position and the change in position over time.
@@ -410,8 +404,7 @@ ROS integration
 Documentation
 - Add an explanation in readme for why matplotlib
 - Add an explanation in readme for the use of threads with live visualization.
-
-
+- Make reprogramming or adding features easy for new people
 
 [6.2] COMPARISONREPORTMAKER
 - Begin en einde van meting af trimmen
@@ -426,7 +419,22 @@ Note: Offset is now calculated in the following way
     - opti center in matlab is same as uwb center as it is already converted
 
 
+software framework stuff for documentation.
 
+Describe what it is, how it works. Reference the manual / read me.
+Object oriented programming benoemen in software stukje
+- Waarom heb ik voor python gekozen en waarom gebruik ik niet AI. En welke delen van het programma zijn nice to have en welke zijn echt nodig
+	- Naast python ook matlab gebruik omdat daar al code van was en de rest in python omdat dat gebruiksvriendelijker is
+	- Meeste dingen zijn echt nodig
+		- Logging pagina: Ik moet veel metingen doen, dit bespaart veel tijd
+		- over het algemeen is het ook iets dat gebruikt moet gaan worden door anderen
+		- Meetrapporten voor de paper
+		- App vervangen omdat het niet veel werk was en dat zorgt ervoor dat je niet een aparte app hoeft te installeren. Iets professioneler voor laten zien buiten het lab
+		- Matlab filter en matlab robot control…
+		- ROS…
+punten die er in moeten:
+- Probleem in verslag zetten van matlab versie
+•	Toolbox problemen, versie met python problemen en cisco problemen
 
 -----------------------------------------------------------------------------------------------------------------------
 9. VERSION CHANGES

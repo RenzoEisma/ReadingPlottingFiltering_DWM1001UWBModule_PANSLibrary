@@ -1,9 +1,7 @@
 = elke dag:
 = 
-= Berichten: 
-= - Bericht Daniel:
-= 	- Hey Daniel, you were talking about an accelerometer test a while ago. I have more time now. I was already planning to fuse accelerometer with uwb data but if you know things i could use that would = =	be helpful. I don't have 	time to go very in depth but i can use it to get higher accuracy on the uwb system.
-= 	- Hey Daniel, this is Renzo. Last week you were talking about fusing accelerometer and IMU data for the UWB. I have almost finished my PCB design and then afterwards I will have time to work on = = = = =	filters and related things 	for the UWB setup. I am curious what you wanted to talk about.
+= - Bericht Daniel: Hey Daniel, you were talking about an accelerometer test a while ago. I have more time now. I was already planning to fuse accelerometer with uwb data but if you know
+= things i could use that would be helpful. I don't have time to go very in depth but i can use it to get higher accuracy on the uwb system.
 = 
 = - hendrik mail afwachten
 = 
@@ -18,96 +16,61 @@
 ==================================================================================================================
 
 
-software framework stuff for documentation.
-
-Describe what it is, how it works. Reference the manual / read me.
-Object oriented programming benoemen in software stukje
-- Waarom heb ik voor python gekozen en waarom gebruik ik niet AI. En welke delen van het programma zijn nice to have en welke zijn echt nodig
-	- Voor python gekozen omdat eerder gebruikt. AI is gebruikt maar ook met AI is het een hele hoop zelf uitvogelen. Misschien had het meer kunnen helpen als ik iets als opencode of visualstudio + GPT had gebruikt
-	- Naast python ook matlab gebruik omdat daar al code van was en de rest in python omdat dat gebruiksvriendelijker en in mijn ervaring krachtiger is
-	- Meeste dingen zijn echt nodig
-		- Logging pagina: Ik moet veel metingen doen, dit bespaart veel tijd
-		- over het algemeen is het ook iets dat gebruikt moet gaan worden door anderen
-		- Meetrapporten voor de paper
-		- App vervangen omdat het niet veel werk was en dat zorgt ervoor dat je niet een aparte app hoeft te installeren. Iets professioneler voor laten zien buiten het lab
-		- Matlab filter en matlab robot control…
-		- ROS…
-punten die er in moeten:
-- Probleem in verslag zetten van matlab versie
-•	Toolbox problemen, versie met python problemen en cisco problemen
+vrijdag:
 
 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-donderdag
-
-
-
-
-- anchors maken voor UWB tests
-	- anchors printen die de uwb modules van de muur af doen
-	- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
-	- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
-
-nieuwe programma testen
-- kijken of ik meer dan 4 anchors uit kan lezen met distances
-	- eers
+Python Programma afmaken:
 - twee tags samenvoegen, maar de 2 netwerk structuur moet er nog bij
-- triangulation basis doen
+- uwb_sensor script opschonen
 
 
 
-- Gesprek Mario voorbereiden
-	- zeggen wanneer ik presentatie heb
-	- mijn planning geven
-	- ik heb documentatie al af, alleen meer tests en paper schrijven moeten nog
-	- presentatie in die week is niet mogelijk
-
-- Als mario die hele week niet kan dan moet ik na de manaus vakantie presenteren. Het probleem hiermee is dat als ik het niet haal ik het niet meer kan fixen. Johannes vragen over feedback hierover. En vragen of hij denkt dat mijn resultaten goed genoeg zijn om het afstuderen te halen. Als dat niet zo is zou ik meer documentatie moeten gaan doen
-
-- moet met tag verbinden om individuele distances te lezen
-
-- pans documentation opslaan
-- paper pans opslaan
 
 
+
+Bezig met ros / Matlab:
+- filter script doorkijken en alleen filters doen die echt nodig zijn
+- Mastercontrol script doorkijken
+- standaard figuur 8 programmeren voor limo
+- standaard figuur 8 met op en neer programmeren voor Bebop2
+- 
+
+
+
+PCB's bekijken
+
+
+
+Beetje met onderzoek van zaterdag alvast bezig.
+- gewoon onderzoek document aanvullen en bronnen zoeken.
+
+
+meet plannen netjes maken
+
+
+
+
+
+
+Persoonlijk:
 - kamers
 	- bericht funest
 	- bericht aanpassen kamer aanmeld mail en foto's toevoegen
 	- kijken naar kamernet / die andere
 	- kijken naar studio in enschede
 - tattoeages
-- tinder bericht die ene meid
-- bericht dhl
+- tinder bericht meer meiden
+- bericht dhl (bericht veranderen naar drie weken achter elkaar)
 - kijken klm vlucht verplaatsen
 	- ... extra geld (bellen met klm)
 	- verplaatsen naar 28 juni of zoiets
+- fantasy wk 2026 groep aanmaken
+- geld op een wedstrijd zetten?
 
 
 
 
 
-
-
-
----------------------------------------------------------------------------------------------------------
-
-
-vrijdag
-
-- kijken naar mogelijke presentatie datums manaus. Afhankelijk van Sander zijn gesprek straks
-	- 3de week: ga niet halen
-	- 17e in 4e week: fantastisch (Mario kan waarschijnlijk niet)
-	- avond in 4e week: fantastisch (Mario kan waarschijnlijk niet, alleen in avond)
-	- ergens in manaus week: niet fantastisch
-	- uitstellen naar na manaus week: niet fantastisch
-
-Eerste base test doen
-
-uwb anchors op bovenkant bureaus neerzetten en met de stick method meten. Kijken of hoogte helpt
-
-
-- bezig met ros
 
 
 
@@ -116,6 +79,10 @@ uwb anchors op bovenkant bureaus neerzetten en met de stick method meten. Kijken
 
 
 zaterdag
+- preciese model van tripods (wf wt3130) in verslag zetten en noemen hoe alles aangepast kan worden
+- Research:
+	- kijken naar de forums om te zien hoe je firmware kan herprogrammeren
+	- forums opslaan in bronnen
 - the research document has a lot of work to do, especially citing sources 
 	- omschrijven dat ik met optitrack de anchor coordinaten kan meten in het lab en dat ik dan met het mat die posities kan behouden en accurate anchor posities kan hebben in het onderzoek document
 	- hardware herprogrammeren ergens omschrijven hoe het in theorie zou moeten
@@ -127,14 +94,39 @@ zaterdag
 ---------------------------------------------------------------------------------------------------------
 
 
+
+
+
 zondag
+- Eerste base test doen
+
+
+- kijken of plek van tag in anchor systeem op sommige plekken accurater is dan anderen
+
+
+uwb anchors op bovenkant bureaus neerzetten en met de stick method meten. Kijken of hoogte helpt
+
 - Fotos maken van alles dat ik heb gemaakt tot nu toe inclusief UWB sensor en robots
 - GoPro werkend krijgen
 
 - onderzoek doen naar de crazyflie pcb en of ik die firmware zelf ook kan gebruiken
 
+- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
+- anchors printen die de uwb modules van de muur af doen
+- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
 
+Bij testen toevoegen:
+- wat voor invloed heeft twee tags bij elkaar
+	- test door listener 1 te meten met en zonder andere tag ernaast
+	- conclusie trekken of dit accuraat genoeg is en of 2 tags een goed idee is
+	The antennas being only 3.35 cm apart can influence each other slightly. The DWM1001C uses UWB channel 5 around 6.5 GHz, where the wavelength is roughly:
+		wavelength = speed of light / frequency
+		wavelength = 3e8 / 6.5e9
+		wavelength ≈ 0.046 m = 4.6 cm
+	So the antennas are less than one wavelength apart. That means they are close enough that there can be some mutual coupling or radiation pattern influence.
+	But shouldnt do too much
 
+- bericht daniel
 
 
 
@@ -147,12 +139,25 @@ zondag
 
 =========================================================================================================
 
+Alles met PCB
+- ruyther voor soldeerbout vragen
+- pcb solderen
+- programmer solderen
+- firmware uploaden
+- pcb led blink
+- pcb wifi
+- triangulation basis doen in pycharm (kan niet, want kan niet individuele afstanden zien, alleen via wifi)
+- The ESP32-C6 does not directly support ROS 1 as a native ROS node. It is better suited for micro-ROS, which belongs to ROS 2. In a ROS 1 setup, the practical solution is to let the ESP32-C6 send data over Wi-Fi using UDP/TCP or serial, and then use a ROS 1 node on the Linux PC to translate that data into ROS topics.
+- behuizing afmaken en 3d printen
+
+
+
 - besluiten of ik het ga halen of of ik vakantie moet cancelen. Dan moet dat deze week geregeld worden ivm afzegtijd vakantie ding
 - gesprek met johannes
 
+
+
 nog 2 weken
-- hopelijk maar twee dagen nemen om de pcbs te solderen en testen en klaar te zetten
-- behuizing 3d printen
 - verder met testen en accuraatheid verbeteren. Hopelijk ook een keer buiten testen en alles op een pc en laptop zetten.
 
 maandag
@@ -166,12 +171,7 @@ zaterdag
 zondag
 
 
-The ESP32-C6 does not directly support ROS 1 as a native ROS node. It is better suited for micro-ROS, which belongs to ROS 2. In a ROS 1 setup, the practical solution is to let the ESP32-C6 send data over Wi-Fi using UDP/TCP or serial, and then use a ROS 1 node on the Linux PC to translate that data into ROS topics.
-
-
-
-
-
+- filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
 
 
 
@@ -185,10 +185,11 @@ The ESP32-C6 does not directly support ROS 1 as a native ROS node. It is better 
 
 nog 1 week
 
-
+- laatste tests afronden
 - mario beoordelingsformulier laten invullen
 - paper maken en handleidingen schrijven
 - evaluatieformulier google sheets invullen en inleveren
+- mastercontrol script makkelijk herprogrammeerbaar maken voor nieuwe mensen met guide en de andere scripts
 
 
 maandag
@@ -202,7 +203,7 @@ zaterdag
 
 ---------------------------------------------------------------------------------------------------------
 
-zondag:
+zaterdag:
 
 alles met einddocument
 - Make sure every document name in the report matches the actual file name exactly.

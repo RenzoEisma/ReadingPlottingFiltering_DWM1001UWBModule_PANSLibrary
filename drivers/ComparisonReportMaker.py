@@ -71,7 +71,7 @@ DATASETS = [
         'is_ground_truth': False,
         'offset': [0, 0, 0],
         'multiplier': [1.0, 1.0, 1.0],
-        'time_offset': -0.5,
+        'time_offset': 0,
     },
     {
         'prefix': '[Log]_uwbFiltered_listener1',
@@ -81,7 +81,7 @@ DATASETS = [
         'is_ground_truth': False,
         'offset': [0, 0, 0],
         'multiplier': [1.0, 1.0, 1.0],
-        'time_offset': -0.5,
+        'time_offset': 0,
     },
     {
         'prefix': '[Log]_uwbFilteredMatlab_listener1',
@@ -91,7 +91,7 @@ DATASETS = [
         'is_ground_truth': False,
         'offset': [0, 0, 0],
         'multiplier': [1.0, 1.0, 1.0],
-        'time_offset': -0.5,
+        'time_offset': 0,
     },
 
     # UWB network 2
@@ -111,6 +111,8 @@ DATASETS = [
 # 3. Features Configuration
 DT = 0.1  # Measurement interval (10Hz = 0.1 seconds)
 SHOW_ANCHORS = True  # Toggle to show/hide UWB anchors on the map
+USE_MEASUREMENT_WINDOW = True
+MEASUREMENT_WINDOW_PREFIX = "[Log]_measurement_window"
 
 
 # =====================================================================================================================
@@ -141,8 +143,17 @@ class SettingsDialog(tk.Toplevel):
             row=2, column=0, sticky="w", padx=10
         )
 
+        self.use_measurement_window_var = tk.BooleanVar(value=USE_MEASUREMENT_WINDOW)
+        tk.Checkbutton(
+            self,
+            text="Use Measurement Window CSV",
+            variable=self.use_measurement_window_var
+        ).grid(
+            row=3, column=0, sticky="w", padx=10
+        )
+
         tk.Button(self, text="Start Analysis", command=self.on_submit, width=20, bg="lime").grid(
-            row=3, column=0, columnspan=2, pady=15
+            row=4, column=0, columnspan=2, pady=15
         )
 
     def on_submit(self):
@@ -150,6 +161,7 @@ class SettingsDialog(tk.Toplevel):
             'name': self.name_entry.get(),
             'notes': self.notes_entry.get(),
             'show_anchors': self.show_anchors_var.get(),
+            'use_measurement_window': self.use_measurement_window_var.get(),
         }
         self.destroy()
 
@@ -176,6 +188,83 @@ def get_latest_file(prefix, folder_path):
 
     # Return the most recent one
     return max(matching_files)
+
+
+# Loads the measurement start/stop timestamps written by MasterControlStation.
+# The timestamps are absolute PC timestamps, just like the sensor CSV files.
+# ---------------------------------------------------------------------------------------------------------------------
+def load_measurement_window(folder_path):
+    window_file = get_latest_file(MEASUREMENT_WINDOW_PREFIX, folder_path)
+
+    if window_file is None:
+        print("[REPORT] No measurement window file found. Full dataset will be used.")
+        return None, None
+
+    try:
+        df = pd.read_csv(window_file)
+
+        if "PC_Timestamp" in df.columns:
+            time_col = "PC_Timestamp"
+        elif "Time" in df.columns:
+            time_col = "Time"
+        else:
+            print("[REPORT] Measurement window file has no PC_Timestamp or Time column. Full dataset will be used.")
+            return None, None
+
+        df["Event"] = df["Event"].astype(str).str.lower()
+        df[time_col] = pd.to_numeric(df[time_col], errors="coerce")
+        df = df.dropna(subset=[time_col])
+
+        start_rows = df[df["Event"] == "start"]
+        stop_rows = df[df["Event"] == "stop"]
+
+        if start_rows.empty or stop_rows.empty:
+            print("[REPORT] Measurement window file is incomplete. Full dataset will be used.")
+            return None, None
+
+        window_start = float(start_rows.iloc[0][time_col])
+        window_stop = float(stop_rows.iloc[-1][time_col])
+
+        if window_stop <= window_start:
+            print("[REPORT] Measurement window stop time is before start time. Full dataset will be used.")
+            return None, None
+
+        print(f"[REPORT] Measurement window loaded:")
+        print(f"         Start: {window_start:.5f}")
+        print(f"         Stop : {window_stop:.5f}")
+
+        return window_start, window_stop
+
+    except Exception as e:
+        print(f"[REPORT] Could not read measurement window file. Error: {e}")
+        return None, None
+
+
+# Crops one dataset to the measurement window.
+# This should be called after coordinate offsets and time_offset are applied.
+# ---------------------------------------------------------------------------------------------------------------------
+def apply_measurement_window(df, window_start, window_stop, label):
+    if df is None or df.empty:
+        return df
+
+    if window_start is None or window_stop is None:
+        return df
+
+    before_count = len(df)
+
+    df = df[
+        (df["pc_timestamp"] >= window_start) &
+        (df["pc_timestamp"] <= window_stop)
+    ].copy()
+
+    after_count = len(df)
+
+    print(f"[REPORT] {label}: kept {after_count}/{before_count} samples inside measurement window.")
+
+    if df.empty:
+        print(f"[REPORT] WARNING: {label} has no samples inside the measurement window.")
+
+    return df.reset_index(drop=True)
 
 
 # This function takes a file path and reads the CSV data using the pandas library.
@@ -873,7 +962,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 # interactive dashboard generator and attempts to rename the original folder to match the finalized report name.
 # =====================================================================================================================
 def run_dashboard(session_folder=None, skip_popup=False):
-    global REPORT_INFO, SHOW_ANCHORS
+    global REPORT_INFO, SHOW_ANCHORS, USE_MEASUREMENT_WINDOW
 
     # ONLY create a new Tkinter root if we are running completely standalone
     root = None
@@ -900,6 +989,7 @@ def run_dashboard(session_folder=None, skip_popup=False):
             REPORT_INFO['name'] = config.get('name', REPORT_INFO['name'])
             REPORT_INFO['notes'] = config.get('notes', REPORT_INFO['notes'])
             SHOW_ANCHORS = config.get('show_anchors', SHOW_ANCHORS)
+            USE_MEASUREMENT_WINDOW = config.get('use_measurement_window', USE_MEASUREMENT_WINDOW)
             print("Successfully loaded report settings from JSON.")
 
         except Exception as e:
@@ -918,6 +1008,15 @@ def run_dashboard(session_folder=None, skip_popup=False):
             REPORT_INFO['name'] = dialog.result['name']
             REPORT_INFO['notes'] = dialog.result['notes']
             SHOW_ANCHORS = dialog.result['show_anchors']
+            USE_MEASUREMENT_WINDOW = dialog.result['use_measurement_window']
+
+    window_start = None
+    window_stop = None
+
+    if USE_MEASUREMENT_WINDOW:
+        window_start, window_stop = load_measurement_window(session_folder)
+    else:
+        print("[REPORT] Measurement window cropping disabled.")
 
     loaded_data = {}
     gt_key = None
@@ -954,6 +1053,12 @@ def run_dashboard(session_folder=None, skip_popup=False):
         df['pc_timestamp'] += t_off
 
         lbl = ds['label']
+
+        df = apply_measurement_window(df, window_start, window_stop, lbl)
+
+        if df is None or df.empty:
+            continue
+
         loaded_data[lbl] = df
 
         if ds.get('is_ground_truth'):
