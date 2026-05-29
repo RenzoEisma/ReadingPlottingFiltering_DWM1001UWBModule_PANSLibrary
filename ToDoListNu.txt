@@ -18,22 +18,24 @@
 
 vrijdag:
 
-
-Python Programma afmaken:
-- twee tags samenvoegen, maar de 2 netwerk structuur moet er nog bij
-- uwb_sensor script opschonen
-
-
-
-
+uwb_sensor program
+- TWO_TAGS_SWAPPED_ON_HOLDER = False
 
 
 Bezig met ros / Matlab:
 - filter script doorkijken en alleen filters doen die echt nodig zijn
+- ruimte maken voor uwb sensor
+- ruimte maken voor optitrack sensor
 - Mastercontrol script doorkijken
 - standaard figuur 8 programmeren voor limo
 - standaard figuur 8 met op en neer programmeren voor Bebop2
-- 
+
+convert uwb to drone center in matlab
+
+This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this is okay if the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
+
+
+
 
 
 
@@ -44,13 +46,24 @@ PCB's bekijken
 Beetje met onderzoek van zaterdag alvast bezig.
 - gewoon onderzoek document aanvullen en bronnen zoeken.
 
-
-meet plannen netjes maken
-
+contact mario wanneer kan hij presentatie en hendrik
 
 
 
 
+how to get support for other methods than TWR
+
+
+
+- anchor printen die verder van muur staat en anchors op muur gewoon goed meten
+
+
+
+
+
+
+
+nederland shirt kopen
 
 Persoonlijk:
 - kamers
@@ -75,6 +88,7 @@ Persoonlijk:
 
 
 
+
 ---------------------------------------------------------------------------------------------------------
 
 
@@ -90,6 +104,7 @@ zaterdag
 - Argument voor waarom UWB PANS en niet Bitcraze:
 	- Bitcraze niet deel van opdracht
 	- Het moet alleen goed genoeg zijn voor demos. Voor echte metingen wordt of optitrack of GPS RTK gebruikt
+- meet plannen netjes maken
 
 ---------------------------------------------------------------------------------------------------------
 

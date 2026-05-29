@@ -1,15 +1,25 @@
 # ===================== PROGRAM_INFO ==================================================================================
 """
 Author: Renzo Eisma
-Date: 04/2026
-Description: UWB Sensor Measurement with Dynamic Data Routing
+Date: 05/2026
+Description:
+    UWB listener logger for the DWM1001 / MDEK1001 PANS setup.
 
-This script is responsible for reading UWB data from one or two listener modules.
-It writes the final UWB position to a CSV file, sends live UWB data to MATLAB over UDP,
-and sends live UWB data to MasterControlStation for visualization.
+    Current supported modes:
+    - One listener, tag position reading
+    - Two listeners, two physical tags, midpoint/fusion of both tag positions
 
-MasterControlStation is responsible for session/settings packets.
-This script is responsible only for UWB measurement data.
+    Future reserved modes:
+    - One listener, distance/range reading after firmware is reprogrammed
+    - Two listeners, distance/range reading after firmware is reprogrammed
+
+    MasterControlStation is responsible for session/settings packets.
+    This script is responsible for UWB measurement data only:
+    - reading UWB listener serial data
+    - writing final UWB position CSVs
+    - writing diagnostic/error CSVs
+    - sending live UWB data to MATLAB
+    - sending live UWB data to MasterControlStation for the live plot
 """
 # =====================================================================================================================
 
@@ -23,34 +33,80 @@ import csv
 import os
 import re
 import socket
+import math
 from datetime import datetime
 
 import numpy as np
 
 
 # =====================================================================================================================
-# UDP CONFIGURATION
+# DEFAULT SETTINGS
 # =====================================================================================================================
-UDP_IP = "127.0.0.1"      # Default localhost. Can be overwritten by config from MasterControlStation.
-UDP_PORT_UWB = 5005       # UWB live data port for MatlabMasterControl.
+UDP_IP = "127.0.0.1"
+UDP_PORT_UWB = 5005
+
+DEFAULT_BAUD = 115200
+DEFAULT_POSITION_COMMAND = "lec"
+DEFAULT_COMBINE_WINDOW = 0.5
+
+# Translation offsets used to align both UWB network coordinate frames.
+# aligned_position = raw_position + listener_offset
+# If both networks already use the same origin and axes, keep these at zero.
+DEFAULT_LISTENER_OFFSETS = {
+    1: [0.0, 0.0, 0.0],
+    2: [0.0, 0.0, 0.0]
+}
+
+# Position of each physical tag relative to the wanted centerpoint between the two tags.
+# Centerpoint is the middle of the Tag holder and the top point the two MDEK's is the Z centerpoint
+# Unit: meters
+# Conversion used:
+# estimated_center = measured_tag_position - tag_offset_from_center
+
+# #For Two tag holder V3
+# TAG_OFFSET_A = [-0.085, -0.125, 0.013]
+# TAG_OFFSET_B = [0.085, 0.125, 0.013]
+
+# For Two tag holder V4
+TAG_OFFSET_A = [-0.0185, -0.125, 0.013]
+TAG_OFFSET_B = [0.0185, 0.125, 0.013]
+
+TWO_TAGS_SWAPPED_ON_HOLDER = False
+
+if TWO_TAGS_SWAPPED_ON_HOLDER:
+    DEFAULT_TAG_OFFSETS_FROM_CENTER = {
+        1: TAG_OFFSET_B,
+        2: TAG_OFFSET_A
+    }
+else:
+    DEFAULT_TAG_OFFSETS_FROM_CENTER = {
+        1: TAG_OFFSET_A,
+        2: TAG_OFFSET_B
+    }
+
+# For two physical tags, midpoint is the geometrically correct default.
+# Quality is still used for validity checks, output quality and optional fallback behaviour.
+# Change to "weighted" only if you intentionally want the better-quality tag to pull the result toward itself.
+DEFAULT_TWO_TAG_FUSION_METHOD = "midpoint"       # "midpoint" or "weighted"
+DEFAULT_MIN_VALID_QUALITY = 1.0
+DEFAULT_ALLOW_SINGLE_LISTENER_FALLBACK = True
 
 
 # =====================================================================================================================
-# HELPER FUNCTIONS
+# BASIC HELPERS
 # =====================================================================================================================
-
 # Checks whether a value can safely be converted to a float.
 # ---------------------------------------------------------------------------------------------------------------------
 def is_float(value):
     try:
-        float(value)
-        return True
+        value = float(value)
+        return not math.isnan(value) and not math.isinf(value)
     except (TypeError, ValueError):
         return False
 
 
-# Converts a quality value to a weight. This is used for combining two networks or weighting distance measurements.
-# The DWM1001 quality number is normally between 0 and 100. If no quality is available, weight 1 is used.
+# Converts a quality value to a fusion weight.
+# PANS quality is normally higher = better. Values <= 0 are treated as invalid/very weak.
 # ---------------------------------------------------------------------------------------------------------------------
 def quality_to_weight(quality):
     if quality is None:
@@ -61,10 +117,48 @@ def quality_to_weight(quality):
     except (TypeError, ValueError):
         return 1.0
 
-    # Keep the weight from becoming zero. This avoids divide-by-zero problems and still gives bad data a low weight.
-    return max(quality, 1.0) / 100.0
+    if math.isnan(quality) or math.isinf(quality):
+        return 0.0
+
+    return max(quality, 0.0) / 100.0
 
 
+# Safely converts [x, y, z] to a numpy vector.
+# ---------------------------------------------------------------------------------------------------------------------
+def to_vector(position):
+    return np.array(position, dtype=float)
+
+
+# Checks whether a parsed UWB position can be used.
+# ---------------------------------------------------------------------------------------------------------------------
+def is_valid_position(position, quality=None, min_quality=DEFAULT_MIN_VALID_QUALITY):
+    if position is None or len(position) < 3:
+        return False
+
+    try:
+        values = [float(position[0]), float(position[1]), float(position[2])]
+    except (TypeError, ValueError):
+        return False
+
+    if any(math.isnan(v) or math.isinf(v) for v in values):
+        return False
+
+    if quality is not None:
+        try:
+            q = float(quality)
+            if math.isnan(q) or math.isinf(q):
+                return False
+            if q < min_quality:
+                return False
+        except (TypeError, ValueError):
+            return False
+
+    return True
+
+
+# =====================================================================================================================
+# MATLAB / GUI OUTPUT FUNCTIONS
+# =====================================================================================================================
 # Sends the final UWB position packet to MATLAB.
 # Packet format:
 # timestamp,x,y,z,quality,listener_id,network_id,position_type
@@ -87,7 +181,6 @@ def send_uwb_udp(sock, matlab_host, matlab_port, result):
 
 
 # Sends the final UWB position to MasterControlStation for the live plot.
-# This uses the new dictionary format. MasterControlStation still supports the old tuple format too.
 # ---------------------------------------------------------------------------------------------------------------------
 def send_to_master_queue(data_queue, result):
     if data_queue is None:
@@ -113,7 +206,12 @@ def send_to_master_queue(data_queue, result):
         "metadata": {
             "listener_id": result.get("listener_id"),
             "network_id": result.get("network_id"),
-            "position_type": result.get("position_type")
+            "position_type": result.get("position_type"),
+            "fusion_mode": result.get("fusion_mode"),
+            "tag1_position": result.get("tag1_position"),
+            "tag2_position": result.get("tag2_position"),
+            "tag1_quality": result.get("tag1_quality"),
+            "tag2_quality": result.get("tag2_quality")
         }
     })
 
@@ -131,14 +229,76 @@ def log_error(error_writer, error_file, timestamp, port, listener_id, network_id
 # =====================================================================================================================
 # PARSING FUNCTIONS
 # =====================================================================================================================
+# Parses the CSV-style PANS listener position output.
+# Common example:
+# POS,0,4D18,-1.31,0.17,0.39,47,x01
+# ---------------------------------------------------------------------------------------------------------------------
+def parse_pos_csv_position(line):
+    if "POS" not in line:
+        return None
 
-# Extracts the estimated tag position from a DWM1001 'les' style line.
-# Example from PANS / DWM1001 shell output:
-# CD37[0.00,0.00,0.00]=2.80 ... est[1.90,1.96,0.15,91]
+    try:
+        data_part = line.split("POS", 1)[-1]
+        parts = [p.strip() for p in data_part.split(',') if p.strip()]
+
+        # Expected after split:
+        # parts = [index, tag_id, x, y, z, quality, checksum]
+        if len(parts) >= 6 and is_float(parts[2]) and is_float(parts[3]) and is_float(parts[4]):
+            quality = float(parts[5]) if is_float(parts[5]) else None
+
+            return {
+                "tag_id": parts[1],
+                "position": [float(parts[2]), float(parts[3]), float(parts[4])],
+                "quality": quality,
+                "position_type": "tag_position"
+            }
+
+    except Exception:
+        return None
+
+    return None
+
+
+# Parses compact listener output.
+# Example:
+# 0) 4CAD[-1.31,0.17,0.39,47,x0C]
+# ---------------------------------------------------------------------------------------------------------------------
+def parse_compact_listener_position(line):
+    match = re.search(
+        r"\)\s*(?P<tag_id>[0-9A-Fa-f]+)\[\s*"
+        r"(?P<x>-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(?P<y>-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(?P<z>-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(?P<quality>-?\d+(?:\.\d+)?)",
+        line
+    )
+
+    if not match:
+        return None
+
+    return {
+        "tag_id": match.group("tag_id"),
+        "position": [
+            float(match.group("x")),
+            float(match.group("y")),
+            float(match.group("z"))
+        ],
+        "quality": float(match.group("quality")),
+        "position_type": "compact_listener_position"
+    }
+
+
+# Parses the estimated tag position from a DWM1001 'les' style line.
+# This is mostly kept for compatibility/debugging.
+# Example:
+# est[1.90,1.96,0.15,91]
 # ---------------------------------------------------------------------------------------------------------------------
 def parse_est_position(line):
     match = re.search(
-        r"est\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]",
+        r"est\[\s*(-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(-?\d+(?:\.\d+)?)\s*,\s*"
+        r"(-?\d+(?:\.\d+)?)\s*\]",
         line
     )
 
@@ -148,123 +308,29 @@ def parse_est_position(line):
     x, y, z, quality = match.groups()
 
     return {
+        "tag_id": None,
         "position": [float(x), float(y), float(z)],
         "quality": float(quality),
         "position_type": "tag_position_est"
     }
 
 
-# Extracts the tag position from the CSV-style PANS output.
-# This parser is intentionally flexible because different firmware/settings can slightly change the exact output.
-# Example that the previous script handled:
-# POS,1,0A,1.23,2.34,0.85,91,...
-# ---------------------------------------------------------------------------------------------------------------------
-def parse_pos_csv_position(line):
-    if "POS" not in line:
-        return None
-
-    try:
-        # Keep only the part after POS. This also handles command echoes before POS.
-        data_part = line.split("POS", 1)[-1]
-        parts = [p.strip() for p in data_part.split(',') if p.strip()]
-
-        # Candidate layouts. The first candidate matches the current old script:
-        # parts = [index, tag_id, x, y, z, quality, ...]
-        candidates = [
-            (2, 3, 4, 5),
-            (3, 4, 5, 6),
-            (0, 1, 2, 3),
-            (1, 2, 3, 4)
-        ]
-
-        for ix, iy, iz, iq in candidates:
-            if len(parts) > iz and is_float(parts[ix]) and is_float(parts[iy]) and is_float(parts[iz]):
-                x = float(parts[ix])
-                y = float(parts[iy])
-                z = float(parts[iz])
-
-                quality = None
-                if len(parts) > iq and is_float(parts[iq]):
-                    quality = float(parts[iq])
-
-                return {
-                    "position": [x, y, z],
-                    "quality": quality,
-                    "position_type": "tag_position"
-                }
-
-    except Exception:
-        return None
-
-    return None
-
-
-# Parses anchor distance measurements from a DWM1001 'les' style line.
-# Example:
-# CD37[0.00,0.00,0.00]=2.80 1495[0.00,3.99,0.00]=2.74 ... est[1.90,1.96,0.15,91]
-#
-# Each returned measurement contains:
-# id, anchor_position, distance, weight
-# ---------------------------------------------------------------------------------------------------------------------
-def parse_anchor_distances_with_positions(line, quality=None):
-    measurements = []
-
-    # This matches anchor_id[x,y,z]=distance. Anchor IDs sometimes contain a space in copied terminal output.
-    pattern = re.compile(
-        r"(?P<id>[0-9A-Fa-f ]{1,10})\[\s*"
-        r"(?P<x>-?\d+(?:\.\d+)?)\s*,\s*"
-        r"(?P<y>-?\d+(?:\.\d+)?)\s*,\s*"
-        r"(?P<z>-?\d+(?:\.\d+)?)\s*\]\s*=\s*"
-        r"(?P<dist>-?\d+(?:\.\d+)?)"
-    )
-
-    for match in pattern.finditer(line):
-        anchor_id = match.group("id").replace(" ", "").strip()
-
-        # Avoid accidentally treating an empty/invalid id as a real anchor.
-        if not anchor_id:
-            anchor_id = f"anchor_{len(measurements) + 1}"
-
-        measurements.append({
-            "id": anchor_id,
-            "anchor_position": [
-                float(match.group("x")),
-                float(match.group("y")),
-                float(match.group("z"))
-            ],
-            "distance": float(match.group("dist")),
-            "weight": quality_to_weight(quality)
-        })
-
-    return measurements
-
-
-# Parses simple ANx,distance style values when they exist in the output. These do not contain anchor coordinates,
-# so they are not enough for custom triangulation. They are only used to detect why distance mode failed.
-# ---------------------------------------------------------------------------------------------------------------------
-def parse_distances_without_positions(line):
-    distances = []
-    parts = [p.strip() for p in line.split(',') if p.strip()]
-
-    for i in range(len(parts) - 1):
-        if parts[i].upper().startswith('AN') and is_float(parts[i + 1]):
-            distances.append({
-                "id": parts[i],
-                "distance": float(parts[i + 1])
-            })
-
-    return distances
-
-
 # Parses one UWB line in Tag Position mode.
 # ---------------------------------------------------------------------------------------------------------------------
 def parse_tag_position_line(line):
-    # Prefer the CSV-style POS output if available.
+    # Ignore command echoes and prompt-only lines.
+    stripped = line.strip().lower()
+    if stripped in ["lec", "les", "lep", "dwm>", "dwm> lec", "dwm> les", "dwm> lep"]:
+        return "ignore"
+
     pos_result = parse_pos_csv_position(line)
     if pos_result is not None:
         return pos_result
 
-    # Also support the 'les' style est[x,y,z,q] position.
+    compact_result = parse_compact_listener_position(line)
+    if compact_result is not None:
+        return compact_result
+
     est_result = parse_est_position(line)
     if est_result is not None:
         return est_result
@@ -272,103 +338,210 @@ def parse_tag_position_line(line):
     return None
 
 
-# Parses one UWB line in Tag Distances mode.
-# This mode requires anchor coordinates and distances, otherwise custom triangulation is not possible.
+# =====================================================================================================================
+# COORDINATE ALIGNMENT AND TWO-TAG FUSION
+# =====================================================================================================================
+# Applies a simple translation offset to align a listener/network coordinate frame.
 # ---------------------------------------------------------------------------------------------------------------------
-def parse_distance_line(line):
-    est_result = parse_est_position(line)
-    quality = est_result.get("quality") if est_result else None
+def apply_listener_offset(position, offset):
+    return (to_vector(position) + to_vector(offset)).tolist()
 
-    measurements = parse_anchor_distances_with_positions(line, quality=quality)
 
-    return {
-        "measurements": measurements,
-        "quality": quality,
-        "fallback_position": est_result
-    }
+# Converts a measured tag position to the estimated centerpoint position.
+# tag_offset_from_center is the known physical position of the tag relative to the wanted centerpoint.
+#
+# Example:
+# tag is 1 cm left of center: tag_offset_from_center = [-0.01, 0.0, 0.0]
+# center_estimate = measured_tag_position - [-0.01, 0.0, 0.0]
+# center_estimate = measured_tag_position + [0.01, 0.0, 0.0]
+# ---------------------------------------------------------------------------------------------------------------------
+def convert_tag_position_to_center_position(tag_position, tag_offset_from_center):
+    tag_position = to_vector(tag_position)
+    tag_offset_from_center = to_vector(tag_offset_from_center)
+
+    center_position = tag_position - tag_offset_from_center
+
+    return [
+        float(center_position[0]),
+        float(center_position[1]),
+        float(center_position[2])
+    ]
+
+
+# Returns the freshest valid listener results inside the combine window.
+# ---------------------------------------------------------------------------------------------------------------------
+def get_fresh_listener_results(latest_positions, now, combine_window):
+    fresh_results = {}
+
+    for listener_id, result in latest_positions.items():
+        if result is None:
+            continue
+
+        if abs(now - result["timestamp"]) <= combine_window:
+            fresh_results[listener_id] = result
+
+    return fresh_results
+
+
+# Fuses two physical tags into one raw UWB centerpoint.
+#
+# Method:
+# - each listener/tag position is first converted to an estimated centerpoint position
+# - if both tags are valid, the two centerpoint estimates are fused
+# - the fusion is quality-weighted, so the tag with better quality has more influence
+# - if only one tag is valid, its converted centerpoint estimate is used
+# - if no tags are valid, no output is produced
+# ---------------------------------------------------------------------------------------------------------------------
+def fuse_two_listener_tag_positions(
+        latest_positions,
+        current_timestamp,
+        combine_window,
+        fusion_method=DEFAULT_TWO_TAG_FUSION_METHOD,
+        allow_single_listener_fallback=DEFAULT_ALLOW_SINGLE_LISTENER_FALLBACK):
+
+    fresh = get_fresh_listener_results(latest_positions, current_timestamp, combine_window)
+
+    tag1 = fresh.get(1)
+    tag2 = fresh.get(2)
+
+    # -------------------------------------------------------------
+    # Convert available tag positions to centerpoint estimates
+    # -------------------------------------------------------------
+    tag1_center_position = None
+    tag2_center_position = None
+
+    if tag1 is not None:
+        tag1_center_position = convert_tag_position_to_center_position(
+            tag1["aligned_position"],
+            DEFAULT_TAG_OFFSETS_FROM_CENTER.get(1, [0.0, 0.0, 0.0])
+        )
+
+    if tag2 is not None:
+        tag2_center_position = convert_tag_position_to_center_position(
+            tag2["aligned_position"],
+            DEFAULT_TAG_OFFSETS_FROM_CENTER.get(2, [0.0, 0.0, 0.0])
+        )
+
+    # -------------------------------------------------------------
+    # Both listener/tag positions are available
+    # -------------------------------------------------------------
+    if tag1_center_position is not None and tag2_center_position is not None:
+        p1 = to_vector(tag1_center_position)
+        p2 = to_vector(tag2_center_position)
+
+        q1 = tag1.get("quality")
+        q2 = tag2.get("quality")
+
+        w1 = quality_to_weight(q1)
+        w2 = quality_to_weight(q2)
+
+        # Quality-weighted centerpoint fusion.
+        # Example:
+        # q1 = 50, q2 = 100
+        # result = 33% tag1 center estimate + 66% tag2 center estimate
+        if (w1 + w2) > 0:
+            fused_position = ((w1 * p1) + (w2 * p2)) / (w1 + w2)
+            fusion_mode = "two_tag_center_quality_weighted"
+        else:
+            fused_position = (p1 + p2) / 2.0
+            fusion_mode = "two_tag_center_midpoint_no_quality"
+
+        quality_values = [q for q in [q1, q2] if q is not None]
+        fused_quality = float(np.mean(quality_values)) if quality_values else None
+
+        return {
+            "timestamp": current_timestamp,
+            "position": [float(fused_position[0]), float(fused_position[1]), float(fused_position[2])],
+            "quality": fused_quality,
+            "listener_id": 0,
+            "network_id": 0,
+            "position_type": "two_listener_fused_center_position",
+            "fusion_mode": fusion_mode,
+
+            # Centerpoint estimates after correcting for physical tag placement
+            "tag1_position": tag1_center_position,
+            "tag2_position": tag2_center_position,
+
+            # Original aligned UWB tag positions before physical tag offset correction
+            "tag1_aligned_position": tag1.get("aligned_position"),
+            "tag2_aligned_position": tag2.get("aligned_position"),
+
+            # Original raw listener positions before network/listener coordinate offset
+            "tag1_raw_position": tag1.get("raw_position"),
+            "tag2_raw_position": tag2.get("raw_position"),
+
+            "tag1_quality": q1,
+            "tag2_quality": q2,
+            "tag1_id": tag1.get("tag_id"),
+            "tag2_id": tag2.get("tag_id")
+        }
+
+    # -------------------------------------------------------------
+    # Fallback if only one listener/tag is available
+    # -------------------------------------------------------------
+    if allow_single_listener_fallback:
+        fallback = tag1 if tag1_center_position is not None else tag2
+        fallback_center_position = tag1_center_position if tag1_center_position is not None else tag2_center_position
+
+        if fallback is not None and fallback_center_position is not None:
+            listener_id = fallback.get("listener_id")
+
+            return {
+                "timestamp": current_timestamp,
+                "position": fallback_center_position,
+                "quality": fallback.get("quality"),
+                "listener_id": listener_id,
+                "network_id": fallback.get("network_id"),
+                "position_type": f"two_listener_center_fallback_l{listener_id}",
+                "fusion_mode": "single_listener_center_fallback",
+
+                # Centerpoint estimates after correcting for physical tag placement
+                "tag1_position": tag1_center_position,
+                "tag2_position": tag2_center_position,
+
+                # Original aligned UWB tag positions before physical tag offset correction
+                "tag1_aligned_position": tag1.get("aligned_position") if tag1 is not None else None,
+                "tag2_aligned_position": tag2.get("aligned_position") if tag2 is not None else None,
+
+                # Original raw listener positions before network/listener coordinate offset
+                "tag1_raw_position": tag1.get("raw_position") if tag1 is not None else None,
+                "tag2_raw_position": tag2.get("raw_position") if tag2 is not None else None,
+
+                "tag1_quality": tag1.get("quality") if tag1 is not None else None,
+                "tag2_quality": tag2.get("quality") if tag2 is not None else None,
+                "tag1_id": tag1.get("tag_id") if tag1 is not None else None,
+                "tag2_id": tag2.get("tag_id") if tag2 is not None else None
+            }
+
+    return None
 
 
 # =====================================================================================================================
-# 3D DISTANCE TRIANGULATION
+# FUTURE DISTANCE / RANGE MODE PLACEHOLDERS
 # =====================================================================================================================
-
-# Calculates a 3D position from anchor positions and distances using iterative weighted least squares.
-# At least four anchor distances are required for a useful 3D solution.
+# Future mode for custom firmware:
+# One listener reads individual anchor distances and triangulates one position.
 # ---------------------------------------------------------------------------------------------------------------------
-def triangulate_3d_from_distances(measurements, initial_position=None, max_iterations=25, tolerance=0.0005):
-    if len(measurements) < 4:
-        raise ValueError("At least 4 anchor distances are needed for 3D triangulation.")
-
-    anchors = np.array([m["anchor_position"] for m in measurements], dtype=float)
-    ranges = np.array([m["distance"] for m in measurements], dtype=float)
-    weights = np.array([m.get("weight", 1.0) for m in measurements], dtype=float)
-
-    # Avoid zero weights because they make the weighted least-squares matrix unstable.
-    weights[weights <= 0] = 0.01
-
-    if initial_position is not None:
-        x = np.array(initial_position, dtype=float)
-    else:
-        x = np.mean(anchors, axis=0)
-
-    for _ in range(max_iterations):
-        diff = x - anchors
-        predicted_ranges = np.linalg.norm(diff, axis=1)
-        predicted_ranges[predicted_ranges < 1e-6] = 1e-6
-
-        residual = ranges - predicted_ranges
-        h_matrix = -diff / predicted_ranges[:, None]
-
-        w_matrix = np.diag(weights)
-        lhs = h_matrix.T @ w_matrix @ h_matrix
-        rhs = h_matrix.T @ w_matrix @ residual
-
-        # pinv is used instead of inv because poor anchor geometry can make the matrix singular or near-singular.
-        delta = np.linalg.pinv(lhs) @ rhs
-        x = x + delta
-
-        if np.linalg.norm(delta) < tolerance:
-            break
-
-    return [float(x[0]), float(x[1]), float(x[2])]
+def run_single_listener_distance_mode(*args, **kwargs):
+    # [Insert single-listener distance reading here when custom firmware exposes raw ranges.]
+    # Expected future pipeline:
+    # listener -> anchor ranges -> range validation -> 3D triangulation -> final UWB position
+    raise NotImplementedError("Single-listener distance mode is reserved for future custom firmware work.")
 
 
-# Combines two already calculated positions by weighted averaging.
-# This is used for Tag Position mode when two listener networks are active.
+# Future mode for custom firmware:
+# Two listeners read individual anchor distances and combine/triangulate into one position.
 # ---------------------------------------------------------------------------------------------------------------------
-def weighted_average_positions(results):
-    valid_results = [r for r in results if r is not None and r.get("position") is not None]
-
-    if not valid_results:
-        return None
-
-    if len(valid_results) == 1:
-        return valid_results[0]
-
-    weights = np.array([quality_to_weight(r.get("quality")) for r in valid_results], dtype=float)
-    positions = np.array([r["position"] for r in valid_results], dtype=float)
-
-    combined_position = np.average(positions, axis=0, weights=weights)
-
-    quality_values = [r.get("quality") for r in valid_results if r.get("quality") is not None]
-    combined_quality = None
-    if quality_values:
-        combined_quality = float(np.average(quality_values, weights=weights[:len(quality_values)]))
-
-    return {
-        "timestamp": max(r["timestamp"] for r in valid_results),
-        "position": [float(combined_position[0]), float(combined_position[1]), float(combined_position[2])],
-        "quality": combined_quality,
-        "listener_id": 0,
-        "network_id": 0,
-        "position_type": "weighted_two_network_position"
-    }
+def run_two_listener_distance_mode(*args, **kwargs):
+    # [Insert two-listener distance reading/fusion here when custom firmware exposes raw ranges.]
+    # Expected future pipeline:
+    # listener 1 ranges + listener 2 ranges -> coordinate alignment -> range fusion/triangulation -> final UWB position
+    raise NotImplementedError("Two-listener distance mode is reserved for future custom firmware work.")
 
 
 # =====================================================================================================================
 # SERIAL / PANS SHELL FUNCTIONS
 # =====================================================================================================================
-
 # Opens a serial connection to the listener module.
 # ---------------------------------------------------------------------------------------------------------------------
 def open_serial_port(port, baud):
@@ -379,7 +552,6 @@ def open_serial_port(port, baud):
 
 
 # Wakes the DWM1001 shell and clears old serial data.
-# This version is intentionally close to the old working startup sequence.
 # ---------------------------------------------------------------------------------------------------------------------
 def wake_shell(ser):
     print(f"[UWB] Waking shell on {ser.port}...")
@@ -390,41 +562,38 @@ def wake_shell(ser):
     except Exception:
         pass
 
-    # Stop/settle existing stream
     ser.write(b'\r')
     time.sleep(1.0)
-
-    # Clear old output
     ser.read_all()
 
-    # Wake shell
     ser.write(b'\r\r')
     time.sleep(1.0)
+    ser.read_all()
 
 
-# Starts the UWB stream.
-# This version first checks whether data is already streaming, similar to the old script.
+# Starts the PANS listener position stream.
 # ---------------------------------------------------------------------------------------------------------------------
-def start_stream(ser, command):
-    # Give the module a moment after previous shell commands such as 'la'
-    time.sleep(0.5)
+def start_position_stream(ser, command=DEFAULT_POSITION_COMMAND):
+    try:
+        if ser.in_waiting > 15:
+            print(f"[UWB] {ser.port} is already streaming data. Skipping '{command}' command.")
+            return
+    except Exception:
+        pass
 
-    if ser.in_waiting > 15:
-        print(f"[UWB] {ser.port} is already streaming data. Skipping '{command}' command.")
-        ser.reset_input_buffer()
-        return
+    print(f"[UWB] Starting stream on {ser.port} with command: {command}")
 
-    print(f"[UWB] {ser.port} state unclear or not streaming. Sending '{command}' command...")
-    ser.write((command + '\r').encode('utf-8'))
-    time.sleep(1.0)
-
-    # If still no data, try waking the shell once more and send the command again.
-    if ser.in_waiting == 0:
-        print(f"[UWB] No stream detected after first '{command}'. Retrying...")
-        ser.write(b'\r\r')
-        time.sleep(0.5)
+    try:
         ser.write((command + '\r').encode('utf-8'))
         time.sleep(1.0)
+
+        if ser.in_waiting <= 0:
+            print(f"[UWB] No data after first '{command}' command on {ser.port}. Retrying...")
+            ser.write((command + '\r').encode('utf-8'))
+            time.sleep(1.0)
+
+    except Exception as e:
+        print(f"[UWB] Failed to start stream on {ser.port}: {e}")
 
 
 # Stops the UWB stream before closing the port.
@@ -439,7 +608,7 @@ def stop_stream(ser):
 
 
 # Requests anchor positions using the 'la' command and writes them to [Log]_anchor_positions.csv.
-# This is mostly useful for documentation and report plotting.
+# This is useful for documentation and report plotting.
 # ---------------------------------------------------------------------------------------------------------------------
 def update_anchor_list(ser, save_dir):
     print(f"[UWB] Requesting anchor positions from {ser.port}...")
@@ -448,13 +617,10 @@ def update_anchor_list(ser, save_dir):
         ser.reset_input_buffer()
         ser.write(b'la\r')
         time.sleep(0.5)
-
         raw_text = ser.read_all().decode('utf-8', errors='ignore')
         lines = raw_text.split('\n')
-
         anchors_found = []
 
-        # Supports pos=x:y:z style output.
         coord_pattern = re.compile(r"pos=(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?)")
 
         for line in lines:
@@ -470,7 +636,6 @@ def update_anchor_list(ser, save_dir):
         if anchors_found:
             anchor_file_path = os.path.join(save_dir, "[Log]_anchor_positions.csv")
 
-            # If the file already exists, append only new unique positions.
             existing = []
             if os.path.exists(anchor_file_path):
                 try:
@@ -485,8 +650,8 @@ def update_anchor_list(ser, save_dir):
 
             with open(anchor_file_path, 'w') as file:
                 file.write("X,Y,Z\n")
-                unique_anchors = []
 
+                unique_anchors = []
                 for anchor in existing + anchors_found:
                     if anchor not in unique_anchors:
                         unique_anchors.append(anchor)
@@ -505,85 +670,51 @@ def update_anchor_list(ser, save_dir):
 
 
 # =====================================================================================================================
-# FINAL POSITION BUILDING
+# CSV WRITING FUNCTIONS
 # =====================================================================================================================
-
-# Builds a final position result in Tag Position mode. If two networks are selected, the latest fresh positions from
-# both networks are combined using weighted averaging based on the quality value.
+# Writes the final UWB position CSV used by the report maker.
 # ---------------------------------------------------------------------------------------------------------------------
-def build_final_position_from_tag_positions(latest_positions, current_result, two_network_mode, combine_window):
-    if not two_network_mode:
-        return current_result
-
-    now = current_result["timestamp"]
-
-    fresh_results = []
-    for result in latest_positions.values():
-        if result is not None and abs(now - result["timestamp"]) <= combine_window:
-            fresh_results.append(result)
-
-    if not fresh_results:
-        return current_result
-
-    return weighted_average_positions(fresh_results)
+def write_final_position(data_writer, data_file, result):
+    x, y, z = result["position"]
+    data_writer.writerow([result["timestamp"], x, y, z])
+    data_file.flush()
 
 
-# Builds a final position result in Tag Distance mode. If two networks are active, fresh measurements from both networks
-# are combined into one larger anchor-distance set before triangulation.
+# Writes extra information for debugging two-listener fusion.
+# The report maker can ignore this file.
 # ---------------------------------------------------------------------------------------------------------------------
-def build_final_position_from_distances(latest_distances, current_result, two_network_mode, combine_window, previous_position):
-    now = current_result["timestamp"]
+def write_two_listener_debug(debug_writer, debug_file, result):
+    if debug_writer is None:
+        return
 
-    distance_sets = []
+    tag1 = result.get("tag1_position") or ["", "", ""]
+    tag2 = result.get("tag2_position") or ["", "", ""]
+    fused = result.get("position") or ["", "", ""]
 
-    if two_network_mode:
-        for result in latest_distances.values():
-            if result is not None and abs(now - result["timestamp"]) <= combine_window:
-                distance_sets.append(result)
-    else:
-        distance_sets.append(current_result)
+    debug_writer.writerow([
+        result.get("timestamp"),
+        tag1[0], tag1[1], tag1[2], result.get("tag1_quality"), result.get("tag1_id"),
+        tag2[0], tag2[1], tag2[2], result.get("tag2_quality"), result.get("tag2_id"),
+        fused[0], fused[1], fused[2], result.get("quality"),
+        result.get("fusion_mode"), result.get("position_type")
+    ])
 
-    all_measurements = []
-    quality_values = []
-
-    for result in distance_sets:
-        all_measurements.extend(result.get("measurements", []))
-        if result.get("quality") is not None:
-            quality_values.append(result.get("quality"))
-
-    if len(all_measurements) < 4:
-        raise ValueError(f"Not enough anchor distances for 3D triangulation. Got {len(all_measurements)}, need at least 4.")
-
-    position = triangulate_3d_from_distances(all_measurements, initial_position=previous_position)
-
-    quality = None
-    if quality_values:
-        quality = float(np.mean(quality_values))
-
-    return {
-        "timestamp": now,
-        "position": position,
-        "quality": quality,
-        "listener_id": 0 if two_network_mode else current_result.get("listener_id"),
-        "network_id": 0 if two_network_mode else current_result.get("network_id"),
-        "position_type": "triangulated_distances_combined" if two_network_mode else "triangulated_distances"
-    }
+    debug_file.flush()
 
 
 # =====================================================================================================================
-# UWB DRIVER LOOP
+# MAIN UWB DRIVER LOOP
 # =====================================================================================================================
-
 def run_uwb(stop_event, config, save_dir, data_queue=None):
-    # 1. Unpack Master Configuration
+    # 1. Unpack MasterControlStation configuration
     # -----------------------------------------------------------------------------------------------------------------
     port1 = config.get('port1')
     port2 = config.get('port2')
-    baud = config.get('baud', 115200)
+    baud = config.get('baud', DEFAULT_BAUD)
 
     read_type = config.get('read_type', 'Tag Position')
     network_scale = config.get('network_scale', config.get('anchor_count', '1 Network / 1 Listener'))
-    two_network_mode = "2" in str(network_scale) or "8 Anchors" in str(network_scale)
+    two_listener_mode = "2" in str(network_scale) or "8 Anchors" in str(network_scale)
 
     send_matlab = config.get('send_matlab', False)
     matlab_host = config.get('matlab_host', UDP_IP)
@@ -592,26 +723,55 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     session_name = config.get('session_name', datetime.now().strftime("%Y%m%d_%H%M%S"))
     abs_save_dir = os.path.abspath(save_dir)
 
-    # Shell commands. These can be overwritten from MasterControlStation later if needed.
-    position_command = config.get('position_command', 'lec')
-    distance_command = config.get('distance_command', 'les')
+    position_command = config.get('position_command', DEFAULT_POSITION_COMMAND)
+    combine_window = float(config.get('combine_window', DEFAULT_COMBINE_WINDOW))
 
-    combine_window = config.get('combine_window', 0.5)
+    listener_offsets = config.get('listener_offsets', DEFAULT_LISTENER_OFFSETS)
+    listener_1_offset = config.get('listener_1_offset', listener_offsets.get(1, DEFAULT_LISTENER_OFFSETS[1]))
+    listener_2_offset = config.get('listener_2_offset', listener_offsets.get(2, DEFAULT_LISTENER_OFFSETS[2]))
+
+    fusion_method = config.get('two_tag_fusion_method', DEFAULT_TWO_TAG_FUSION_METHOD)
+    min_valid_quality = float(config.get('min_valid_quality', DEFAULT_MIN_VALID_QUALITY))
+    allow_single_listener_fallback = bool(config.get('allow_single_listener_fallback', DEFAULT_ALLOW_SINGLE_LISTENER_FALLBACK))
 
     print(f"[UWB] Mode: {read_type}")
     print(f"[UWB] Network Scale: {network_scale}")
     print(f"[UWB] MATLAB Live UDP: {send_matlab} -> {matlab_host}:{matlab_port}")
 
-    # 2. Determine number of listeners
+    if read_type != 'Tag Position':
+        print("[UWB] Distance/range modes are reserved for future custom firmware work.")
+        print("[UWB] Current supported mode is: Tag Position")
+        return
+
+    # 2. Determine listener ports
     # -----------------------------------------------------------------------------------------------------------------
     ports_to_open = []
 
     if port1:
-        ports_to_open.append(port1)
+        ports_to_open.append({
+            "port": port1,
+            "listener_id": 1,
+            "network_id": 1,
+            "offset": listener_1_offset
+        })
 
-    if two_network_mode and port2:
-        ports_to_open.append(port2)
-        print(f"[UWB] Dual listener mode activated. Ports: {port1}, {port2}")
+    if two_listener_mode:
+        if port2:
+            ports_to_open.append({
+                "port": port2,
+                "listener_id": 2,
+                "network_id": 2,
+                "offset": listener_2_offset
+            })
+            print(f"[UWB] Two-listener two-tag fusion enabled. Ports: {port1}, {port2}")
+            print(f"[UWB] Listener 1 offset: {listener_1_offset}")
+            print(f"[UWB] Listener 2 offset: {listener_2_offset}")
+            print(f"[UWB] Combine window: {combine_window} s")
+            print(f"[UWB] Fusion method: {fusion_method}")
+        else:
+            print("[UWB] WARNING: Two-listener mode selected, but port2 is not configured.")
+            print("[UWB] Falling back to one-listener mode.")
+            two_listener_mode = False
 
     if not ports_to_open:
         print("[UWB] No UWB ports configured. UWB reader will not start.")
@@ -622,10 +782,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     active_serials = []
     buffers = []
     listener_info = []
-
     latest_positions = {}
-    latest_distances = {}
-    previous_distance_position = None
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -633,49 +790,55 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     data_writer = None
     error_file = None
     error_writer = None
+    debug_file = None
+    debug_writer = None
 
     try:
-        # The report maker currently expects four columns. Extra diagnostic data is sent to MATLAB but not stored here.
-        # This file contains the final UWB position no matter whether it comes from tag position mode, custom
-        # triangulation, or two-network weighted combination.
+        # Final report-compatible UWB position CSV.
         data_path = os.path.join(abs_save_dir, f"[Log]_uwb_listener1_{session_name}.csv")
         data_file = open(data_path, 'w', newline='')
         data_writer = csv.writer(data_file)
         data_writer.writerow(['Time', 'POSX', 'POSY', 'POSZ'])
 
-        error_path = os.path.join(abs_save_dir, f"[Log]_errors_uwb_{session_name}.csv")
+        # Error/debug CSV.
+        error_path = os.path.join(abs_save_dir, f"[Log]_uwb_errors_{session_name}.csv")
         error_file = open(error_path, 'w', newline='')
         error_writer = csv.writer(error_file)
         error_writer.writerow(['Time', 'Port', 'ListenerID', 'NetworkID', 'Line', 'Error'])
 
-        # 4. Setup Serial Ports
+        # Two-listener fusion debug CSV.
+        if two_listener_mode:
+            debug_path = os.path.join(abs_save_dir, f"[Log]_uwb_two_listener_debug_{session_name}.csv")
+            debug_file = open(debug_path, 'w', newline='')
+            debug_writer = csv.writer(debug_file)
+            debug_writer.writerow([
+                'Time',
+                'Tag1_X', 'Tag1_Y', 'Tag1_Z', 'Tag1_Quality', 'Tag1_ID',
+                'Tag2_X', 'Tag2_Y', 'Tag2_Z', 'Tag2_Quality', 'Tag2_ID',
+                'Fused_X', 'Fused_Y', 'Fused_Z', 'Fused_Quality',
+                'FusionMode', 'PositionType'
+            ])
+
+        # 4. Setup serial ports
         # -------------------------------------------------------------------------------------------------------------
-        for index, port in enumerate(ports_to_open):
-            listener_id = index + 1
-            network_id = index + 1
+        for info in ports_to_open:
+            port = info["port"]
+            listener_id = info["listener_id"]
 
             print(f"[UWB] Opening listener {listener_id} on {port}...")
-            ser = open_serial_port(port, baud)
 
+            ser = open_serial_port(port, baud)
             active_serials.append(ser)
             buffers.append("")
-            listener_info.append({
-                "listener_id": listener_id,
-                "network_id": network_id,
-                "port": port
-            })
+            listener_info.append(info)
 
             wake_shell(ser)
             update_anchor_list(ser, abs_save_dir)
+            start_position_stream(ser, position_command)
 
-            if read_type == 'Tag Distances':
-                start_stream(ser, distance_command)
-            else:
-                start_stream(ser, position_command)
+        print("[UWB] Listening for position data...")
 
-        print("[UWB] Listening for data...")
-
-        # 5. Main Processing Loop
+        # 5. Main processing loop
         # -------------------------------------------------------------------------------------------------------------
         while not stop_event.is_set():
             for i, ser in enumerate(active_serials):
@@ -683,6 +846,7 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                 listener_id = info["listener_id"]
                 network_id = info["network_id"]
                 port = info["port"]
+                offset = info["offset"]
 
                 if ser.in_waiting <= 0:
                     continue
@@ -701,89 +865,86 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                     if not line:
                         continue
 
-                    # Ignore pure prompt lines.
-                    if line.strip() == "dwm>":
-                        continue
-
                     arr_time = time.time()
                     print(f"[UWB_RAW][L{listener_id}] {line}")
 
                     try:
-                        # ==========================================
-                        # MODE A: TAG POSITION
-                        # ==========================================
-                        if read_type == 'Tag Position':
-                            parsed = parse_tag_position_line(line)
+                        parsed = parse_tag_position_line(line)
 
-                            if parsed is None:
-                                log_error(error_writer, error_file, arr_time, port, listener_id, network_id, line,
-                                          "Could not parse tag position line.")
-                                continue
-
-                            current_result = {
-                                "timestamp": arr_time,
-                                "position": parsed["position"],
-                                "quality": parsed.get("quality"),
-                                "listener_id": listener_id,
-                                "network_id": network_id,
-                                "position_type": parsed.get("position_type", "tag_position")
-                            }
-
-                            latest_positions[listener_id] = current_result
-                            final_result = build_final_position_from_tag_positions(
-                                latest_positions,
-                                current_result,
-                                two_network_mode,
-                                combine_window
-                            )
-
-                        # ==========================================
-                        # MODE B: TAG DISTANCES
-                        # ==========================================
-                        elif read_type == 'Tag Distances':
-                            parsed = parse_distance_line(line)
-                            measurements = parsed.get("measurements", [])
-
-                            if not measurements:
-                                simple_distances = parse_distances_without_positions(line)
-                                if simple_distances:
-                                    log_error(error_writer, error_file, arr_time, port, listener_id, network_id, line,
-                                              "Distances found, but no anchor coordinates were included. Cannot triangulate 3D position.")
-                                else:
-                                    log_error(error_writer, error_file, arr_time, port, listener_id, network_id, line,
-                                              "Could not parse anchor distances.")
-                                continue
-
-                            current_distance_result = {
-                                "timestamp": arr_time,
-                                "measurements": measurements,
-                                "quality": parsed.get("quality"),
-                                "listener_id": listener_id,
-                                "network_id": network_id
-                            }
-
-                            latest_distances[listener_id] = current_distance_result
-                            final_result = build_final_position_from_distances(
-                                latest_distances,
-                                current_distance_result,
-                                two_network_mode,
-                                combine_window,
-                                previous_distance_position
-                            )
-                            previous_distance_position = final_result["position"]
-
-                        else:
-                            log_error(error_writer, error_file, arr_time, port, listener_id, network_id, line,
-                                      f"Unknown read_type selected: {read_type}")
+                        if parsed == "ignore":
                             continue
 
-                        # ==========================================
-                        # Log and route the final UWB position
-                        # ==========================================
-                        x, y, z = final_result["position"]
+                        if parsed is None:
+                            log_error(
+                                error_writer, error_file, arr_time,
+                                port, listener_id, network_id, line,
+                                "Could not parse tag position line."
+                            )
+                            continue
 
-                        data_writer.writerow([final_result["timestamp"], x, y, z])
-                        data_file.flush()
+                        raw_position = parsed.get("position")
+                        quality = parsed.get("quality")
+
+                        if not is_valid_position(raw_position, quality=quality, min_quality=min_valid_quality):
+                            log_error(
+                                error_writer, error_file, arr_time,
+                                port, listener_id, network_id, line,
+                                "Invalid UWB position or quality."
+                            )
+                            continue
+
+                        aligned_position = apply_listener_offset(raw_position, offset)
+
+                        current_result = {
+                            "timestamp": arr_time,
+                            "raw_position": raw_position,
+                            "aligned_position": aligned_position,
+                            "position": aligned_position,
+                            "quality": quality,
+                            "listener_id": listener_id,
+                            "network_id": network_id,
+                            "tag_id": parsed.get("tag_id"),
+                            "position_type": parsed.get("position_type", "tag_position")
+                        }
+
+                        latest_positions[listener_id] = current_result
+
+                        # ------------------------------------------
+                        # Mode A: one listener position reading
+                        # ------------------------------------------
+                        if not two_listener_mode:
+                            final_result = {
+                                "timestamp": arr_time,
+                                "position": aligned_position,
+                                "quality": quality,
+                                "listener_id": listener_id,
+                                "network_id": network_id,
+                                "position_type": "single_listener_position",
+                                "fusion_mode": "single_listener"
+                            }
+
+                        # ------------------------------------------
+                        # Mode B: two listeners, two physical tags
+                        # ------------------------------------------
+                        else:
+                            final_result = fuse_two_listener_tag_positions(
+                                latest_positions=latest_positions,
+                                current_timestamp=arr_time,
+                                combine_window=combine_window,
+                                fusion_method=fusion_method,
+                                allow_single_listener_fallback=allow_single_listener_fallback
+                            )
+
+                            if final_result is None:
+                                continue
+
+                        # ------------------------------------------
+                        # Log and route final UWB position
+                        # ------------------------------------------
+                        write_final_position(data_writer, data_file, final_result)
+
+                        if two_listener_mode:
+                            write_two_listener_debug(debug_writer, debug_file, final_result)
 
                         send_to_master_queue(data_queue, final_result)
 
@@ -795,9 +956,6 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
             time.sleep(0.001)
 
-    # =================================================================================================================
-    # End Program
-    # =================================================================================================================
     except Exception as e:
         print(f"[UWB Error] {e}")
 
@@ -817,6 +975,9 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
         if error_file is not None:
             error_file.close()
+
+        if debug_file is not None:
+            debug_file.close()
 
         try:
             sock.close()

@@ -443,7 +443,17 @@ punten die er in moeten:
 - Look to the github for all different versions
 
 
+For the uwb_sensor script the only thing I currently have multiple configurations for reading uwb data
 
+From listener:
+- read position data
+- read position data from two listeners and combine them efficiently
+
+From ROS:
+- read position data
+- read seperate distances and triangulate them into one coordinate
+- read position data from two ros networks and combine them efficiently
+- read seperate position data from two ros networks and triangulate them into one coordinate
 
 =======================================================================================================================
 END OF DOCUMENT
