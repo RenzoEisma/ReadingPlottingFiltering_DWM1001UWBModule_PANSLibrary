@@ -17,6 +17,15 @@ Ai description:
 - for second part i bought chatgpt pro and it was much better at coding with libraries so then i started offloading a lot
 of the work to it...
 
+
+Angle calculation with two listeners. Describe the mathematical stuff in documentation with images and vectors!!!
+- possibly have more distance between sensors with new holder
+
+the two tags fusion now calculates every time a new data point goes through so instead of 10hz it is now almost like 
+20hz but not really
+
+
+
 -----------------------------------------------------------------------------------------------------------------------
 I. PROJECT OVERVIEW
 -----------------------------------------------------------------------------------------------------------------------

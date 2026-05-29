@@ -7,7 +7,7 @@ Description:
 
     Current supported modes:
     - One listener, tag position reading
-    - Two listeners, two physical tags, midpoint/fusion of both tag positions
+    - Two listeners, two physical tags, quality-weighted fusion of both tag positions
 
     Future reserved modes:
     - One listener, distance/range reading after firmware is reprogrammed
@@ -54,40 +54,39 @@ DEFAULT_COMBINE_WINDOW = 0.5
 # If both networks already use the same origin and axes, keep these at zero.
 DEFAULT_LISTENER_OFFSETS = {
     1: [0.0, 0.0, 0.0],
-    2: [5.624, 3.116, 1.256]
+    2: [-5.624, -3.116, -1.256]
 }
 
 # Position of each physical tag relative to the wanted centerpoint between the two tags.
-# Centerpoint is the middle of the Tag holder and the top point the two MDEK's is the Z centerpoint
+# Centerpoint is the middle of the tag holder and the top point of the two MDEK's is the Z centerpoint.
 # Unit: meters
 # Conversion used:
-# estimated_center = measured_tag_position - tag_offset_from_center
+# estimated_center = measured_tag_position - rotated_tag_offset_from_center
 
-# #For Two tag holder V3
+    # For Two tag holder V3
 # TAG_OFFSET_A = [-0.085, -0.125, 0.013]
 # TAG_OFFSET_B = [0.085, 0.125, 0.013]
 
-# For Two tag holder V4
+    # For Two tag holder V4
 TAG_OFFSET_A = [-0.0185, -0.125, 0.013]
 TAG_OFFSET_B = [0.0185, 0.125, 0.013]
 
-TWO_TAGS_SWAPPED_ON_HOLDER = True
+TWO_TAGS_SWAPPED_ON_HOLDER = False
 
-if TWO_TAGS_SWAPPED_ON_HOLDER:
-    DEFAULT_TAG_OFFSETS_FROM_CENTER = {
-        1: TAG_OFFSET_B,
-        2: TAG_OFFSET_A
-    }
-else:
-    DEFAULT_TAG_OFFSETS_FROM_CENTER = {
-        1: TAG_OFFSET_A,
-        2: TAG_OFFSET_B
-    }
+DEFAULT_TAG_OFFSETS_FROM_CENTER = {1: TAG_OFFSET_A, 2: TAG_OFFSET_B}
 
-# For two physical tags, midpoint is the geometrically correct default.
-# Quality is still used for validity checks, output quality and optional fallback behaviour.
-# Change to "weighted" only if you intentionally want the better-quality tag to pull the result toward itself.
-DEFAULT_TWO_TAG_FUSION_METHOD = "midpoint"       # "midpoint" or "weighted"
+# Listener/tag role definition.
+# Change these if listener 1 and listener 2 are physically swapped.
+FRONT_TAG_LISTENER_ID = 1
+BACK_TAG_LISTENER_ID = 2
+
+# If true, the tag-to-center offsets are rotated using the current angle between the front and back tag.
+USE_ROTATED_TAG_OFFSETS = True
+
+# If only one tag is available, the script can use the latest known angle.
+# If the angle is older than this, fallback becomes less reliable.
+MAX_YAW_AGE_FOR_SINGLE_TAG_FALLBACK = 1.0
+
 DEFAULT_MIN_VALID_QUALITY = 1.0
 DEFAULT_ALLOW_SINGLE_LISTENER_FALLBACK = True
 
@@ -211,7 +210,9 @@ def send_to_master_queue(data_queue, result):
             "tag1_position": result.get("tag1_position"),
             "tag2_position": result.get("tag2_position"),
             "tag1_quality": result.get("tag1_quality"),
-            "tag2_quality": result.get("tag2_quality")
+            "tag2_quality": result.get("tag2_quality"),
+            "holder_yaw_deg": result.get("holder_yaw_deg"),
+            "yaw_source": result.get("yaw_source")
         }
     })
 
@@ -260,11 +261,6 @@ def parse_pos_csv_position(line):
         y = float(parts[4])
         z = float(parts[5])
 
-        # Ignore invalid PANS positions like:
-        # POS,0,4D18,nan,nan,nan,0,x01
-        if np.isnan(x) or np.isnan(y) or np.isnan(z):
-            return None
-
         quality = None
         if len(parts) > 6 and is_float(parts[6]):
             quality = float(parts[6])
@@ -309,41 +305,9 @@ def parse_compact_listener_position(line):
     }
 
 
-# Parses the estimated tag position from a DWM1001 'les' style line.
-# This is mostly kept for compatibility/debugging.
-# Example:
-# est[1.90,1.96,0.15,91]
-# ---------------------------------------------------------------------------------------------------------------------
-def parse_est_position(line):
-    match = re.search(
-        r"est\[\s*(-?\d+(?:\.\d+)?)\s*,\s*"
-        r"(-?\d+(?:\.\d+)?)\s*,\s*"
-        r"(-?\d+(?:\.\d+)?)\s*,\s*"
-        r"(-?\d+(?:\.\d+)?)\s*\]",
-        line
-    )
-
-    if not match:
-        return None
-
-    x, y, z, quality = match.groups()
-
-    return {
-        "tag_id": None,
-        "position": [float(x), float(y), float(z)],
-        "quality": float(quality),
-        "position_type": "tag_position_est"
-    }
-
-
 # Parses one UWB line in Tag Position mode.
 # ---------------------------------------------------------------------------------------------------------------------
 def parse_tag_position_line(line):
-    # Ignore command echoes and prompt-only lines.
-    stripped = line.strip().lower()
-    if stripped in ["lec", "les", "lep", "dwm>", "dwm> lec", "dwm> les", "dwm> lep"]:
-        return "ignore"
-
     pos_result = parse_pos_csv_position(line)
     if pos_result is not None:
         return pos_result
@@ -352,20 +316,18 @@ def parse_tag_position_line(line):
     if compact_result is not None:
         return compact_result
 
-    est_result = parse_est_position(line)
-    if est_result is not None:
-        return est_result
-
     return None
 
 
+# Checks whether a serial line is only a shell prompt or command echo.
+# ---------------------------------------------------------------------------------------------------------------------
 def should_ignore_serial_line(line):
     clean = line.strip().lower()
 
-    if clean in ["", "lec", "les", "lep", "c"]:
+    if clean in ["", "lec", "les", "lep", "c", "dwm>"]:
         return True
 
-    if clean == "dwm>":
+    if clean in ["dwm> lec", "dwm> les", "dwm> lep"]:
         return True
 
     # Do not ignore dirty lines that still contain useful POS data.
@@ -385,19 +347,66 @@ def apply_listener_offset(position, offset):
     return (to_vector(position) + to_vector(offset)).tolist()
 
 
-# Converts a measured tag position to the estimated centerpoint position.
-# tag_offset_from_center is the known physical position of the tag relative to the wanted centerpoint.
-#
-# Example:
-# tag is 1 cm left of center: tag_offset_from_center = [-0.01, 0.0, 0.0]
-# center_estimate = measured_tag_position - [-0.01, 0.0, 0.0]
-# center_estimate = measured_tag_position + [0.01, 0.0, 0.0]
+# Keeps an angle inside the range -pi to pi.
 # ---------------------------------------------------------------------------------------------------------------------
-def convert_tag_position_to_center_position(tag_position, tag_offset_from_center):
-    tag_position = to_vector(tag_position)
-    tag_offset_from_center = to_vector(tag_offset_from_center)
+def normalize_angle(angle):
+    return math.atan2(math.sin(angle), math.cos(angle))
 
-    center_position = tag_position - tag_offset_from_center
+
+# Calculates the holder/drone yaw from the measured front and back tag positions.
+# The measured world angle is compared to the configured local tag-offset angle.
+# ---------------------------------------------------------------------------------------------------------------------
+def calculate_holder_yaw(front_position, back_position, front_offset_from_center, back_offset_from_center):
+    front_position = to_vector(front_position)
+    back_position = to_vector(back_position)
+
+    front_offset_from_center = to_vector(front_offset_from_center)
+    back_offset_from_center = to_vector(back_offset_from_center)
+
+    world_line = front_position - back_position
+    local_line = front_offset_from_center - back_offset_from_center
+
+    if np.linalg.norm(world_line[0:2]) < 1e-6:
+        return None
+
+    if np.linalg.norm(local_line[0:2]) < 1e-6:
+        return None
+
+    world_line_angle = math.atan2(world_line[1], world_line[0])
+    local_line_angle = math.atan2(local_line[1], local_line[0])
+
+    holder_yaw = normalize_angle(world_line_angle - local_line_angle)
+
+    return holder_yaw
+
+
+# Rotates a tag offset from holder/body coordinates into world coordinates.
+# Only X/Y are rotated. Z is kept the same.
+# ---------------------------------------------------------------------------------------------------------------------
+def rotate_offset_to_world(tag_offset_from_center, holder_yaw):
+    offset = to_vector(tag_offset_from_center)
+
+    c = math.cos(holder_yaw)
+    s = math.sin(holder_yaw)
+
+    rotated_x = c * offset[0] - s * offset[1]
+    rotated_y = s * offset[0] + c * offset[1]
+    rotated_z = offset[2]
+
+    return np.array([rotated_x, rotated_y, rotated_z], dtype=float)
+
+
+# Converts a measured tag position to the estimated centerpoint position.
+# ---------------------------------------------------------------------------------------------------------------------
+def convert_tag_position_to_center_position(tag_position, tag_offset_from_center, holder_yaw=None):
+    tag_position = to_vector(tag_position)
+
+    if USE_ROTATED_TAG_OFFSETS and holder_yaw is not None:
+        tag_offset_world = rotate_offset_to_world(tag_offset_from_center, holder_yaw)
+    else:
+        tag_offset_world = to_vector(tag_offset_from_center)
+
+    center_position = tag_position - tag_offset_world
 
     return [
         float(center_position[0]),
@@ -422,25 +431,57 @@ def get_fresh_listener_results(latest_positions, now, combine_window):
 
 
 # Fuses two physical tags into one raw UWB centerpoint.
-#
-# Method:
-# - each listener/tag position is first converted to an estimated centerpoint position
-# - if both tags are valid, the two centerpoint estimates are fused
-# - the fusion is quality-weighted, so the tag with better quality has more influence
-# - if only one tag is valid, its converted centerpoint estimate is used
-# - if no tags are valid, no output is produced
 # ---------------------------------------------------------------------------------------------------------------------
 def fuse_two_listener_tag_positions(
         latest_positions,
         current_timestamp,
         combine_window,
-        fusion_method=DEFAULT_TWO_TAG_FUSION_METHOD,
+        fusion_state,
         allow_single_listener_fallback=DEFAULT_ALLOW_SINGLE_LISTENER_FALLBACK):
 
     fresh = get_fresh_listener_results(latest_positions, current_timestamp, combine_window)
 
     tag1 = fresh.get(1)
     tag2 = fresh.get(2)
+
+    front_tag = fresh.get(FRONT_TAG_LISTENER_ID)
+    back_tag = fresh.get(BACK_TAG_LISTENER_ID)
+
+    holder_yaw = None
+    yaw_source = "none"
+
+    # -------------------------------------------------------------
+    # Calculate current holder yaw when both front and back tags exist
+    # -------------------------------------------------------------
+    if front_tag is not None and back_tag is not None:
+        front_offset = DEFAULT_TAG_OFFSETS_FROM_CENTER.get(FRONT_TAG_LISTENER_ID, [0.0, 0.0, 0.0])
+        back_offset = DEFAULT_TAG_OFFSETS_FROM_CENTER.get(BACK_TAG_LISTENER_ID, [0.0, 0.0, 0.0])
+
+        holder_yaw = calculate_holder_yaw(
+            front_tag["aligned_position"],
+            back_tag["aligned_position"],
+            front_offset,
+            back_offset
+        )
+
+        if holder_yaw is not None:
+            fusion_state["latest_yaw"] = holder_yaw
+            fusion_state["latest_yaw_time"] = current_timestamp
+            yaw_source = "current_two_tags"
+
+    # -------------------------------------------------------------
+    # If only one tag is available, use latest known yaw if it is recent
+    # -------------------------------------------------------------
+    if holder_yaw is None:
+        latest_yaw = fusion_state.get("latest_yaw")
+        latest_yaw_time = fusion_state.get("latest_yaw_time")
+
+        if latest_yaw is not None and latest_yaw_time is not None:
+            yaw_age = current_timestamp - latest_yaw_time
+
+            if yaw_age <= MAX_YAW_AGE_FOR_SINGLE_TAG_FALLBACK:
+                holder_yaw = latest_yaw
+                yaw_source = "latest_known_yaw"
 
     # -------------------------------------------------------------
     # Convert available tag positions to centerpoint estimates
@@ -451,13 +492,15 @@ def fuse_two_listener_tag_positions(
     if tag1 is not None:
         tag1_center_position = convert_tag_position_to_center_position(
             tag1["aligned_position"],
-            DEFAULT_TAG_OFFSETS_FROM_CENTER.get(1, [0.0, 0.0, 0.0])
+            DEFAULT_TAG_OFFSETS_FROM_CENTER.get(1, [0.0, 0.0, 0.0]),
+            holder_yaw
         )
 
     if tag2 is not None:
         tag2_center_position = convert_tag_position_to_center_position(
             tag2["aligned_position"],
-            DEFAULT_TAG_OFFSETS_FROM_CENTER.get(2, [0.0, 0.0, 0.0])
+            DEFAULT_TAG_OFFSETS_FROM_CENTER.get(2, [0.0, 0.0, 0.0]),
+            holder_yaw
         )
 
     # -------------------------------------------------------------
@@ -473,19 +516,19 @@ def fuse_two_listener_tag_positions(
         w1 = quality_to_weight(q1)
         w2 = quality_to_weight(q2)
 
-        # Quality-weighted centerpoint fusion.
-        # Example:
-        # q1 = 50, q2 = 100
-        # result = 33% tag1 center estimate + 66% tag2 center estimate
         if (w1 + w2) > 0:
             fused_position = ((w1 * p1) + (w2 * p2)) / (w1 + w2)
-            fusion_mode = "two_tag_center_quality_weighted"
+            fusion_mode = "two_tag_rotated_center_quality_weighted"
         else:
             fused_position = (p1 + p2) / 2.0
-            fusion_mode = "two_tag_center_midpoint_no_quality"
+            fusion_mode = "two_tag_rotated_center_average_no_quality"
 
         quality_values = [q for q in [q1, q2] if q is not None]
         fused_quality = float(np.mean(quality_values)) if quality_values else None
+
+        holder_yaw_deg = None
+        if holder_yaw is not None:
+            holder_yaw_deg = math.degrees(holder_yaw)
 
         return {
             "timestamp": current_timestamp,
@@ -495,19 +538,15 @@ def fuse_two_listener_tag_positions(
             "network_id": 0,
             "position_type": "two_listener_fused_center_position",
             "fusion_mode": fusion_mode,
-
-            # Centerpoint estimates after correcting for physical tag placement
+            "holder_yaw_rad": holder_yaw,
+            "holder_yaw_deg": holder_yaw_deg,
+            "yaw_source": yaw_source,
             "tag1_position": tag1_center_position,
             "tag2_position": tag2_center_position,
-
-            # Original aligned UWB tag positions before physical tag offset correction
             "tag1_aligned_position": tag1.get("aligned_position"),
             "tag2_aligned_position": tag2.get("aligned_position"),
-
-            # Original raw listener positions before network/listener coordinate offset
             "tag1_raw_position": tag1.get("raw_position"),
             "tag2_raw_position": tag2.get("raw_position"),
-
             "tag1_quality": q1,
             "tag2_quality": q2,
             "tag1_id": tag1.get("tag_id"),
@@ -518,11 +557,19 @@ def fuse_two_listener_tag_positions(
     # Fallback if only one listener/tag is available
     # -------------------------------------------------------------
     if allow_single_listener_fallback:
+        # When rotated tag offsets are enabled, one-tag fallback is only safe if a recent yaw is available.
+        if USE_ROTATED_TAG_OFFSETS and holder_yaw is None:
+            return None
+
         fallback = tag1 if tag1_center_position is not None else tag2
         fallback_center_position = tag1_center_position if tag1_center_position is not None else tag2_center_position
 
         if fallback is not None and fallback_center_position is not None:
             listener_id = fallback.get("listener_id")
+
+            holder_yaw_deg = None
+            if holder_yaw is not None:
+                holder_yaw_deg = math.degrees(holder_yaw)
 
             return {
                 "timestamp": current_timestamp,
@@ -531,20 +578,16 @@ def fuse_two_listener_tag_positions(
                 "listener_id": listener_id,
                 "network_id": fallback.get("network_id"),
                 "position_type": f"two_listener_center_fallback_l{listener_id}",
-                "fusion_mode": "single_listener_center_fallback",
-
-                # Centerpoint estimates after correcting for physical tag placement
+                "fusion_mode": "single_listener_rotated_center_fallback",
+                "holder_yaw_rad": holder_yaw,
+                "holder_yaw_deg": holder_yaw_deg,
+                "yaw_source": yaw_source,
                 "tag1_position": tag1_center_position,
                 "tag2_position": tag2_center_position,
-
-                # Original aligned UWB tag positions before physical tag offset correction
                 "tag1_aligned_position": tag1.get("aligned_position") if tag1 is not None else None,
                 "tag2_aligned_position": tag2.get("aligned_position") if tag2 is not None else None,
-
-                # Original raw listener positions before network/listener coordinate offset
                 "tag1_raw_position": tag1.get("raw_position") if tag1 is not None else None,
                 "tag2_raw_position": tag2.get("raw_position") if tag2 is not None else None,
-
                 "tag1_quality": tag1.get("quality") if tag1 is not None else None,
                 "tag2_quality": tag2.get("quality") if tag2 is not None else None,
                 "tag1_id": tag1.get("tag_id") if tag1 is not None else None,
@@ -639,8 +682,20 @@ def start_position_stream(ser, command=DEFAULT_POSITION_COMMAND):
 def stop_stream(ser):
     try:
         if ser is not None and ser.is_open:
+            print(f"[UWB] Stopping stream on {ser.port}...")
+
+            # Send multiple enters to break out of a running stream and return to shell.
             ser.write(b'\r')
             time.sleep(0.2)
+            ser.write(b'\r')
+            time.sleep(0.2)
+
+            try:
+                ser.reset_input_buffer()
+                ser.reset_output_buffer()
+            except Exception:
+                pass
+
     except Exception:
         pass
 
@@ -718,6 +773,15 @@ def write_final_position(data_writer, data_file, result):
     data_file.flush()
 
 
+# Converts a vector for debug CSV writing.
+# ---------------------------------------------------------------------------------------------------------------------
+def debug_vec(result, key):
+    vec = result.get(key)
+    if vec is None:
+        return ["", "", ""]
+    return [vec[0], vec[1], vec[2]]
+
+
 # Writes extra information for debugging two-listener fusion.
 # The report maker can ignore this file.
 # ---------------------------------------------------------------------------------------------------------------------
@@ -725,19 +789,98 @@ def write_two_listener_debug(debug_writer, debug_file, result):
     if debug_writer is None:
         return
 
-    tag1 = result.get("tag1_position") or ["", "", ""]
-    tag2 = result.get("tag2_position") or ["", "", ""]
+    tag1_raw = debug_vec(result, "tag1_raw_position")
+    tag1_aligned = debug_vec(result, "tag1_aligned_position")
+    tag1_center = debug_vec(result, "tag1_position")
+
+    tag2_raw = debug_vec(result, "tag2_raw_position")
+    tag2_aligned = debug_vec(result, "tag2_aligned_position")
+    tag2_center = debug_vec(result, "tag2_position")
+
     fused = result.get("position") or ["", "", ""]
 
     debug_writer.writerow([
         result.get("timestamp"),
-        tag1[0], tag1[1], tag1[2], result.get("tag1_quality"), result.get("tag1_id"),
-        tag2[0], tag2[1], tag2[2], result.get("tag2_quality"), result.get("tag2_id"),
+        tag1_raw[0], tag1_raw[1], tag1_raw[2],
+        tag1_aligned[0], tag1_aligned[1], tag1_aligned[2],
+        tag1_center[0], tag1_center[1], tag1_center[2],
+        result.get("tag1_quality"), result.get("tag1_id"),
+        tag2_raw[0], tag2_raw[1], tag2_raw[2],
+        tag2_aligned[0], tag2_aligned[1], tag2_aligned[2],
+        tag2_center[0], tag2_center[1], tag2_center[2],
+        result.get("tag2_quality"), result.get("tag2_id"),
         fused[0], fused[1], fused[2], result.get("quality"),
-        result.get("fusion_mode"), result.get("position_type")
+        result.get("holder_yaw_rad"),
+        result.get("holder_yaw_deg"),
+        result.get("yaw_source"),
+        result.get("fusion_mode"),
+        result.get("position_type")
     ])
 
     debug_file.flush()
+
+
+# Prints the two-listener fusion steps to the GUI terminal.
+# ---------------------------------------------------------------------------------------------------------------------
+def print_two_listener_fusion_status(result):
+
+    def fmt_vec(vec):
+        if vec is None:
+            return "None"
+
+        try:
+            return f"({float(vec[0]):.3f}, {float(vec[1]):.3f}, {float(vec[2]):.3f})"
+        except Exception:
+            return "Invalid"
+
+    def fmt_quality(q):
+        if q is None:
+            return "N/A"
+
+        try:
+            return f"{float(q):.1f}"
+        except Exception:
+            return "N/A"
+
+    def fmt_percent(value):
+        try:
+            return f"{100.0 * float(value):.1f}%"
+        except Exception:
+            return "N/A"
+
+    tag1_aligned = result.get("tag1_aligned_position")
+    tag2_aligned = result.get("tag2_aligned_position")
+
+    tag1_center = result.get("tag1_position")
+    tag2_center = result.get("tag2_position")
+
+    calculated = result.get("position")
+
+    q1 = result.get("tag1_quality")
+    q2 = result.get("tag2_quality")
+    q_calc = result.get("quality")
+
+    w1 = quality_to_weight(q1)
+    w2 = quality_to_weight(q2)
+
+    if (w1 + w2) > 0:
+        p1 = w1 / (w1 + w2)
+        p2 = w2 / (w1 + w2)
+    else:
+        p1 = 0.5
+        p2 = 0.5
+
+    yaw_deg = result.get("holder_yaw_deg")
+    yaw_text = f"{yaw_deg:.1f} deg" if yaw_deg is not None else "N/A"
+
+    mode = result.get("fusion_mode")
+
+    print(
+        "[UWB_FUSION] "
+        f"L1 raw={fmt_vec(tag1_aligned)} -> center={fmt_vec(tag1_center)} q={fmt_quality(q1)} pull={fmt_percent(p1)} | "
+        f"L2 raw={fmt_vec(tag2_aligned)} -> center={fmt_vec(tag2_center)} q={fmt_quality(q2)} pull={fmt_percent(p2)} | "
+        f"CALC={fmt_vec(calculated)} q={fmt_quality(q_calc)} yaw={yaw_text} mode={mode}"
+    )
 
 
 # =====================================================================================================================
@@ -768,7 +911,6 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     listener_1_offset = config.get('listener_1_offset', listener_offsets.get(1, DEFAULT_LISTENER_OFFSETS[1]))
     listener_2_offset = config.get('listener_2_offset', listener_offsets.get(2, DEFAULT_LISTENER_OFFSETS[2]))
 
-    fusion_method = config.get('two_tag_fusion_method', DEFAULT_TWO_TAG_FUSION_METHOD)
     min_valid_quality = float(config.get('min_valid_quality', DEFAULT_MIN_VALID_QUALITY))
     allow_single_listener_fallback = bool(config.get('allow_single_listener_fallback', DEFAULT_ALLOW_SINGLE_LISTENER_FALLBACK))
 
@@ -805,7 +947,6 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
             print(f"[UWB] Listener 1 offset: {listener_1_offset}")
             print(f"[UWB] Listener 2 offset: {listener_2_offset}")
             print(f"[UWB] Combine window: {combine_window} s")
-            print(f"[UWB] Fusion method: {fusion_method}")
         else:
             print("[UWB] WARNING: Two-listener mode selected, but port2 is not configured.")
             print("[UWB] Falling back to one-listener mode.")
@@ -821,6 +962,11 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
     buffers = []
     listener_info = []
     latest_positions = {}
+
+    fusion_state = {
+        "latest_yaw": None,
+        "latest_yaw_time": None
+    }
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -851,9 +997,16 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
             debug_writer = csv.writer(debug_file)
             debug_writer.writerow([
                 'Time',
-                'Tag1_X', 'Tag1_Y', 'Tag1_Z', 'Tag1_Quality', 'Tag1_ID',
-                'Tag2_X', 'Tag2_Y', 'Tag2_Z', 'Tag2_Quality', 'Tag2_ID',
+                'Tag1_Raw_X', 'Tag1_Raw_Y', 'Tag1_Raw_Z',
+                'Tag1_Aligned_X', 'Tag1_Aligned_Y', 'Tag1_Aligned_Z',
+                'Tag1_Center_X', 'Tag1_Center_Y', 'Tag1_Center_Z',
+                'Tag1_Quality', 'Tag1_ID',
+                'Tag2_Raw_X', 'Tag2_Raw_Y', 'Tag2_Raw_Z',
+                'Tag2_Aligned_X', 'Tag2_Aligned_Y', 'Tag2_Aligned_Z',
+                'Tag2_Center_X', 'Tag2_Center_Y', 'Tag2_Center_Z',
+                'Tag2_Quality', 'Tag2_ID',
                 'Fused_X', 'Fused_Y', 'Fused_Z', 'Fused_Quality',
+                'HolderYawRad', 'HolderYawDeg', 'YawSource',
                 'FusionMode', 'PositionType'
             ])
 
@@ -910,13 +1063,11 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                         continue
 
                     arr_time = time.time()
-                    print(f"[UWB_RAW][L{listener_id}] {line}")
+                    if not two_listener_mode:
+                        print(f"[UWB_RAW][L{listener_id}] {line}")
 
                     try:
                         parsed = parse_tag_position_line(line)
-
-                        if parsed == "ignore":
-                            continue
 
                         if parsed is None:
                             log_error(
@@ -975,26 +1126,30 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                 latest_positions=latest_positions,
                                 current_timestamp=arr_time,
                                 combine_window=combine_window,
-                                fusion_method=fusion_method,
+                                fusion_state=fusion_state,
                                 allow_single_listener_fallback=allow_single_listener_fallback
                             )
 
-                            if final_result is not None:
-                                pos = final_result["position"]
-                                quality = final_result.get("quality")
-                                mode = final_result.get("fusion_mode")
+                        if final_result is None:
+                            continue
 
-                                quality_text = f"{quality:.1f}" if quality is not None else "N/A"
+                        # ------------------------------------------
+                        # Print useful debug information
+                        # ------------------------------------------
+                        if two_listener_mode:
+                            print_two_listener_fusion_status(final_result)
+                        else:
+                            pos = final_result["position"]
+                            quality = final_result.get("quality")
+                            quality_text = f"{quality:.1f}" if quality is not None else "N/A"
 
-                                print(
-                                    f"[UWB_CALC] "
-                                    f"X={pos[0]:.3f}, "
-                                    f"Y={pos[1]:.3f}, "
-                                    f"Z={pos[2]:.3f}, "
-                                    f"Q={quality_text}"
-                                )
-
-                                continue
+                            print(
+                                f"[UWB_SINGLE] "
+                                f"X={pos[0]:.3f}, "
+                                f"Y={pos[1]:.3f}, "
+                                f"Z={pos[2]:.3f}, "
+                                f"Q={quality_text}"
+                            )
 
                         # ------------------------------------------
                         # Log and route final UWB position

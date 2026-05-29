@@ -5,8 +5,7 @@
 = 
 = - hendrik mail afwachten
 = 
-= - presentatie datum regelen
-= - vragen voor uitstel eindverslag tot einde week voor de presentatie
+= - contact mario wanneer kan hij presentatie en hendrik. Hopelijk 30 juni, of 1,2 of 3 juli
 = 
 = - bestellingen
 = 	- status bekijken ali bestellingen
@@ -19,31 +18,12 @@
 vrijdag:
 
 
+
 Everything with two sensors that needs to be fixed
-- Get a consistent place for the anchors to be Placed
-	- TWO_TAGS_SWAPPED_ON_HOLDER = False testen
-
-- Log calculated position in terminal
-
-
-- coordinaten muur fusen in 1 coordinate systeem
-
-- logging in GUI goed krijgen
-
+- coordinaten muur van anchors in zelfde coordinate systeem als optitrack krijgen
+	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
+	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
 - kijken of ik het goed in matlab ontvang
-
-- consistentie verbeteren, momenteel niet heel erg consistent
-
-- wordt accuracy nummer goed verwerkt
-
-4.44 en 0.8 op x
-
-- listener 1 position aanpassen zodat het niet gemeten waarde is maar aangepaste waarde
-
-
-
-
-
 
 Bezig met ros / Matlab:
 - filter script doorkijken en alleen filters doen die echt nodig zijn
@@ -53,24 +33,16 @@ Bezig met ros / Matlab:
 - standaard figuur 8 programmeren voor limo
 - standaard figuur 8 met op en neer programmeren voor Bebop2
 
-convert uwb to drone center in matlab
-
-This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this is okay if the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
 
 
-
-
-
-
-PCB's bekijken
+convert uwb to drone center in matlab including angle problem
+- This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this is okay if      the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
+- ergens kunnen invoeren wat z offset is van uwb antenne van middenpunt robot...
 
 
 
 Beetje met onderzoek van zaterdag alvast bezig.
 - gewoon onderzoek document aanvullen en bronnen zoeken.
-
-contact mario wanneer kan hij presentatie en hendrik
-
 
 
 
@@ -78,15 +50,11 @@ how to get support for other methods than TWR
 
 
 
-- anchor printen die verder van muur staat en anchors op muur gewoon goed meten
-
-
-
-
-
-
-
 nederland shirt kopen
+
+
+
+
 
 Persoonlijk:
 - kamers
@@ -128,6 +96,9 @@ zaterdag
 	- Bitcraze niet deel van opdracht
 	- Het moet alleen goed genoeg zijn voor demos. Voor echte metingen wordt of optitrack of GPS RTK gebruikt
 - meet plannen netjes maken
+
+
+
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -187,6 +158,11 @@ Alles met PCB
 - triangulation basis doen in pycharm (kan niet, want kan niet individuele afstanden zien, alleen via wifi)
 - The ESP32-C6 does not directly support ROS 1 as a native ROS node. It is better suited for micro-ROS, which belongs to ROS 2. In a ROS 1 setup, the practical solution is to let the ESP32-C6 send data over Wi-Fi using UDP/TCP or serial, and then use a ROS 1 node on the Linux PC to translate that data into ROS topics.
 - behuizing afmaken en 3d printen
+- PCB's bekijken die aangekomen zijn
+
+
+
+- anchor printen die verder van muur staat en anchors op muur gewoon goed meten
 
 
 
