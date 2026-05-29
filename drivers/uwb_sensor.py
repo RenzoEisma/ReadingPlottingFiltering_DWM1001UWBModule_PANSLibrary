@@ -54,7 +54,7 @@ DEFAULT_COMBINE_WINDOW = 0.5
 # If both networks already use the same origin and axes, keep these at zero.
 DEFAULT_LISTENER_OFFSETS = {
     1: [0.0, 0.0, 0.0],
-    2: [0.0, 0.0, 0.0]
+    2: [5.624, 3.116, 1.256]
 }
 
 # Position of each physical tag relative to the wanted centerpoint between the two tags.
@@ -234,29 +234,50 @@ def log_error(error_writer, error_file, timestamp, port, listener_id, network_id
 # POS,0,4D18,-1.31,0.17,0.39,47,x01
 # ---------------------------------------------------------------------------------------------------------------------
 def parse_pos_csv_position(line):
-    if "POS" not in line:
+    # Find POS, anywhere in the line.
+    # This handles dirty serial lines such as:
+    # lePOS,0,4CAD,4.56,3.29,1.54,90,x08
+    pos_index = line.find("POS,")
+
+    if pos_index == -1:
         return None
 
     try:
-        data_part = line.split("POS", 1)[-1]
-        parts = [p.strip() for p in data_part.split(',') if p.strip()]
+        line = line[pos_index:].strip()
+        parts = [p.strip() for p in line.split(",")]
 
-        # Expected after split:
-        # parts = [index, tag_id, x, y, z, quality, checksum]
-        if len(parts) >= 6 and is_float(parts[2]) and is_float(parts[3]) and is_float(parts[4]):
-            quality = float(parts[5]) if is_float(parts[5]) else None
+        # Expected PANS lec listener format:
+        # POS,index,tag_id,x,y,z,quality,checksum
+        if len(parts) < 7:
+            return None
 
-            return {
-                "tag_id": parts[1],
-                "position": [float(parts[2]), float(parts[3]), float(parts[4])],
-                "quality": quality,
-                "position_type": "tag_position"
-            }
+        tag_id = parts[2]
+
+        if not is_float(parts[3]) or not is_float(parts[4]) or not is_float(parts[5]):
+            return None
+
+        x = float(parts[3])
+        y = float(parts[4])
+        z = float(parts[5])
+
+        # Ignore invalid PANS positions like:
+        # POS,0,4D18,nan,nan,nan,0,x01
+        if np.isnan(x) or np.isnan(y) or np.isnan(z):
+            return None
+
+        quality = None
+        if len(parts) > 6 and is_float(parts[6]):
+            quality = float(parts[6])
+
+        return {
+            "tag_id": tag_id,
+            "position": [x, y, z],
+            "quality": quality,
+            "position_type": "tag_position"
+        }
 
     except Exception:
         return None
-
-    return None
 
 
 # Parses compact listener output.
@@ -336,6 +357,23 @@ def parse_tag_position_line(line):
         return est_result
 
     return None
+
+
+def should_ignore_serial_line(line):
+    clean = line.strip().lower()
+
+    if clean in ["", "lec", "les", "lep", "c"]:
+        return True
+
+    if clean == "dwm>":
+        return True
+
+    # Do not ignore dirty lines that still contain useful POS data.
+    # Example: lePOS,0,4CAD,...
+    if "pos," in clean:
+        return False
+
+    return False
 
 
 # =====================================================================================================================
@@ -834,6 +872,11 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
             wake_shell(ser)
             update_anchor_list(ser, abs_save_dir)
+
+        for ser, info in zip(active_serials, listener_info):
+            listener_id = info["listener_id"]
+
+            print(f"[UWB] Starting listener {listener_id} stream...")
             start_position_stream(ser, position_command)
 
         print("[UWB] Listening for position data...")
@@ -862,7 +905,8 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
 
                 for line in lines:
                     line = line.strip()
-                    if not line:
+
+                    if should_ignore_serial_line(line):
                         continue
 
                     arr_time = time.time()

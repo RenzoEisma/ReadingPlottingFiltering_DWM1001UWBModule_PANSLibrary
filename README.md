@@ -10,7 +10,12 @@ UNIFIED SOFTWARE FRAMEWORK
 - ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb 
 geschreven gebasseerd op mijn oude code. Functioneel werkte bijna alles al maar voor finishing touches was het toch
 wel heel erg handig.
-- nieuwe matlab master is 3x zo lang als oude
+- nieuwe matlab master is 3x zo lang als oudes
+
+Ai description:
+- for first part of project gemini was used, but is not the best at coding so did most of the work mysefl
+- for second part i bought chatgpt pro and it was much better at coding with libraries so then i started offloading a lot
+of the work to it...
 
 -----------------------------------------------------------------------------------------------------------------------
 I. PROJECT OVERVIEW
