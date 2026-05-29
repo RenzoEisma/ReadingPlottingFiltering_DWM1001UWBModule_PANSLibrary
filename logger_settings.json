@@ -16,7 +16,7 @@
     "control_robots": false,
     "read_type": "Tag Position",
     "network_scale": "2 Networks / 2 Listeners",
-    "rep_name": "FirstTestNewFilterConfiguration",
+    "rep_name": "FirstTestTwoListeners",
     "rep_notes": "...",
     "rep_show_anchors": true,
     "rep_use_measurement_window": true

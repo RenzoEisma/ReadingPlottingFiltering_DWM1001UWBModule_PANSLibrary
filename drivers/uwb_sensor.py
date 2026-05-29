@@ -71,7 +71,7 @@ DEFAULT_LISTENER_OFFSETS = {
 TAG_OFFSET_A = [-0.0185, -0.125, 0.013]
 TAG_OFFSET_B = [0.0185, 0.125, 0.013]
 
-TWO_TAGS_SWAPPED_ON_HOLDER = False
+TWO_TAGS_SWAPPED_ON_HOLDER = True
 
 if TWO_TAGS_SWAPPED_ON_HOLDER:
     DEFAULT_TAG_OFFSETS_FROM_CENTER = {
@@ -979,7 +979,21 @@ def run_uwb(stop_event, config, save_dir, data_queue=None):
                                 allow_single_listener_fallback=allow_single_listener_fallback
                             )
 
-                            if final_result is None:
+                            if final_result is not None:
+                                pos = final_result["position"]
+                                quality = final_result.get("quality")
+                                mode = final_result.get("fusion_mode")
+
+                                quality_text = f"{quality:.1f}" if quality is not None else "N/A"
+
+                                print(
+                                    f"[UWB_CALC] "
+                                    f"X={pos[0]:.3f}, "
+                                    f"Y={pos[1]:.3f}, "
+                                    f"Z={pos[2]:.3f}, "
+                                    f"Q={quality_text}"
+                                )
+
                                 continue
 
                         # ------------------------------------------

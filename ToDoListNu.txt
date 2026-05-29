@@ -18,8 +18,31 @@
 
 vrijdag:
 
-uwb_sensor program
-- TWO_TAGS_SWAPPED_ON_HOLDER = False
+
+Everything with two sensors that needs to be fixed
+- Get a consistent place for the anchors to be Placed
+	- TWO_TAGS_SWAPPED_ON_HOLDER = False testen
+
+- Log calculated position in terminal
+
+
+- coordinaten muur fusen in 1 coordinate systeem
+
+- logging in GUI goed krijgen
+
+- kijken of ik het goed in matlab ontvang
+
+- consistentie verbeteren, momenteel niet heel erg consistent
+
+- wordt accuracy nummer goed verwerkt
+
+4.44 en 0.8 op x
+
+- listener 1 position aanpassen zodat het niet gemeten waarde is maar aangepaste waarde
+
+
+
+
 
 
 Bezig met ros / Matlab:
