@@ -13,20 +13,28 @@
 ==================================================================================================================
 
 
+
+
+
 Woensdag:
 
 kamernet nieuwe mails
+Matlab script herschrijven stappenplan volgen
+
+
 
 Mario vragen voor een router, en een linux laptop met ros
 
 
 
-Matlab script herschrijven stappenplan volgen
 
 Werkende setup op de matten krijgen
 - Tripods neerzetten twee standen meten
 	- eentje met twee networks (cube)
 	- eentje met 1 network met 8 anchors (plat)
+
+
+Nieuwe code testen en chatgpt spul weghalen
 
 
 
