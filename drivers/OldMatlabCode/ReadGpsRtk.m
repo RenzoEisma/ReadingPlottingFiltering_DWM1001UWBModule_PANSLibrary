@@ -1,25 +1,22 @@
 % =========================================================================
 % READGPSRTK
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
-%   Placeholder ROS reader for GPS RTK outdoor ground truth.
-%   This file creates a standard GPS RTK data path without forcing the rest
-%   of the MATLAB code to know the final GPS RTK ROS topic names yet.
+%   Placeholder ROS reader for future GPS RTK outdoor ground truth.
+%   For now this file is intentionally simple. It creates a standard GPS RTK
+%   data path without forcing the rest of the MATLAB code to know the final
+%   GPS RTK ROS topic names yet.
 %
-% Expected use:
+% Expected future use:
 %   - Read GPS RTK data from ROS.
 %   - Convert latitude/longitude/altitude to a local XYZ frame.
 %   - Log the GPS RTK ground truth in a standard CSV format.
 %   - Use the logged CSV later in the measurement report system.
 %
 % Standard gps_sample output:
-%   gps_sample.position  = [x y z]       local frame [m]
+%   gps_sample.position  = [x y z]       local frame [m], placeholder for now
 %   gps_sample.latitude
 %   gps_sample.longitude
 %   gps_sample.altitude
@@ -27,7 +24,7 @@
 %   gps_sample.valid
 %   gps_sample.source    = 'gps_rtk_ros'
 %
-% Design notes:
+% Notes:
 %   - AUTO_CONNECT is false by default because this is a future placeholder.
 %   - The coordinate conversion is intentionally basic. Later, when the GPS
 %     RTK setup is known, convertGpsToLocalFrame() should be updated.
@@ -39,7 +36,7 @@ classdef ReadGpsRtk < handle
     % USER CONFIGURATION
     % =====================================================================
     properties
-        % ROS namespace and topics.
+        % Placeholder ROS namespace and topics.
         ROS_NAMESPACE = "/gps_rtk";
 
         % Preferred future topic: sensor_msgs/NavSatFix.
@@ -66,7 +63,7 @@ classdef ReadGpsRtk < handle
         LOG_ENABLE = true;
         GPS_LOG_FILE = "";
 
-        % Do not auto-connect by default. The GPS RTK setup is configured separately.
+        % Do not auto-connect yet. The GPS RTK setup is future work.
         AUTO_CONNECT = false;
 
         % Data freshness timeout.
@@ -261,11 +258,11 @@ classdef ReadGpsRtk < handle
         end
 
         % =================================================================
-        % Convert GPS to local XYZ
+        % Convert GPS to local XYZ placeholder
         % =================================================================
         function position = convertGpsToLocalFrame(obj, latitude, longitude, altitude)
             % Simple local tangent plane approximation.
-            % Basic approximation for small outdoor test areas.
+            % Good enough as a placeholder for small outdoor test areas.
             % Later this can be replaced by a proper ENU conversion or by
             % using the GPS RTK system's own local frame if it provides one.
 

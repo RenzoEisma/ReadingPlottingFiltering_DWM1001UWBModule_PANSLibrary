@@ -1,24 +1,20 @@
 % =========================================================================
 % READCUSTOMPCB
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
-%   Placeholder ROS reader for the custom UWB PCB data path.
-%   This class keeps custom PCB details out of the main MATLAB master script
-%   and always outputs the same standard formats used by the rest of the
-%   localization framework.
+%   Placeholder ROS reader for the future custom UWB PCB.
+%   This class does NOT filter in the main MATLAB master script. It hides the
+%   custom PCB details and always outputs the same standard formats used by
+%   the rest of the localization framework.
 %
-% Custom PCB data path:
+% Future custom PCB idea:
 %   - ESP32-C6 sends data to ROS / micro-ROS.
 %   - DWM1001C provides UWB position or raw ranges.
 %   - BMI270 provides accelerometer and gyroscope data.
 %   - Any raw-distance filtering or internal UWB positioning logic should be
-%     handled inside this reader, not in MatlabMasterUWBControl.m.
+%     handled inside this reader later, not in MatlabMasterUWBControl.m.
 %
 % Standard outputs:
 %   uwb_sample.position     = [x y z]
@@ -36,7 +32,7 @@
 %
 %   angles.roll / pitch / yaw
 %
-% Design notes:
+% Notes:
 %   - This file is intentionally simple and mostly future-proofing.
 %   - It can be added to GitHub now without needing the PCB to exist yet.
 %   - AUTO_CONNECT is false by default so it will not break tests when the
@@ -164,7 +160,7 @@ classdef ReadCustomPcb < handle
         end
 
         % =================================================================
-        % Connect to custom PCB ROS topics
+        % Connect to future custom PCB ROS topics
         % =================================================================
         function success = connect(obj)
             success = false;
@@ -304,7 +300,7 @@ classdef ReadCustomPcb < handle
         end
 
         % =================================================================
-        % Placeholder for raw-distance processing
+        % Placeholder for future raw-distance processing
         % =================================================================
         function uwb_sample = processRawAnchorDistances(obj, raw_ranges)
             %#ok<INUSD>
@@ -313,14 +309,14 @@ classdef ReadCustomPcb < handle
             %   should be processed if the PCB sends anchor ranges instead of
             %   already calculated XYZ.
             %
-            % Possible processing steps:
+            % Possible future steps:
             %   1. Read anchor IDs, ranges, signal quality and timestamps.
             %   2. Reject bad anchors/ranges using quality, jump checks or CIR.
             %   3. Calculate position from ranges using multilateration.
             %   4. Optionally run an internal EKF/tightly-coupled filter.
             %   5. Output the same standard uwb_sample as the PANS/Python path.
             %
-            % Design note:
+            % Important:
             %   MatlabMasterUWBControl.m should not need to know about any of
             %   this. It should only receive a normal uwb_sample.
             uwb_sample = obj.makeEmptyUwbSample();

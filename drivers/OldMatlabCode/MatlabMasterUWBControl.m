@@ -1,10 +1,6 @@
 % =========================================================================
 % MATLAB MASTER UWB CONTROL
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -51,7 +47,8 @@ fprintf('============================================================\n\n');
 
 %% 1. MANUAL MATLAB CONFIGURATION
 % =========================================================================
-% Final position source is configured in MATLAB, not in Python.
+% Keep these settings here so the final position source is controlled in
+% MATLAB and not from Python.
 
 % Options: "UWB_GENERAL" or "OPTITRACK"
 FINAL_POSITION_SOURCE = "UWB_GENERAL";
@@ -145,14 +142,14 @@ if ~isfolder(session_dir)
     mkdir(session_dir);
 end
 
-% Current implementation: Python listener UDP is the active UWB input.
+% This script only supports Python listener UWB for now.
 if ENABLE_UWB && PYTHON_UWB_SOURCE ~= "Listener"
     fprintf('[MASTER] Warning: Python selected UWB source "%s".\n', PYTHON_UWB_SOURCE);
     fprintf('[MASTER] This simplified MATLAB script only supports Python listener UDP for now. UWB disabled.\n');
     ENABLE_UWB = false;
 end
 
-% Current implementation: OptiTrack UDP is the active ground-truth input.
+% This script only supports OptiTrack UDP as ground truth for now.
 if ENABLE_GT && GT_SOURCE ~= "OptiTrack"
     fprintf('[MASTER] Warning: Python selected ground truth "%s".\n', GT_SOURCE);
     fprintf('[MASTER] This simplified MATLAB script only supports OptiTrack UDP for now. Ground truth disabled.\n');

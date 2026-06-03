@@ -1,10 +1,6 @@
 % =========================================================================
 % CONTROL BEBOP
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -26,7 +22,7 @@
 %   final_angles.valid       = true/false       optional
 %   final_angles.source      = string           optional
 %
-% Design note:
+% Important:
 %   This keeps the old Bebop control logic as much as possible. The main
 %   change is that the selected final_position and final_angles now come from
 %   the master script instead of this controller choosing UWB vs OptiTrack.
@@ -41,7 +37,7 @@ classdef ControlBebop < handle
         RobotObj
 
         %% Compatibility / offsets
-        % final_position is expected to already be corrected to the
+        % New structure: final_position should already be corrected to the
         % drone centre. Keep this false to avoid double offset compensation.
         APPLY_FINAL_POSITION_OFFSET = false;
         final_position_offset_world = [0; 0; 0];
@@ -52,8 +48,8 @@ classdef ControlBebop < handle
         legacy_y_offset = 0.009;
         legacy_z_offset = -0.135;
 
-        % Setting kept for backwards compatibility.
-        % The master script normally chooses final_position.
+        % Old setting kept for temporary backwards compatibility.
+        % In the new structure the master script chooses final_position.
         use_uwb_for_control = false;
 
         %% Trajectory configuration
@@ -102,7 +98,7 @@ classdef ControlBebop < handle
             fprintf('[BEBOP CONTROL] Taking off...\n');
             obj.RobotObj.rTakeOff();
 
-            % Preserve the previous takeoff wait so the drone can reach initial height.
+            % Keep the old wait so the drone has time to reach initial height.
             pause(4);
 
             fprintf('[BEBOP CONTROL] Starting movement trajectory...\n');
@@ -113,7 +109,7 @@ classdef ControlBebop < handle
             % UPDATE New interface:
             %   update(final_position, final_angles)
             %
-            % Legacy interface is also supported:
+            % Temporary legacy interface is also supported:
             %   update(uwb_pos, opti_pos)
             % In legacy mode, use_uwb_for_control selects the vector.
 
@@ -141,7 +137,7 @@ classdef ControlBebop < handle
                     current_pos = obj.padVector3(opti_pos);
                 end
 
-                % Preserve legacy offset behaviour for legacy calls.
+                % Keep old offset behaviour for old calls.
                 current_pos = current_pos + [obj.legacy_x_offset; obj.legacy_y_offset; obj.legacy_z_offset];
                 angles = obj.makeInvalidAngles();
             else
@@ -176,7 +172,7 @@ classdef ControlBebop < handle
 
             obj.RobotObj.pPos.X(1:3) = current_pos(:);
 
-            % Store orientation when available. The proportional position
+            % Store orientation if available. The old proportional position
             % controller does not depend on these angles directly, but other
             % code in the Bebop object may use pPos.X(4:6).
             if angles.valid

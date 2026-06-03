@@ -1,10 +1,6 @@
 % =========================================================================
 % IMUFUSIONFILTER
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -17,7 +13,7 @@
 %       - if IMU data is missing or disabled, it falls back to the
 %         GeneralFilter output
 %
-% Design note:
+% Important:
 %   This version does NOT do real acceleration prediction yet.
 %   It is a pass-through/fallback structure so the master script can be
 %   updated safely before real UWB+IMU fusion is added.
@@ -53,18 +49,21 @@ classdef ImuFusionFilter < handle
     % USER CONFIGURATION
     % =====================================================================
     properties
-        % Main IMU switch. When disabled, output follows the GeneralFilter result.
+        % Main switch. For this first version, enabling this only stores IMU
+        % data and includes it in the output. It does not yet predict motion.
         USE_IMU_FILTER = false;
 
-        % If IMU data is missing, the output can remain the GeneralFilter result.
+        % Always keep this true for now. If IMU data is missing, the output
+        % remains the GeneralFilter output instead of stopping.
         FALLBACK_TO_GENERAL_FILTER = true;
 
-        % Optional processing switches.
-        USE_IMU_PREDICTION = false;
-        USE_TILT_COMPENSATION = false;
-        USE_LEVER_ARM_COMPENSATION = false;
+        % Future switches. Present now so the structure is ready, but they
+        % are not used for real math in this pass-through version.
+        USE_IMU_PREDICTION = false;              % future
+        USE_TILT_COMPENSATION = false;           % future
+        USE_LEVER_ARM_COMPENSATION = false;      % future
 
-        % Robot motion mode.
+        % Robot mode for future behaviour.
         % Options: 'GROUND_2D' or 'DRONE_3D'
         ROBOT_MODE = 'GROUND_2D';
 
@@ -72,8 +71,8 @@ classdef ImuFusionFilter < handle
         % treated as unavailable.
         IMU_FRESH_TIMEOUT = 0.5;                 % [s]
 
-        % Tag offset from robot centre to UWB tag in robot body frame.
-        % Used when lever-arm compensation is enabled:
+        % Future tag offset from robot centre to UWB tag in robot body frame.
+        % This will be used later for lever-arm compensation:
         % p_center = p_tag - R * tag_offset_body
         TAG_OFFSET_BODY = [0; 0; 0];             % [m]
 
@@ -181,7 +180,7 @@ classdef ImuFusionFilter < handle
         end
 
         % =================================================================
-        % Main update function.
+        % Main function for this first version.
         % It accepts GeneralFilter output and optionally an IMU sample.
         % Real acceleration prediction is not implemented yet.
         % =================================================================
@@ -214,8 +213,8 @@ classdef ImuFusionFilter < handle
             imu_available = obj.isImuAvailableForTimestamp(uwb.timestamp);
 
             % -------------------------------------------------------------
-            % Default path: use GeneralFilter position as the output.
-            % If IMU exists, include orientation/debug fields.
+            % First safe version: always use GeneralFilter position as the
+            % actual output. If IMU exists, attach orientation/debug only.
             % -------------------------------------------------------------
             if obj.USE_IMU_FILTER && imu_available
                 orientation = obj.LatestImuSample.orientation;
@@ -241,9 +240,9 @@ classdef ImuFusionFilter < handle
                 obj.NumFallbacks = obj.NumFallbacks + 1;
             end
 
-            % Optional tag-offset compensation point:
+            % Future place for tag offset compensation:
             %   position = obj.applyLeverArmCompensation(uwb.position, orientation);
-            % Default output follows GeneralFilter behaviour when disabled.
+            % For now, keep exact GeneralFilter behaviour.
             position = uwb.position;
             velocity = uwb.velocity;
 

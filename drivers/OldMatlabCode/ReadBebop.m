@@ -1,10 +1,6 @@
 % =========================================================================
 % READBEBOP
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -33,7 +29,7 @@
 %   angles.valid
 %   angles.source = 'bebop'
 %
-% Design notes:
+% Notes:
 %   - The Bebop driver may not expose a /imu topic in every setup.
 %   - If /imu is unavailable, /odom is still useful for orientation/yaw and
 %     angular velocity, but acceleration will stay NaN.
@@ -57,8 +53,8 @@ classdef ReadBebop < handle
         ODOM_MSG_TYPE = "nav_msgs/Odometry";
 
         % Automatically try to subscribe during construction.
-        % If ROS is not initialized yet, the object remains valid and
-        % IsConnected remains false. connect() can be called after ROS starts.
+        % If ROS is not initialized yet, the object will stay valid but
+        % IsConnected will remain false. You can call connect() again later.
         AUTO_CONNECT = true;
 
         % A sample is considered stale when it is older than this value.

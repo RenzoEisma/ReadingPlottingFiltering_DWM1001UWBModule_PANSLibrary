@@ -1,10 +1,6 @@
 % =========================================================================
 % GENERALFILTER
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -28,7 +24,7 @@
 %   uwb_general_filtered.valid
 %   uwb_general_filtered.source = 'general_filter'
 %
-% Design notes:
+% Notes:
 %   - This class intentionally only handles calculated UWB XYZ positions.
 %   - IMU fusion belongs in ImuFusionFilter.m.
 %   - Raw-anchor-distance EKF logic belongs in the future custom PCB reader
@@ -181,7 +177,7 @@ classdef GeneralFilter < handle
         end
 
         % =================================================================
-        % Main function: process standard uwb_sample struct
+        % Main new function: process standard uwb_sample struct
         % =================================================================
         function uwb_general_filtered = processUwbSample(obj, uwb_sample)
             [Z, quality, timestamp, source, valid_input] = obj.parseUwbSample(uwb_sample);
@@ -287,8 +283,8 @@ classdef GeneralFilter < handle
         end
 
         % =================================================================
-        % Legacy wrapper
-        % Supports calls: [x,y,z] = filter.process(raw_x,raw_y,raw_z)
+        % Legacy wrapper for old code
+        % Allows old calls: [x,y,z] = filter.process(raw_x,raw_y,raw_z)
         % =================================================================
         function varargout = process(obj, raw_x, raw_y, raw_z)
             uwb_sample.position = [raw_x raw_y raw_z];
@@ -496,7 +492,7 @@ classdef GeneralFilter < handle
         end
 
         % =================================================================
-        % Calculate dt. By default this returns fixed dt for backwards compatibility.
+        % Calculate dt. By default this returns fixed dt to keep old behaviour.
         % =================================================================
         function current_dt = calculateDt(obj, timestamp)
             current_dt = obj.dt;

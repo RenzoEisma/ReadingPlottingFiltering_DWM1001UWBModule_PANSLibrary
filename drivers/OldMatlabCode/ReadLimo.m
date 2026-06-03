@@ -1,10 +1,6 @@
 % =========================================================================
 % READLIMO
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -32,7 +28,7 @@
 %   angles.valid
 %   angles.source = 'limo'
 %
-% Design notes:
+% Notes:
 %   - Limo is treated as a ground robot. The full [roll pitch yaw] fields are
 %     still output to keep the format compatible with Bebop/custom PCB later.
 %   - The control script should stay separate. ControlLimo.m or the existing
@@ -52,8 +48,8 @@ classdef ReadLimo < handle
         IMU_MSG_TYPE = "sensor_msgs/Imu";
 
         % Automatically try to subscribe during construction.
-        % If ROS is not initialized yet, the object remains valid and
-        % IsConnected remains false. connect() can be called after ROS starts.
+        % If ROS is not initialized yet, the object will stay valid but
+        % IsConnected will remain false. You can call connect() again later.
         AUTO_CONNECT = true;
 
         % A sample is considered stale when it is older than this value.

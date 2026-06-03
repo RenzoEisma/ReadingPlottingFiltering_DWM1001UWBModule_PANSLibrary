@@ -1,10 +1,6 @@
 % =========================================================================
 % CONTROL LIMO
-% Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% Author: Renzo Eisma / rewritten with ChatGPT
 % Date: 06/2026
 %
 % Purpose:
@@ -27,7 +23,7 @@
 %   final_angles.valid       = true/false       optional
 %   final_angles.source      = string           optional
 %
-% Design note:
+% Important:
 %   This file keeps the original Limo control logic as much as possible.
 %   It only changes the input interface so the controller receives the
 %   already-selected final_position and final_angles from the master script.
@@ -45,7 +41,7 @@ classdef ControlLimo < handle
         msg
 
         %% Optional internal IMU fallback
-        % ReadLimo.m normally provides final_angles.
+        % The new structure should use ReadLimo.m to provide final_angles.
         % This subscriber is kept only as a fallback so the old working logic
         % is not broken if final_angles is missing.
         USE_INTERNAL_IMU_FALLBACK = true;
@@ -56,7 +52,7 @@ classdef ControlLimo < handle
         latest_pitch = 0;
 
         %% Compatibility / offsets
-        % final_position is expected to already be corrected to the
+        % New structure: final_position should already be corrected to the
         % robot centre. Keep this false to avoid double offset compensation.
         APPLY_FINAL_POSITION_OFFSET = false;
         final_position_offset_world = [0; 0; 0];
@@ -67,8 +63,8 @@ classdef ControlLimo < handle
         legacy_y_offset = -0.006;
         legacy_z_offset = -0.18;
 
-        % Setting kept for backwards compatibility.
-        % The master script normally chooses final_position.
+        % Old setting kept for temporary backwards compatibility.
+        % In the new structure the master script chooses final_position.
         use_uwb_for_control = false;
 
         %% Trajectory configuration
@@ -100,7 +96,7 @@ classdef ControlLimo < handle
                     obj.imu_sub = rossubscriber('/L1/imu', 'sensor_msgs/Imu', @obj.imuCallback);
                 end
 
-                % Same robot object as the previous controller.
+                % This is the same robot object used in the old script.
                 obj.RobotObj = RPioneer(1, 'RosAria', 1);
                 obj.w = 2*pi/obj.T;
 
@@ -120,7 +116,7 @@ classdef ControlLimo < handle
             % UPDATE New interface:
             %   update(final_position, final_angles)
             %
-            % Legacy interface is also supported:
+            % Temporary legacy interface is also supported:
             %   update(uwb_pos, opti_pos)
             % In legacy mode, use_uwb_for_control selects the vector.
 
@@ -148,7 +144,7 @@ classdef ControlLimo < handle
                     current_pos = obj.padVector3(opti_pos);
                 end
 
-                % Preserve legacy offset behaviour for legacy calls.
+                % Keep old offset behaviour for old calls.
                 current_pos = current_pos + [obj.legacy_x_offset; obj.legacy_y_offset; obj.legacy_z_offset];
                 angles = obj.makeInvalidAngles();
                 angles.yaw = obj.latest_yaw;
