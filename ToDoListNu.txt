@@ -4,72 +4,125 @@
 = things i could use that would be helpful. I don't have time to go very in depth but i can use it to get higher accuracy on the uwb system.
 = 
 = - hendrik mail afwachten
-= 
-= - contact mario wanneer kan hij presentatie en hendrik. Hopelijk 30 juni, of 1,2 of 3 juli
-= 
-= - bestellingen
-= 	- status bekijken ali bestellingen
-= 	- status bekijken jlc bestelling
+=
+= - bericht max opwachten
+= - bericht ruyther opwachten
+= - bericht hendrik opwachten over presentatie datum
 = 
 = 
 ==================================================================================================================
 
 
+Woensdag:
+
+kamernet nieuwe mails
+
+Mario vragen voor een router, en een linux laptop met ros
+
+
+
+Matlab script herschrijven stappenplan volgen
+
+Werkende setup op de matten krijgen
+- Tripods neerzetten twee standen meten
+	- eentje met twee networks (cube)
+	- eentje met 1 network met 8 anchors (plat)
+
+
+
+
+
+
+
+
+
+
+
+-------------
+
+
+
+Research:
+- hardware research
+- filter research
+- conclusions
+
+
+
+
+
+Bezig met Matlab code:
+- testen of ruimte voor ros uwb lezen niks heeft gebroken en of het goed is
+- Mastercontrol script doorkijken en kijken wat wel en niet nodig is
+- filter script doorkijken en alleen filters doen die echt nodig zijn
+- convert uwb to drone center in matlab including angle problem
+	- This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this 	is 	okay if      the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
+	- ergens kunnen invoeren wat z offset is van uwb antenne van middenpunt robot...
+	- angle ding is alleen voor drones, niet voor limo
+- ROS sensor reading and programming:
+	- LIMO
+		- First test if controlling with optitrack still works
+		- Read out angle data
+		- read out accelerometer data
+		- read out shit
+	- Bebop2
+		- standaard figuur 8 met op en neer programmeren voor Bebop2
+
+
+
+
+Alles PCB nog
+- solderen:
+	- dwm1001c
+	- batterij ding
+	- smd componenten
+	- reset pin?
+	- de andere drie bordjes
+- testen
+	- flash dwm1001
+	- blink test esp
+	- sensor test esp
+- ROS test
+- 3D behuizing
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------------------------------
+
+
+donderdag:
+- Testen met Enzo
+
+
+
+Eerste base test doen
+
+--------------------------------------------------------------------------------------------------------
+
+
 vrijdag:
 
-
-
 Everything with two sensors that needs to be fixed
-- coordinaten muur van anchors in zelfde coordinate systeem als optitrack krijgen
+- Nieuw muur configuratie tests
 	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
 	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
+	- kijken hoe accuraat het is
 - kijken of ik het goed in matlab ontvang
-
-Bezig met ros / Matlab:
-- filter script doorkijken en alleen filters doen die echt nodig zijn
-- ruimte maken voor uwb sensor
-- ruimte maken voor optitrack sensor
-- Mastercontrol script doorkijken
-- standaard figuur 8 programmeren voor limo
-- standaard figuur 8 met op en neer programmeren voor Bebop2
-
-
-
-convert uwb to drone center in matlab including angle problem
-- This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this is okay if      the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
-- ergens kunnen invoeren wat z offset is van uwb antenne van middenpunt robot...
-
-
-
-Beetje met onderzoek van zaterdag alvast bezig.
-- gewoon onderzoek document aanvullen en bronnen zoeken.
-
-
-
-how to get support for other methods than TWR
-
-
-
-nederland shirt kopen
+Other
+- Add compensation for data delay and calculate it.
 
 
 
 
-
-Persoonlijk:
-- kamers
-	- bericht funest
-	- bericht aanpassen kamer aanmeld mail en foto's toevoegen
-	- kijken naar kamernet / die andere
-	- kijken naar studio in enschede
-- tattoeages
-- tinder bericht meer meiden
-- bericht dhl (bericht veranderen naar drie weken achter elkaar)
-- kijken klm vlucht verplaatsen
-	- ... extra geld (bellen met klm)
-	- verplaatsen naar 28 juni of zoiets
-- fantasy wk 2026 groep aanmaken
-- geld op een wedstrijd zetten?
+anchors aan buitenkant plaatsen in plaats van zo ver naar het midden
 
 
 
@@ -78,115 +131,27 @@ Persoonlijk:
 
 
 
-
-
----------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
 
 
 zaterdag
-- preciese model van tripods (wf wt3130) in verslag zetten en noemen hoe alles aangepast kan worden
-- Research:
-	- kijken naar de forums om te zien hoe je firmware kan herprogrammeren
-	- forums opslaan in bronnen
-- the research document has a lot of work to do, especially citing sources 
-	- omschrijven dat ik met optitrack de anchor coordinaten kan meten in het lab en dat ik dan met het mat die posities kan behouden en accurate anchor posities kan hebben in het onderzoek document
-	- hardware herprogrammeren ergens omschrijven hoe het in theorie zou moeten
-	- compare different UWB chips and modules, including price
-- Argument voor waarom UWB PANS en niet Bitcraze:
-	- Bitcraze niet deel van opdracht
-	- Het moet alleen goed genoeg zijn voor demos. Voor echte metingen wordt of optitrack of GPS RTK gebruikt
-- meet plannen netjes maken
 
 
 
 
----------------------------------------------------------------------------------------------------------
 
-
-
+--------------------------------------------------------------------------------------------------------
 
 
 zondag
-- Eerste base test doen
-
-
-- kijken of plek van tag in anchor systeem op sommige plekken accurater is dan anderen
-
-
-uwb anchors op bovenkant bureaus neerzetten en met de stick method meten. Kijken of hoogte helpt
-
-- Fotos maken van alles dat ik heb gemaakt tot nu toe inclusief UWB sensor en robots
-- GoPro werkend krijgen
-
-- onderzoek doen naar de crazyflie pcb en of ik die firmware zelf ook kan gebruiken
-
-- Metingen muur opnieuw doen maar dan met een ladder erbij voor zo recht mogelijk
-- anchors printen die de uwb modules van de muur af doen
-- Een betere methode om anchors aan de muur te plakken. 3d geprinte uwb module behuizing gewoon schroeven aan de muur?
-
-Bij testen toevoegen:
-- wat voor invloed heeft twee tags bij elkaar
-	- test door listener 1 te meten met en zonder andere tag ernaast
-	- conclusie trekken of dit accuraat genoeg is en of 2 tags een goed idee is
-	The antennas being only 3.35 cm apart can influence each other slightly. The DWM1001C uses UWB channel 5 around 6.5 GHz, where the wavelength is roughly:
-		wavelength = speed of light / frequency
-		wavelength = 3e8 / 6.5e9
-		wavelength ≈ 0.046 m = 4.6 cm
-	So the antennas are less than one wavelength apart. That means they are close enough that there can be some mutual coupling or radiation pattern influence.
-	But shouldnt do too much
-
-- bericht daniel
-
-
-
-
-
-
-
-
-
-
-=========================================================================================================
-
-Alles met PCB
-- ruyther voor soldeerbout vragen
-- pcb solderen
-- programmer solderen
-- firmware uploaden
-- pcb led blink
-- pcb wifi
-- triangulation basis doen in pycharm (kan niet, want kan niet individuele afstanden zien, alleen via wifi)
-- The ESP32-C6 does not directly support ROS 1 as a native ROS node. It is better suited for micro-ROS, which belongs to ROS 2. In a ROS 1 setup, the practical solution is to let the ESP32-C6 send data over Wi-Fi using UDP/TCP or serial, and then use a ROS 1 node on the Linux PC to translate that data into ROS topics.
-- behuizing afmaken en 3d printen
-- PCB's bekijken die aangekomen zijn
-
-
-
-- anchor printen die verder van muur staat en anchors op muur gewoon goed meten
-
-
-
-- besluiten of ik het ga halen of of ik vakantie moet cancelen. Dan moet dat deze week geregeld worden ivm afzegtijd vakantie ding
-- gesprek met johannes
-
-
-
-nog 2 weken
-- verder met testen en accuraatheid verbeteren. Hopelijk ook een keer buiten testen en alles op een pc en laptop zetten.
-
-maandag
-- Mario vragen voor een router, een powerbank, een linux laptop, en mogelijk een windows laptop maar die is niet verplicht
-- alle code op andere computers zetten
-dinsdag
-woensdag
-donderdag
-vrijdag
-zaterdag
-zondag
-
-
 - filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
 
+
+
+
+
+Random
+- GoPro werkend krijgen
 
 
 
@@ -198,6 +163,9 @@ zondag
 
 
 nog 1 week
+
+Meer clippers kopen voor cadeaus voor:
+- ...
 
 - laatste tests afronden
 - mario beoordelingsformulier laten invullen
@@ -234,7 +202,12 @@ alles met einddocument
 - gewicht meten pcb
 - zelfde tables en font enzo in elk document gebruiken
 - document format fixen en consistent hebben in elk document
-
+- Volgende toevoegen aan verslag voor aankopen:
+	- uwb antennes onderin plaatsen en meten en de antennes boven meer naar buiten verplaatsen. Dit is voor een semi permanente setup
+	- mogelijk nieuwe tape bestellen
+	- mogelijk niewue usb micro kabels bestellen die langer zijn
+	- mogelijk nieuwe holders printen
+- anchor pritnen die modules van muur afzet idee maar niet uitgewerkt, geen tijd
 
 
 
@@ -247,6 +220,11 @@ Na het eindverslag:
 - verder pcb solderen en testen
 - meer fine tuning voor betere accuracy
 - iemand in lab laten zien hoe alles werkt
+- verslag uitprinten
+- manuals uitprinten
+
+
+
 
 1 dag presentatie maken
 1 dag presentatie de hele dag oefenen

@@ -52,9 +52,10 @@ DEFAULT_COMBINE_WINDOW = 0.5
 # Translation offsets used to align both UWB network coordinate frames.
 # aligned_position = raw_position + listener_offset
 # If both networks already use the same origin and axes, keep these at zero.
+
 DEFAULT_LISTENER_OFFSETS = {
     1: [0.0, 0.0, 0.0],
-    2: [-5.624, -3.116, -1.256]
+    2: [0,0,0] #-5.624, -3.116, -1.256
 }
 
 # Position of each physical tag relative to the wanted centerpoint between the two tags.

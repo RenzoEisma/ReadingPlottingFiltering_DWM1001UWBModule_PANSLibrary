@@ -386,7 +386,6 @@ General code cleanup and bugs
 
 Filtering and sensor fusion
 - Prepare code for accelerometer fusion. Use accelerometer data from robots via ROS.
-- Triangulate position from raw distances with kalman filter (can only be received from custom PCB)
 - UWB does not provide angle, but angle is needed.
   - The angle can be taken from the robot topic.
   - Or the angle can be calculated from the known position and the change in position over time.
@@ -415,13 +414,20 @@ ROS integration
 
 
 -------------------------------------
+to do later:
+
+- Triangulate position from raw distances with kalman filter (can only be received from custom PCB)
+
+-----------------------------
+
+
+
 Documentation
 - Add an explanation in readme for why matplotlib
 - Add an explanation in readme for the use of threads with live visualization.
 - Make reprogramming or adding features easy for new people
 
 [6.2] COMPARISONREPORTMAKER
-- Begin en einde van meting af trimmen
 - Automatically calculate Angle offset
 
 [6.3] READUWBBLUETOOTH
