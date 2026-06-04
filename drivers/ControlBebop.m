@@ -3,8 +3,9 @@
 % Author: Renzo Eisma
 % Assistance note:
 %   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+%   comments and line spacing.
+%   The original concept, code logic, and project structure were created by
+%   a human author
 % Date: 06/2026
 %
 % Purpose:

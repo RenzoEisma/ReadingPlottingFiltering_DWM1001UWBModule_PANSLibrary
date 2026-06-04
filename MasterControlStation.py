@@ -82,6 +82,7 @@ class MasterControlApp:
 
         # Measurement window timing.
         self.logging_start_time = None
+        self.logging_stop_time = None
         self.measurement_start_time = None
         self.measurement_stop_time = None
         self.measurement_active = False
@@ -450,6 +451,7 @@ class MasterControlApp:
         stop_event.clear()
 
         self.logging_start_time = time.time()
+        self.logging_stop_time = None
         self.measurement_start_time = None
         self.measurement_stop_time = None
         self.measurement_active = False
@@ -472,9 +474,16 @@ class MasterControlApp:
     def stop_logging(self):
         print("\n[MASTER] Shutdown initiated...")
 
-        # If the measurement was started but not stopped, stop it automatically.
+        # Store the full logging/plotting stop time.
+        self.logging_stop_time = time.time()
+
+        # If the measurement was manually started but not stopped, stop it normally.
         if self.measurement_active:
             self.mark_measurement_stop()
+        else:
+            # If the measurement buttons were not used, still create the CSV
+            # using the full logging/plotting start and stop time.
+            self.ensure_measurement_window_file_exists()
 
         stop_event.set()
         self.measurement_running = False
@@ -528,6 +537,28 @@ class MasterControlApp:
         self.measure_stop_btn.config(state=tk.DISABLED)
 
         print(f"[MEASUREMENT] Stop marked at PC time: {self.measurement_stop_time:.5f}")
+
+    def ensure_measurement_window_file_exists(self):
+        if self.current_session_dir is None or self.current_session_name is None:
+            print("[MEASUREMENT] Cannot write fallback measurement window. Session folder is not ready.")
+            return
+        if self.logging_start_time is None:
+            print("[MEASUREMENT] Cannot write fallback measurement window. Logging start time is missing.")
+            return
+
+        # If the user never pressed Start Measuring, use the logging/plotting start.
+        if self.measurement_start_time is None:
+            self.measurement_start_time = self.logging_start_time
+            print(f"[MEASUREMENT] No manual start marked. Using logging start time: {self.measurement_start_time:.5f}")
+        # If the user never pressed Stop Measuring, use the logging/plotting stop.
+        if self.measurement_stop_time is None:
+            if self.logging_stop_time is not None:
+                self.measurement_stop_time = self.logging_stop_time
+            else:
+                self.measurement_stop_time = time.time()
+            print(f"[MEASUREMENT] No manual stop marked. Using logging stop time: {self.measurement_stop_time:.5f}")
+        self.measurement_active = False
+        self.write_measurement_window_file()
 
     # Writes the measurement window CSV into the current measurement folder.
     # The report maker uses this file to crop the plotted/analyzed data.

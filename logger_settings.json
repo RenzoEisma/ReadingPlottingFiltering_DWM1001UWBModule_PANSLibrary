@@ -4,10 +4,10 @@
     "uwb_port1": "COM5",
     "enable_uwb_port2": false,
     "uwb_port2": "COM6",
-    "enable_gt": false,
+    "enable_gt": true,
     "gt_type": "OptiTrack",
     "opti_server": "192.168.1.187",
-    "opti_client": "192.168.1.134",
+    "opti_client": "192.168.1.42",
     "gps_rtk_topic": "/gps/rtk",
     "gps_rtk_ros_master": "http://localhost:11311",
     "gps_rtk_frame": "map",
@@ -16,8 +16,8 @@
     "control_robots": false,
     "read_type": "Tag Position",
     "network_scale": "1 Network / 1 Listener",
-    "rep_name": "FirstTestTwoListeners",
-    "rep_notes": "...",
+    "rep_name": "FirstPuzzleMatSetupTestSecondTryStartEnd",
+    "rep_notes": "anchors in one plane",
     "rep_show_anchors": true,
     "rep_use_measurement_window": true
 }

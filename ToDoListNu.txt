@@ -12,71 +12,42 @@
 = 
 ==================================================================================================================
 
+Donderdag:
 
 
+Python code fixen vandaag:
+- twee anchors:
+	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
+	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
+	- kijken hoe accuraat het is
 
 
-Woensdag:
-
-kamernet nieuwe mails
-Matlab script herschrijven stappenplan volgen
-
-
-
-Mario vragen voor een router, en een linux laptop met ros
-
-
-
-
-Werkende setup op de matten krijgen
-- Tripods neerzetten twee standen meten
-	- eentje met twee networks (cube)
-	- eentje met 1 network met 8 anchors (plat)
-
-
-Nieuwe code testen en chatgpt spul weghalen
-
-
-
-
-
-
-
-
-
-
-
--------------
-
-
-
-Research:
-- hardware research
-- filter research
-- conclusions
-
-
-
-
-
-Bezig met Matlab code:
-- testen of ruimte voor ros uwb lezen niks heeft gebroken en of het goed is
-- Mastercontrol script doorkijken en kijken wat wel en niet nodig is
-- filter script doorkijken en alleen filters doen die echt nodig zijn
+Matlab code fixen vandaag:
 - convert uwb to drone center in matlab including angle problem
-	- This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this 	is 	okay if      the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
+	- This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this 	is okay if the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
 	- ergens kunnen invoeren wat z offset is van uwb antenne van middenpunt robot...
-	- angle ding is alleen voor drones, niet voor limo
-- ROS sensor reading and programming:
-	- LIMO
-		- First test if controlling with optitrack still works
-		- Read out angle data
-		- read out accelerometer data
-		- read out shit
-	- Bebop2
-		- standaard figuur 8 met op en neer programmeren voor Bebop2
+	- angle ding is alleen voor drones
+	- optitrack moet ook geconvert worden
+- testen of ruimte voor ros uwb lezen, niet voor limo
+	- Optitrack also has to be converted...
+- filter script doorkijken en alleen filters doen die echt nodig zijn
+	- filters een beetje bijwerken
 
 
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------------------------------
+
+
+vrijdag:
 
 
 Alles PCB nog
@@ -95,43 +66,28 @@ Alles PCB nog
 
 
 
+die drawio dinges verbeteren
+
+
+
+Anchors op muur volledig afronden:
+- nieuwe anchors op muur plakken meer buitenom
+- posities meten van anchors boven opnieuw en de uiterste opnieuw (miischien optitrack veranderd)
 
 
 
 
+Research:
+- hardware research
+- filter research
+- conclusions
 
 
 
 
---------------------------------------------------------------------------------------------------------
-
-
-donderdag:
-- Testen met Enzo
-
-
-
-Eerste base test doen
-
---------------------------------------------------------------------------------------------------------
-
-
-vrijdag:
-
-Everything with two sensors that needs to be fixed
-- Nieuw muur configuratie tests
-	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
-	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
-	- kijken hoe accuraat het is
-- kijken of ik het goed in matlab ontvang
-Other
-- Add compensation for data delay and calculate it.
-
-
-
-
-anchors aan buitenkant plaatsen in plaats van zo ver naar het midden
-
+anchors op muur aan buitenkant plaatsen en hoger in plaats van zo ver naar het midden
+Ook een configuratie van 6 anchors gebruiken in plaats van vier bovenop.
+- nieuwe doosjes printen voor hoger op muur en gaan lijmen. Dan nieuwe metingen doen met muur opstelling
 
 
 
@@ -142,7 +98,15 @@ anchors aan buitenkant plaatsen in plaats van zo ver naar het midden
 --------------------------------------------------------------------------------------------------------
 
 
-zaterdag
+zaterdag:
+
+
+...
+
+ROS toekomst:
+- accelerometer uit robots lezen
+- robots kunnen besturen met uwb en optitrack/ground truth
+
 
 
 
@@ -153,6 +117,10 @@ zaterdag
 
 zondag
 - filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
+
+
+
+- Meeste tests afronden.
 
 
 
@@ -170,30 +138,122 @@ Random
 =========================================================================================================
 
 
-nog 1 week
-
-Meer clippers kopen voor cadeaus voor:
-- ...
-
-- laatste tests afronden
-- mario beoordelingsformulier laten invullen
-- paper maken en handleidingen schrijven
-- evaluatieformulier google sheets invullen en inleveren
-- mastercontrol script makkelijk herprogrammeerbaar maken voor nieuwe mensen met guide en de andere scripts
+maandag:
 
 
-maandag
-dinsdag
-woensdag
-donderdag
-vrijdag
-zaterdag
+- Testen met Enzo
+	- matten mee naar buiten nemen
+
+- tag aan lange stok vast plakken met dinges en dan op de grond liggen tijdens de meting
+
+- test being within range with stick and outside of it
+
+Talk to Vinicius. I believe he knows which laptop has Linus/ROS installed.  He certainly also knows which router they use when visit schools to make any presentation.
+- nadenken over hoe ik gps data ga uitlezen
+
+
+
+
+
+rules:
+- measure top middle of mdek anchors for coordinates
+- red is small tripod (two different heights)
+- yellow is tall tripod (various heights)
+- always angle tripods to center and have them loodrecht to the ground
+
+
+notes:
+- mats in middle outside could not be placed there and had to be moved down one because cameras couldn't detect them accurately enough
+- hoogte variatie doe ik door de tripods op verschillende hoogtes te doen (niet perse vast)
+
+
+
+Werkende setup op de matten krijgen
+87 puzzles -> 21 per tripod. One mat = 1cm = 21cm - 1cm = 20cm hoger per box
+- 7x9 tiles met uiterste dingen
+
+
+
+Lijst van anchors:
+geel:
+-2.11,-1.29,1.27
+0.27,-1.30,1.26
+2.64,-1.23,1.26
+2.64,1.6,1.26
+0.22,1.61,1.24
+-2.17,1.56,1.24
+
+
+rood:
+-1.66,-1.32,0.74
+0.26,-1.3,0.52
+2.15,-1.19,0.52
+2.16,1.63,0.73
+0.21,1.65,0.51
+-1.77,1.66,0.51
+
+
+groen:
+2.71,-0.20,0.51
+-2.15,0.14,0.51
+
+
+
+
+
+
+
+
 
 
 
 ---------------------------------------------------------------------------------------------------------
 
-zaterdag:
+dinsdag
+
+- laatste tests afronden
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+woensdag
+- paper/conclusies maken 
+- handleidingen schrijven
+- mario beoordelingsformulier laten invullen
+- evaluatieformulier google sheets invullen en inleveren
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+donderdag:
+- verder met paper/conclusies
+
+
+- mastercontrol script makkelijk herprogrammeerbaar maken voor nieuwe mensen met guide en de andere scripts
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+vrijdag:
+
+- verder met paper/conclusies
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+zaterdag/zondag:
 
 alles met einddocument
 - Make sure every document name in the report matches the actual file name exactly.
@@ -216,6 +276,7 @@ alles met einddocument
 	- mogelijk niewue usb micro kabels bestellen die langer zijn
 	- mogelijk nieuwe holders printen
 - anchor pritnen die modules van muur afzet idee maar niet uitgewerkt, geen tijd
+- langere micro usb kabels bestellen
 
 
 
@@ -230,8 +291,6 @@ Na het eindverslag:
 - iemand in lab laten zien hoe alles werkt
 - verslag uitprinten
 - manuals uitprinten
-
-
 
 
 1 dag presentatie maken

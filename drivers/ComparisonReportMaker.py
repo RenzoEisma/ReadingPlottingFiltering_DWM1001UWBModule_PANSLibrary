@@ -56,6 +56,18 @@ DATASETS = [
         'is_ground_truth': True,
         'offset': [0, 0, 0],  # Tripods (UWB 000 == Opti 000)
         'multiplier': [1.0, 1.0, 1.0],  # Tripods (UWB 000 == Opti 000)
+        'time_offset': 0.4,
+        # 'offset': [4.2604, 3.5112, -0.1],  # Wall Anchors (UWB 000 != Opti 000)
+        # 'multiplier': [-1.0, -1.0, 1.0],  # Wall Anchors (UWB 000 != Opti 000)
+    },
+    {
+        'prefix': '[Log]_GPSRTK',
+        'label': 'GPSRTK (GT)',
+        'color': 'red',
+        'style': '--',
+        'is_ground_truth': True,
+        'offset': [0, 0, 0],  # Tripods (UWB 000 == Opti 000)
+        'multiplier': [1.0, 1.0, 1.0],  # Tripods (UWB 000 == Opti 000)
         'time_offset': 0,
         # 'offset': [4.2604, 3.5112, -0.1],  # Wall Anchors (UWB 000 != Opti 000)
         # 'multiplier': [-1.0, -1.0, 1.0],  # Wall Anchors (UWB 000 != Opti 000)
@@ -74,7 +86,7 @@ DATASETS = [
         'time_offset': 0,
     },
     {
-        'prefix': '[Log]_uwbFiltered_listener1',
+        'prefix': '[Log]_uwb_general_filter',
         'label': 'UWB Filt 1',
         'color': '#2ca02c',
         'style': '--',
