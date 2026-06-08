@@ -16,8 +16,8 @@
     "control_robots": false,
     "read_type": "Tag Position",
     "network_scale": "1 Network / 1 Listener",
-    "rep_name": "FilterTestKalmanRunawayT2",
-    "rep_notes": "fixing problem with kalman runaway",
+    "rep_name": "FilterTestKalmanRunawayT4_3",
+    "rep_notes": "includedstartstop",
     "rep_show_anchors": true,
     "rep_use_measurement_window": true
 }

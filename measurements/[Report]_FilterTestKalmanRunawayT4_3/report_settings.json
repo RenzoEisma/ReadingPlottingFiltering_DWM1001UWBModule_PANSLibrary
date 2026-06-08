@@ -1,6 +1,6 @@
 {
-    "name": "FilterTestKalmanRunawayT2",
-    "notes": "fixing problem with kalman runaway",
+    "name": "FilterTestKalmanRunawayT4_3",
+    "notes": "includedstartstop",
     "show_anchors": true,
     "use_measurement_window": true,
     "save_pdf": false,

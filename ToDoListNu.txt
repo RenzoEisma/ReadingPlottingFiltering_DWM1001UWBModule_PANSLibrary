@@ -13,23 +13,23 @@
 
 
 Filter setup testen
-
-- opeens gaat de filter naar oneindig
-
-
-
-
-- bericht max
-Yo, kan ik ook nog binnenkort een antwoord verwachten?
-En anders, kennen jullie ook nog huizen die nieuwe mensen zoeken
+- die dozen in de filtered output fixen
+- beetje omklooien met kalman waardes
+- die outlier delen fixen
 
 
-- bericht mario algemeen
-Hey Mario,
-Tomorrow will be my last week here and this friday is the last day you will be here before leaving for greece.
-. time on wednesday for looking at progress?
-. you need to fill in an evaluation form
-. 
+
+Uiteindelijk nog een paar tests doen voor dit:
+- output uitlezen uit dwm van afstanden individueel en acceleromter en gyroscoop.
+- dit matchen met de optitrack output (hoeft niet perse met ros)
+- paar metingen hiervan doen.
+- op deze manier kan ik in nederland nog bezig met filters schrijven om een zo ideaal mogelijke filter te krijgen met alles geimplementeerd.
+
+
+
+Mario vragen over componenten
+
+
 
 
 nummer 3 pcb stuk
@@ -102,6 +102,21 @@ Avond:
 3d behuizing afmaken van pcb
 
 Beetje naar documentatie kijken van code en code goed schrijven
+
+
+
+- bericht max
+Yo, kan ik ook nog binnenkort een antwoord verwachten?
+En anders, kennen jullie ook nog huizen die nieuwe mensen zoeken
+
+
+- bericht mario algemeen
+Hey Mario,
+Tomorrow will be my last week here and this friday is the last day you will be here before leaving for greece.
+. time on wednesday for looking at progress?
+. you need to fill in an evaluation form
+. 
+
 
 
 

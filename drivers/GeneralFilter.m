@@ -52,7 +52,7 @@ classdef GeneralFilter < handle
         USE_OUTLIER_REJECTION   = true; % Enables the following three outlier rejections
         USE_SPEED_GATE          = true; % Rejects measurements that would require the robot or tag to move faster than physically believable.
         USE_POSITION_JUMP_GATE  = true; % Rejects raw UWB measurements that suddenly jump too far compared to the previous raw measurement.
-        USE_MAHALANOBIS_GATE    = true; % Rejects measurements that are too far away from the Kalman filter prediction based on the filter uncertainty.
+        USE_MAHALANOBIS_GATE    = false; % Rejects measurements that are too far away from the Kalman filter prediction based on the filter uncertainty.
         % Smoothing
         USE_LOW_PASS_OUTPUT     = false; % Applies optional low-pass smoothing to the final filtered output to reduce small remaining jitter.
 
@@ -82,17 +82,19 @@ classdef GeneralFilter < handle
         % -------------------------------------------------------------
         % Outlier rejection tuning
         % -------------------------------------------------------------
-        MAX_ALLOWED_SPEED = 4.0;          % max believable speed [m/s]
+        MAX_ALLOWED_SPEED = 12.0; % old = 4.0          % max believable speed [m/s], 10.0 would actually be a difference of 100cm between two measurements because of dt = 0.1
         MAX_POSITION_JUMP = 1.0;          % max jump between raw samples [m]
-        MAHALANOBIS_GATE  = 16.27; %old = 11.34        % approx. 99% gate for 3D
+        MAHALANOBIS_GATE  = 16.27; % old = 11.34        % approx. 99% gate for 3D
         MIN_QUALITY       = -Inf;         % set if quality has a clear scale
 
         % -------------------------------------------------------------
         % Anti-runaway tuning
         % -------------------------------------------------------------
-        MAX_CONSECUTIVE_REJECTS = 4;          % reset if this many measurements are rejected in a row
+        MAX_REJECTED_COAST_STEPS = 2;
+        MAX_CONSECUTIVE_REJECTS = 2;          % reset if this many measurements are rejected in a row
+        MAX_COAST_SPEED = 3.0;              % [m/s]
         PREDICT_ONLY_VELOCITY_DAMPING = 0.20; % reduce velocity when no measurement update is accepted
-        FILTER_RAW_RESET_DISTANCE = 1.50;     % reset to raw UWB if prediction is this far from raw [m]
+        FILTER_RAW_RESET_DISTANCE = 0.0;     % reset to raw UWB if prediction is this far from raw [m]
 
         % -------------------------------------------------------------
         % Optional low-pass output smoothing
@@ -309,16 +311,37 @@ classdef GeneralFilter < handle
                 obj.OutlierCount = obj.OutlierCount + 1;
                 obj.PredictionOnlyCount = obj.PredictionOnlyCount + 1;
                 obj.ConsecutiveRejects = obj.ConsecutiveRejects + 1;
-
-                % Minimal runaway fix:
-                % Do not output X_pred here, because that lets the filter
-                % keep moving in a straight line on old velocity only.
+            
+                % Distance between current raw UWB and the Kalman prediction.
                 raw_distance_to_prediction = norm(Z - X_pred(1:3));
-
-                if obj.ConsecutiveRejects >= obj.MAX_CONSECUTIVE_REJECTS && ...
-                        raw_distance_to_prediction >= obj.FILTER_RAW_RESET_DISTANCE
-                    % The filter has probably drifted away, so re-lock onto raw UWB.
+            
+                % -------------------------------------------------------------
+                % Reject 1 and reject 2:
+                % Carefully keep predicting based on velocity.
+                % -------------------------------------------------------------
+                if obj.ConsecutiveRejects <= obj.MAX_REJECTED_COAST_STEPS
+            
+                    obj.X = X_pred;
+                    obj.P = P_pred;
+            
+                    % Clamp velocity during coasting so the filter cannot run away.
+                    coast_speed = norm(obj.X(4:6));
+            
+                    if coast_speed > obj.MAX_COAST_SPEED
+                        obj.X(4:6) = obj.X(4:6) / coast_speed * obj.MAX_COAST_SPEED;
+                    end
+            
+                    reason = [obj.LastRejectionReason '_coast'];
+            
+                % -------------------------------------------------------------
+                % Reject 3:
+                % Reset/relock to raw UWB if the raw measurement is far enough
+                % from the prediction.
+                % -------------------------------------------------------------
+                elseif raw_distance_to_prediction >= obj.FILTER_RAW_RESET_DISTANCE
+            
                     obj.X = [Z; 0; 0; 0];
+            
                     obj.P = diag([
                         obj.INITIAL_POSITION_UNCERTAINTY;
                         obj.INITIAL_POSITION_UNCERTAINTY;
@@ -327,18 +350,29 @@ classdef GeneralFilter < handle
                         obj.INITIAL_VELOCITY_UNCERTAINTY;
                         obj.INITIAL_VELOCITY_UNCERTAINTY
                     ]);
+            
                     obj.LastRawMeasurement = Z;
                     obj.LastAcceptedPosition = Z;
                     obj.ConsecutiveRejects = 0;
+            
                     reason = [obj.LastRejectionReason '_reset_to_raw'];
+            
+                % -------------------------------------------------------------
+                % Reject 3 but raw is still close:
+                % Do not reset, just hold last accepted position.
+                % This avoids resetting to tiny suspicious movements.
+                % -------------------------------------------------------------
                 else
-                    % Normal rejection: hold last accepted position and damp velocity.
+            
                     if ~isempty(obj.LastAcceptedPosition)
                         obj.X(1:3) = obj.LastAcceptedPosition;
                     end
-                    obj.X(4:6) = obj.PREDICT_ONLY_VELOCITY_DAMPING * obj.X(4:6);
+            
+                    obj.X(4:6) = [0; 0; 0];
                     obj.P = P_pred;
-                    reason = [obj.LastRejectionReason '_held'];
+            
+                    reason = [obj.LastRejectionReason '_held_close'];
+            
                 end
             end
 
