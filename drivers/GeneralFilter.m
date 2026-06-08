@@ -2,37 +2,39 @@
 % GENERALFILTER
 % Author: Renzo Eisma
 % Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
+% ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
+% comments, line spacing, and general code structure.
+% The original concept, code logic, and project structure were created by Renzo Eisma.
 % Date: 06/2026
 %
 % Purpose:
-%   First filtering layer for UWB position output.
-%   This class receives a standard uwb_sample struct, filters the UWB XYZ
-%   position, logs useful debug data, and outputs a standard
-%   uwb_general_filtered struct.
+% First filtering layer for UWB position output.
+% This class receives a standard uwb_sample struct, filters the UWB XYZ
+% position, logs useful debug data, and outputs a standard
+% uwb_general_filtered struct.
 %
 % Standard input:
-%   uwb_sample.position  = [x y z]
-%   uwb_sample.quality   = optional quality value
-%   uwb_sample.timestamp = optional timestamp in seconds
-%   uwb_sample.source    = optional source string, e.g. 'python_udp'
-%   uwb_sample.valid     = true/false
+% uwb_sample.position  = [x y z]
+% uwb_sample.quality   = optional quality value
+% uwb_sample.timestamp = optional timestamp in seconds
+% uwb_sample.source    = optional source string, e.g. 'python_udp'
+% uwb_sample.valid     = true/false
 %
 % Standard output:
-%   uwb_general_filtered.position = [x y z]
-%   uwb_general_filtered.velocity = [vx vy vz]
-%   uwb_general_filtered.timestamp
-%   uwb_general_filtered.quality
-%   uwb_general_filtered.valid
-%   uwb_general_filtered.source = 'general_filter'
+% uwb_general_filtered.position  = [x y z]
+% uwb_general_filtered.velocity  = [vx vy vz]
+% uwb_general_filtered.timestamp
+% uwb_general_filtered.quality
+% uwb_general_filtered.valid
+% uwb_general_filtered.source    = 'general_filter'
 %
 % Design notes:
-%   - This class intentionally only handles calculated UWB XYZ positions.
-%   - IMU fusion belongs in ImuFusionFilter.m.
-%   - Raw-anchor-distance EKF logic belongs in the future custom PCB reader
-%     or in a separate future filter, not here.
+% - This class intentionally only handles calculated UWB XYZ positions.
+% - IMU fusion belongs in ImuFusionFilter.m.
+% - Raw-anchor-distance EKF logic belongs in the future custom PCB reader
+%   or in a separate future filter, not here.
+% - Minimal runaway fix: rejected samples hold the last accepted position instead of outputting prediction-only motion.
+
 % =========================================================================
 
 classdef GeneralFilter < handle
@@ -44,12 +46,15 @@ classdef GeneralFilter < handle
         % -------------------------------------------------------------
         % Main filter switches
         % -------------------------------------------------------------
-        USE_KALMAN_FILTER       = true;
-        USE_OUTLIER_REJECTION   = true;
-        USE_SPEED_GATE          = true;
-        USE_POSITION_JUMP_GATE  = true;
-        USE_MAHALANOBIS_GATE    = true;
-        USE_LOW_PASS_OUTPUT     = false;
+        % Kalman filtering
+        USE_KALMAN_FILTER       = true; % Enables the Kalman filter, which estimates a smoother position and velocity based on the UWB measurements.
+        % Outlier rejections
+        USE_OUTLIER_REJECTION   = true; % Enables the following three outlier rejections
+        USE_SPEED_GATE          = true; % Rejects measurements that would require the robot or tag to move faster than physically believable.
+        USE_POSITION_JUMP_GATE  = true; % Rejects raw UWB measurements that suddenly jump too far compared to the previous raw measurement.
+        USE_MAHALANOBIS_GATE    = true; % Rejects measurements that are too far away from the Kalman filter prediction based on the filter uncertainty.
+        % Smoothing
+        USE_LOW_PASS_OUTPUT     = false; % Applies optional low-pass smoothing to the final filtered output to reduce small remaining jitter.
 
         % -------------------------------------------------------------
         % Timing
@@ -64,23 +69,30 @@ classdef GeneralFilter < handle
         % Higher process noise = faster reaction, less smoothing
         % Higher measurement noise = more smoothing, more lag
         % -------------------------------------------------------------
-        PROCESS_NOISE_POSITION = 0.03; %old = 0.05
-        PROCESS_NOISE_VELOCITY = 0.75; %old = 1.0
+        PROCESS_NOISE_POSITION = 0.03; % old = 0.05
+        PROCESS_NOISE_VELOCITY = 0.75; % old = 1.0
 
         MEASUREMENT_NOISE_X = 0.5^2;      % expected UWB X noise [m^2]
         MEASUREMENT_NOISE_Y = 0.5^2;      % expected UWB Y noise [m^2]
-        MEASUREMENT_NOISE_Z = 1.0^2; %old 0.7      % expected UWB Z noise [m^2]
+        MEASUREMENT_NOISE_Z = 1.0^2; % old 0.7      % expected UWB Z noise [m^2]
 
-        INITIAL_POSITION_UNCERTAINTY = 1.0; %old 1.0
-        INITIAL_VELOCITY_UNCERTAINTY = 5.0; %old 5.0
+        INITIAL_POSITION_UNCERTAINTY = 1.0;
+        INITIAL_VELOCITY_UNCERTAINTY = 5.0;
 
         % -------------------------------------------------------------
         % Outlier rejection tuning
         % -------------------------------------------------------------
         MAX_ALLOWED_SPEED = 4.0;          % max believable speed [m/s]
         MAX_POSITION_JUMP = 1.0;          % max jump between raw samples [m]
-        MAHALANOBIS_GATE  = 16.27; %old 11.34        % approx. 99% gate for 3D
+        MAHALANOBIS_GATE  = 16.27; %old = 11.34        % approx. 99% gate for 3D
         MIN_QUALITY       = -Inf;         % set if quality has a clear scale
+
+        % -------------------------------------------------------------
+        % Anti-runaway tuning
+        % -------------------------------------------------------------
+        MAX_CONSECUTIVE_REJECTS = 4;          % reset if this many measurements are rejected in a row
+        PREDICT_ONLY_VELOCITY_DAMPING = 0.20; % reduce velocity when no measurement update is accepted
+        FILTER_RAW_RESET_DISTANCE = 1.50;     % reset to raw UWB if prediction is this far from raw [m]
 
         % -------------------------------------------------------------
         % Optional low-pass output smoothing
@@ -118,6 +130,10 @@ classdef GeneralFilter < handle
         LastTimestamp = [];
         LastVelocity = [0; 0; 0];
         LastOutputStruct = struct();
+
+        % Anti-runaway state
+        ConsecutiveRejects = 0;
+        LastAcceptedPosition = [];
 
         % Debug values
         OutlierCount = 0;
@@ -171,12 +187,15 @@ classdef GeneralFilter < handle
         % =================================================================
         function configure(obj, config)
             names = fieldnames(config);
+
             for i = 1:numel(names)
                 name = names{i};
+
                 if isprop(obj, name)
                     obj.(name) = config.(name);
                 end
             end
+
             obj.updateMatrices(obj.dt);
         end
 
@@ -193,7 +212,10 @@ classdef GeneralFilter < handle
 
             if ~valid_input
                 obj.InvalidCount = obj.InvalidCount + 1;
-                uwb_general_filtered = obj.outputPredictionOnly(timestamp, quality, source, false, 'invalid_input', Z);
+
+                uwb_general_filtered = obj.outputPredictionOnly( ...
+                    timestamp, quality, source, false, 'invalid_input', Z);
+
                 obj.logFilteredData(uwb_general_filtered);
                 return;
             end
@@ -206,8 +228,12 @@ classdef GeneralFilter < handle
             % -------------------------------------------------------------
             if ~obj.IsInitialized
                 obj.initializeFilter(Z, timestamp);
+
                 output_pos = obj.applyLowPass(Z);
-                uwb_general_filtered = obj.makeOutputStruct(output_pos, [0; 0; 0], timestamp, quality, true, true, 'initialized', Z, source);
+                uwb_general_filtered = obj.makeOutputStruct( ...
+                    output_pos, [0; 0; 0], timestamp, quality, true, true, ...
+                    'initialized', Z, source);
+
                 obj.AcceptedCount = obj.AcceptedCount + 1;
                 obj.logFilteredData(uwb_general_filtered);
                 return;
@@ -222,6 +248,7 @@ classdef GeneralFilter < handle
                 if accepted
                     output_pos = Z;
                     velocity = obj.calculateVelocityFromRaw(Z, current_dt);
+
                     obj.LastRawMeasurement = Z;
                     obj.LastVelocity = velocity;
                     obj.AcceptedCount = obj.AcceptedCount + 1;
@@ -229,12 +256,16 @@ classdef GeneralFilter < handle
                 else
                     output_pos = obj.getSafeLastOutput();
                     velocity = obj.LastVelocity;
+
                     obj.OutlierCount = obj.OutlierCount + 1;
                     reason = obj.LastRejectionReason;
                 end
 
                 output_pos = obj.applyLowPass(output_pos);
-                uwb_general_filtered = obj.makeOutputStruct(output_pos, velocity, timestamp, quality, true, accepted, reason, Z, source);
+                uwb_general_filtered = obj.makeOutputStruct( ...
+                    output_pos, velocity, timestamp, quality, true, accepted, ...
+                    reason, Z, source);
+
                 obj.LastTimestamp = timestamp;
                 obj.logFilteredData(uwb_general_filtered);
                 return;
@@ -250,12 +281,13 @@ classdef GeneralFilter < handle
             % Outlier rejection
             % -------------------------------------------------------------
             accepted = true;
+
             if obj.USE_OUTLIER_REJECTION
                 accepted = obj.checkOutlierGates(Z, X_pred, P_pred, current_dt, quality);
             end
 
             % -------------------------------------------------------------
-            % Kalman update or prediction-only output
+            % Kalman update or anti-runaway rejected-sample handling
             % -------------------------------------------------------------
             if accepted
                 residual = Z - (obj.H * X_pred);
@@ -267,20 +299,58 @@ classdef GeneralFilter < handle
 
                 obj.LastRawMeasurement = Z;
                 obj.AcceptedCount = obj.AcceptedCount + 1;
+
+                % Anti-runaway state is reset after a successful measurement update.
+                obj.ConsecutiveRejects = 0;
+                obj.LastAcceptedPosition = obj.X(1:3);
+
                 reason = 'accepted';
             else
-                obj.X = X_pred;
-                obj.P = P_pred;
                 obj.OutlierCount = obj.OutlierCount + 1;
                 obj.PredictionOnlyCount = obj.PredictionOnlyCount + 1;
-                reason = obj.LastRejectionReason;
+                obj.ConsecutiveRejects = obj.ConsecutiveRejects + 1;
+
+                % Minimal runaway fix:
+                % Do not output X_pred here, because that lets the filter
+                % keep moving in a straight line on old velocity only.
+                raw_distance_to_prediction = norm(Z - X_pred(1:3));
+
+                if obj.ConsecutiveRejects >= obj.MAX_CONSECUTIVE_REJECTS && ...
+                        raw_distance_to_prediction >= obj.FILTER_RAW_RESET_DISTANCE
+                    % The filter has probably drifted away, so re-lock onto raw UWB.
+                    obj.X = [Z; 0; 0; 0];
+                    obj.P = diag([
+                        obj.INITIAL_POSITION_UNCERTAINTY;
+                        obj.INITIAL_POSITION_UNCERTAINTY;
+                        obj.INITIAL_POSITION_UNCERTAINTY;
+                        obj.INITIAL_VELOCITY_UNCERTAINTY;
+                        obj.INITIAL_VELOCITY_UNCERTAINTY;
+                        obj.INITIAL_VELOCITY_UNCERTAINTY
+                    ]);
+                    obj.LastRawMeasurement = Z;
+                    obj.LastAcceptedPosition = Z;
+                    obj.ConsecutiveRejects = 0;
+                    reason = [obj.LastRejectionReason '_reset_to_raw'];
+                else
+                    % Normal rejection: hold last accepted position and damp velocity.
+                    if ~isempty(obj.LastAcceptedPosition)
+                        obj.X(1:3) = obj.LastAcceptedPosition;
+                    end
+                    obj.X(4:6) = obj.PREDICT_ONLY_VELOCITY_DAMPING * obj.X(4:6);
+                    obj.P = P_pred;
+                    reason = [obj.LastRejectionReason '_held'];
+                end
             end
 
             output_pos = obj.X(1:3);
             output_vel = obj.X(4:6);
+
             output_pos = obj.applyLowPass(output_pos);
 
-            uwb_general_filtered = obj.makeOutputStruct(output_pos, output_vel, timestamp, quality, true, accepted, reason, Z, source);
+            uwb_general_filtered = obj.makeOutputStruct( ...
+                output_pos, output_vel, timestamp, quality, true, accepted, ...
+                reason, Z, source);
+
             obj.LastTimestamp = timestamp;
             obj.LastVelocity = output_vel;
             obj.logFilteredData(uwb_general_filtered);
@@ -320,11 +390,15 @@ classdef GeneralFilter < handle
             obj.IsInitialized = false;
             obj.X = [];
             obj.P = [];
+
             obj.LastRawMeasurement = [];
             obj.LastOutputPosition = [];
             obj.LastTimestamp = [];
             obj.LastVelocity = [0; 0; 0];
             obj.LastOutputStruct = struct();
+
+            obj.ConsecutiveRejects = 0;
+            obj.LastAcceptedPosition = [];
 
             obj.OutlierCount = 0;
             obj.AcceptedCount = 0;
@@ -362,6 +436,8 @@ classdef GeneralFilter < handle
             debug.last_implied_speed = obj.LastImpliedSpeed;
             debug.last_innovation = obj.LastInnovation(:)';
             debug.is_initialized = obj.IsInitialized;
+
+            debug.consecutive_rejects = obj.ConsecutiveRejects;
         end
 
         % =================================================================
@@ -381,6 +457,7 @@ classdef GeneralFilter < handle
             if obj.LogFileId > 0
                 fclose(obj.LogFileId);
             end
+
             obj.LogFileId = -1;
         end
     end
@@ -449,6 +526,8 @@ classdef GeneralFilter < handle
             obj.LastOutputPosition = Z;
             obj.LastTimestamp = timestamp;
             obj.LastVelocity = [0; 0; 0];
+            obj.ConsecutiveRejects = 0;
+            obj.LastAcceptedPosition = Z;
             obj.IsInitialized = true;
         end
 
@@ -468,6 +547,7 @@ classdef GeneralFilter < handle
 
             if isfield(uwb_sample, 'position')
                 pos = uwb_sample.position;
+
                 if numel(pos) >= 3
                     Z = [pos(1); pos(2); pos(3)];
                 end
@@ -488,6 +568,7 @@ classdef GeneralFilter < handle
             end
 
             sample_valid_flag = true;
+
             if isfield(uwb_sample, 'valid')
                 sample_valid_flag = logical(uwb_sample.valid);
             end
@@ -496,13 +577,16 @@ classdef GeneralFilter < handle
         end
 
         % =================================================================
-        % Calculate dt. By default this returns fixed dt for backwards compatibility.
+        % Calculate dt. By default this returns fixed dt for compatibility.
         % =================================================================
         function current_dt = calculateDt(obj, timestamp)
             current_dt = obj.dt;
 
-            if obj.USE_SAMPLE_TIMESTAMPS && ~isempty(obj.LastTimestamp) && isfinite(timestamp) && isfinite(obj.LastTimestamp)
+            if obj.USE_SAMPLE_TIMESTAMPS && ~isempty(obj.LastTimestamp) && ...
+                    isfinite(timestamp) && isfinite(obj.LastTimestamp)
+
                 measured_dt = timestamp - obj.LastTimestamp;
+
                 if isfinite(measured_dt) && measured_dt > 0
                     current_dt = max(obj.MIN_DT, min(obj.MAX_DT, measured_dt));
                 end
@@ -526,6 +610,7 @@ classdef GeneralFilter < handle
                 movement = norm(Z - predicted_pos);
                 implied_speed = movement / current_dt;
                 obj.LastImpliedSpeed = implied_speed;
+
                 if implied_speed > obj.MAX_ALLOWED_SPEED
                     obj.LastRejectionReason = 'speed_gate';
                     accepted = false;
@@ -535,6 +620,7 @@ classdef GeneralFilter < handle
 
             if obj.USE_POSITION_JUMP_GATE && ~isempty(obj.LastRawMeasurement)
                 jump = norm(Z - obj.LastRawMeasurement);
+
                 if jump > obj.MAX_POSITION_JUMP
                     obj.LastRejectionReason = 'position_jump_gate';
                     accepted = false;
@@ -582,6 +668,7 @@ classdef GeneralFilter < handle
                 movement = norm(Z - obj.LastRawMeasurement);
                 implied_speed = movement / current_dt;
                 obj.LastImpliedSpeed = implied_speed;
+
                 if implied_speed > obj.MAX_ALLOWED_SPEED
                     obj.LastRejectionReason = 'speed_gate';
                     accepted = false;
@@ -591,6 +678,7 @@ classdef GeneralFilter < handle
 
             if obj.USE_POSITION_JUMP_GATE
                 jump = norm(Z - obj.LastRawMeasurement);
+
                 if jump > obj.MAX_POSITION_JUMP
                     obj.LastRejectionReason = 'position_jump_gate';
                     accepted = false;
@@ -615,12 +703,23 @@ classdef GeneralFilter < handle
         end
 
         % =================================================================
-        % Prediction-only output for invalid samples or rejected samples
+        % Prediction-only output for invalid samples or missing samples
+        % Anti-runaway version: do not keep moving forever without updates.
         % =================================================================
         function output = outputPredictionOnly(obj, timestamp, quality, source, valid, reason, raw_position)
             if obj.IsInitialized && obj.USE_KALMAN_FILTER
-                obj.X = obj.F * obj.X;
-                obj.P = obj.F * obj.P * obj.F' + obj.Q;
+                obj.PredictionOnlyCount = obj.PredictionOnlyCount + 1;
+                obj.ConsecutiveRejects = obj.ConsecutiveRejects + 1;
+
+                % Do not keep predicting forward without measurement updates.
+                obj.X(4:6) = obj.PREDICT_ONLY_VELOCITY_DAMPING * obj.X(4:6);
+
+                if ~isempty(obj.LastAcceptedPosition)
+                    obj.X(1:3) = obj.LastAcceptedPosition;
+                elseif ~isempty(obj.LastOutputPosition)
+                    obj.X(1:3) = obj.LastOutputPosition;
+                end
+
                 output_pos = obj.applyLowPass(obj.X(1:3));
                 output_vel = obj.X(4:6);
             elseif ~isempty(obj.LastOutputPosition)
@@ -631,7 +730,9 @@ classdef GeneralFilter < handle
                 output_vel = [NaN; NaN; NaN];
             end
 
-            output = obj.makeOutputStruct(output_pos, output_vel, timestamp, quality, valid, false, reason, raw_position, source);
+            output = obj.makeOutputStruct( ...
+                output_pos, output_vel, timestamp, quality, valid, false, ...
+                reason, raw_position, source);
         end
 
         % =================================================================
@@ -661,14 +762,16 @@ classdef GeneralFilter < handle
         % =================================================================
         % Create standard output struct
         % =================================================================
-        function output = makeOutputStruct(obj, position, velocity, timestamp, quality, valid, accepted, reason, raw_position, input_source)
+        function output = makeOutputStruct( ...
+                obj, position, velocity, timestamp, quality, valid, accepted, ...
+                reason, raw_position, input_source)
+
             output.position = position(:)';
             output.velocity = velocity(:)';
             output.timestamp = timestamp;
             output.quality = quality;
             output.valid = logical(valid);
             output.source = 'general_filter';
-
             output.raw_position = raw_position(:)';
             output.input_source = input_source;
             output.accepted = logical(accepted);
@@ -682,6 +785,8 @@ classdef GeneralFilter < handle
             output.debug.implied_speed = obj.LastImpliedSpeed;
             output.debug.innovation = obj.LastInnovation(:)';
             output.debug.is_initialized = obj.IsInitialized;
+
+            output.debug.consecutive_rejects = obj.ConsecutiveRejects;
 
             obj.LastOutputStruct = output;
         end
@@ -723,6 +828,7 @@ classdef GeneralFilter < handle
             end
 
             [folder, ~, ~] = fileparts(obj.LOG_FILE_PATH);
+
             if ~isempty(folder) && ~exist(folder, 'dir')
                 mkdir(folder);
             end
@@ -732,9 +838,6 @@ classdef GeneralFilter < handle
         end
 
         % =================================================================
-        % Write one line of debug log
-        % =================================================================
-                % =================================================================
         % Write one line of filtered UWB position for measurement reports
         % =================================================================
         function logFilteredData(obj, output)
@@ -761,36 +864,6 @@ classdef GeneralFilter < handle
                 output.position(2), ...
                 output.position(3));
 
-            % -------------------------------------------------------------
-            % Old detailed debug log format
-            % Kept here as reference in case detailed filter debugging is
-            % needed again later.
-            % -------------------------------------------------------------
-            %
-            % if ~obj.LogHeaderWritten
-            %     fprintf(obj.LogFileId, ['timestamp,input_source,raw_x,raw_y,raw_z,', ...
-            %         'filtered_x,filtered_y,filtered_z,vx,vy,vz,quality,valid,accepted,', ...
-            %         'rejection_reason,accepted_count,outlier_count,invalid_count,', ...
-            %         'mahalanobis_distance,implied_speed\n']);
-            %     obj.LogHeaderWritten = true;
-            % end
-            %
-            % fprintf(obj.LogFileId, ['%.6f,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,', ...
-            %     '%.6f,%.6f,%.6f,%.6f,%d,%d,%s,%d,%d,%d,%.6f,%.6f\n'], ...
-            %     output.timestamp, ...
-            %     obj.safeCsvText(output.input_source), ...
-            %     output.raw_position(1), output.raw_position(2), output.raw_position(3), ...
-            %     output.position(1), output.position(2), output.position(3), ...
-            %     output.velocity(1), output.velocity(2), output.velocity(3), ...
-            %     output.quality, ...
-            %     output.valid, ...
-            %     output.accepted, ...
-            %     obj.safeCsvText(output.rejection_reason), ...
-            %     output.debug.accepted_count, ...
-            %     output.debug.outlier_count, ...
-            %     output.debug.invalid_count, ...
-            %     output.debug.mahalanobis_distance, ...
-            %     output.debug.implied_speed);
         end
 
         % =================================================================

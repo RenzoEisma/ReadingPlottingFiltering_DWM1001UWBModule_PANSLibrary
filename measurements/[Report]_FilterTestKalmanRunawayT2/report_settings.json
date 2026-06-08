@@ -1,6 +1,6 @@
 {
-    "name": "WallAnchorsNewConfigurationTest6Juni_VeryRoughPattern",
-    "notes": "For testing filters",
+    "name": "FilterTestKalmanRunawayT2",
+    "notes": "fixing problem with kalman runaway",
     "show_anchors": true,
     "use_measurement_window": true,
     "save_pdf": false,

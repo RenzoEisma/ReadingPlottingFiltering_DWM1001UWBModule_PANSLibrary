@@ -44,12 +44,15 @@ classdef GeneralFilter < handle
         % -------------------------------------------------------------
         % Main filter switches
         % -------------------------------------------------------------
-        USE_KALMAN_FILTER       = true;
-        USE_OUTLIER_REJECTION   = true;
-        USE_SPEED_GATE          = true;
-        USE_POSITION_JUMP_GATE  = true;
-        USE_MAHALANOBIS_GATE    = true;
-        USE_LOW_PASS_OUTPUT     = false;
+        % Kalman filtering
+        USE_KALMAN_FILTER       = true; % Enables the Kalman filter, which estimates a smoother position and velocity based on the UWB measurements.
+        % Outlier rejections
+        USE_OUTLIER_REJECTION   = true; % Enables general outlier rejection, so clearly unreliable UWB measurements can be rejected before filtering.
+        USE_SPEED_GATE          = true; % Rejects measurements that would require the robot or tag to move faster than physically believable.
+        USE_POSITION_JUMP_GATE  = true; % Rejects raw UWB measurements that suddenly jump too far compared to the previous raw measurement.
+        USE_MAHALANOBIS_GATE    = true; % Rejects measurements that are too far away from the Kalman filter prediction based on the filter uncertainty.
+        % Smoothing
+        USE_LOW_PASS_OUTPUT     = false; % Applies optional low-pass smoothing to the final filtered output to reduce small remaining jitter.
 
         % -------------------------------------------------------------
         % Timing
@@ -64,22 +67,22 @@ classdef GeneralFilter < handle
         % Higher process noise = faster reaction, less smoothing
         % Higher measurement noise = more smoothing, more lag
         % -------------------------------------------------------------
-        PROCESS_NOISE_POSITION = 0.05;
-        PROCESS_NOISE_VELOCITY = 1.0;
+        PROCESS_NOISE_POSITION = 0.03; %old = 0.05
+        PROCESS_NOISE_VELOCITY = 0.75; %old = 1.0
 
         MEASUREMENT_NOISE_X = 0.5^2;      % expected UWB X noise [m^2]
         MEASUREMENT_NOISE_Y = 0.5^2;      % expected UWB Y noise [m^2]
-        MEASUREMENT_NOISE_Z = 0.7^2;      % expected UWB Z noise [m^2]
+        MEASUREMENT_NOISE_Z = 1.0^2; %old 0.7      % expected UWB Z noise [m^2]
 
-        INITIAL_POSITION_UNCERTAINTY = 1.0;
-        INITIAL_VELOCITY_UNCERTAINTY = 5.0;
+        INITIAL_POSITION_UNCERTAINTY = 1.0; %old 1.0
+        INITIAL_VELOCITY_UNCERTAINTY = 5.0; %old 5.0
 
         % -------------------------------------------------------------
         % Outlier rejection tuning
         % -------------------------------------------------------------
         MAX_ALLOWED_SPEED = 4.0;          % max believable speed [m/s]
         MAX_POSITION_JUMP = 1.0;          % max jump between raw samples [m]
-        MAHALANOBIS_GATE  = 11.34;        % approx. 99% gate for 3D
+        MAHALANOBIS_GATE  = 16.27; %old 11.34        % approx. 99% gate for 3D
         MIN_QUALITY       = -Inf;         % set if quality has a clear scale
 
         % -------------------------------------------------------------

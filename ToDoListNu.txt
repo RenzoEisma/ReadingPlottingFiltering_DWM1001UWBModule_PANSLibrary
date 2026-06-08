@@ -12,9 +12,8 @@
 ==================================================================================================================
 
 
-
 Filter setup testen
-- z as nog steeds niet goed
+
 - opeens gaat de filter naar oneindig
 
 
@@ -53,6 +52,7 @@ Hele anchor setup klaarmaken
 	- hogere XY accuracy krijgen met filters
 	- hogere Z accuracy krijgen met filters
 	- vier anchors gebruiken met variabele z
+- z axis nog steeds niet goed
 
 
 Python code fixen vandaag:

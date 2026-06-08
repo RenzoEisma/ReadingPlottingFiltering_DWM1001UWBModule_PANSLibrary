@@ -16,8 +16,8 @@
     "control_robots": false,
     "read_type": "Tag Position",
     "network_scale": "1 Network / 1 Listener",
-    "rep_name": "WallAnchorsNewConfigurationTest6Juni_VeryRoughPattern",
-    "rep_notes": "For testing filters",
+    "rep_name": "FilterTestKalmanRunawayT2",
+    "rep_notes": "fixing problem with kalman runaway",
     "rep_show_anchors": true,
     "rep_use_measurement_window": true
 }
