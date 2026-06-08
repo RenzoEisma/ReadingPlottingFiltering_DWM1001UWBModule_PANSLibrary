@@ -1,18 +1,58 @@
 = elke dag:
 = 
-= - Bericht Daniel: Hey Daniel, you were talking about an accelerometer test a while ago. I have more time now. I was already planning to fuse accelerometer with uwb data but if you know
-= things i could use that would be helpful. I don't have time to go very in depth but i can use it to get higher accuracy on the uwb system.
-= 
-= - hendrik mail afwachten
+= - hendrik mail afwachten wanneer assessment
 =
 = - bericht max opwachten
-= - bericht ruyther opwachten
+= - bericht ruyther opwachten chips solderen
 = - bericht hendrik opwachten over presentatie datum
+=
+= . wachten antwoord dhl over kleren aanvragen
 = 
 = 
 ==================================================================================================================
 
-Donderdag:
+
+
+Filter setup testen
+- z as nog steeds niet goed
+- opeens gaat de filter naar oneindig
+
+
+
+
+- bericht max
+Yo, kan ik ook nog binnenkort een antwoord verwachten?
+En anders, kennen jullie ook nog huizen die nieuwe mensen zoeken
+
+
+- bericht mario algemeen
+Hey Mario,
+Tomorrow will be my last week here and this friday is the last day you will be here before leaving for greece.
+. time on wednesday for looking at progress?
+. you need to fill in an evaluation form
+. 
+
+
+nummer 3 pcb stuk
+3D printer werkt niet
+pcb op crazyflie doen werkt niet
+
+
+
+
+aanrader voor laser onder robot + gyroscope om hoogte te meten, klopt nu voor geen meter. En anders camera gebruiken
+
+
+testplan buiten testen morgen maken
+
+
+
+Hele anchor setup klaarmaken
+- Middle anchors toevoegen voor muur
+- Groffe meting doen met de tag met een accurate Z meting:
+	- hogere XY accuracy krijgen met filters
+	- hogere Z accuracy krijgen met filters
+	- vier anchors gebruiken met variabele z
 
 
 Python code fixen vandaag:
@@ -22,16 +62,29 @@ Python code fixen vandaag:
 	- kijken hoe accuraat het is
 
 
-Matlab code fixen vandaag:
-- convert uwb to drone center in matlab including angle problem
-	- This assumes the drone/tag body orientation is always aligned with the UWB coordinate system. If the drone rotates/yaws, then the physical tag offset also rotates in the world frame. For now this 	is okay if the drone orientation is mostly fixed, but later MATLAB should handle this more correctly using yaw/orientation.
-	- ergens kunnen invoeren wat z offset is van uwb antenne van middenpunt robot...
-	- angle ding is alleen voor drones
-	- optitrack moet ook geconvert worden
-- testen of ruimte voor ros uwb lezen, niet voor limo
-	- Optitrack also has to be converted...
-- filter script doorkijken en alleen filters doen die echt nodig zijn
-	- filters een beetje bijwerken
+
+
+
+ROS met python meten
+
+
+
+
+
+
+
+
+- behuizing afmaken (alleen 3d laten, printer is stuk)
+- bezig met research document
+- logbook document netjes doen
+
+
+
+
+ROS code afmaken vandaag
+- accelerometer uit robots lezen
+- robots kunnen besturen met uwb en optitrack/ground truth
+- filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
 
 
 
@@ -42,27 +95,16 @@ Matlab code fixen vandaag:
 
 
 
+---
+
+Avond:
+
+3d behuizing afmaken van pcb
+
+Beetje naar documentatie kijken van code en code goed schrijven
 
 
---------------------------------------------------------------------------------------------------------
 
-
-vrijdag:
-
-
-Alles PCB nog
-- solderen:
-	- dwm1001c
-	- batterij ding
-	- smd componenten
-	- reset pin?
-	- de andere drie bordjes
-- testen
-	- flash dwm1001
-	- blink test esp
-	- sensor test esp
-- ROS test
-- 3D behuizing
 
 
 
@@ -70,64 +112,23 @@ die drawio dinges verbeteren
 
 
 
-Anchors op muur volledig afronden:
-- nieuwe anchors op muur plakken meer buitenom
-- posities meten van anchors boven opnieuw en de uiterste opnieuw (miischien optitrack veranderd)
-
-
-
-
-Research:
+UWB onderzoek document afronden
 - hardware research
 - filter research
 - conclusions
 
 
 
+Ding klaarmaken voor GPS RTK in python lezen.
 
-anchors op muur aan buitenkant plaatsen en hoger in plaats van zo ver naar het midden
-Ook een configuratie van 6 anchors gebruiken in plaats van vier bovenop.
-- nieuwe doosjes printen voor hoger op muur en gaan lijmen. Dan nieuwe metingen doen met muur opstelling
-
+Ding klaarmaken om ROS toch maar uit python te lezen voor custom PCB
 
 
 
 
 
 
---------------------------------------------------------------------------------------------------------
-
-
-zaterdag:
-
-
-...
-
-ROS toekomst:
-- accelerometer uit robots lezen
-- robots kunnen besturen met uwb en optitrack/ground truth
-
-
-
-
-
-
---------------------------------------------------------------------------------------------------------
-
-
-zondag
-- filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
-
-
-
-- Meeste tests afronden.
-
-
-
-
-
-Random
-- GoPro werkend krijgen
+kamernet mails
 
 
 
@@ -215,6 +216,15 @@ dinsdag
 
 
 
+Meeste tests afronden.
+
+
+pcb (Ruyther hulp)
+- dwm1001 solderen op 2 pcbs (soldering wick nodig)
+- Crazy GND werkt niet...
+
+
+
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -277,6 +287,7 @@ alles met einddocument
 	- mogelijk nieuwe holders printen
 - anchor pritnen die modules van muur afzet idee maar niet uitgewerkt, geen tijd
 - langere micro usb kabels bestellen
+- speed of measurements can theoretically be increased with the custom PCB
 
 
 

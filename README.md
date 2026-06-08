@@ -381,15 +381,6 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 8. TO-DO LISTS
 -----------------------------------------------------------------------------------------------------------------------
 
-General code cleanup and bugs
-- Add compensation for data delay.
-
-Filtering and sensor fusion
-- Prepare code for accelerometer fusion. Use accelerometer data from robots via ROS.
-- UWB does not provide angle, but angle is needed.
-  - The angle can be taken from the robot topic.
-  - Or the angle can be calculated from the known position and the change in position over time.
-
 Robot control
 - Prepare code for Bebop Matlab control.
   - Get accelerometer data.
@@ -403,9 +394,6 @@ Robot control
 - Get the drone control code from Miguel.
 - Add a trespass area for the drone.
 - Define what should happen if the connection with the drone is lost.
-
-GPS RTK
-- Add space/support for GPS RTK reading from ROS with Enzo
 
 ROS integration
 - Send filtered UWB data to ROS.

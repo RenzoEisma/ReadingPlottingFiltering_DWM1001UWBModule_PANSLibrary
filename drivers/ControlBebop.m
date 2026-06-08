@@ -2,53 +2,59 @@
 % CONTROL BEBOP
 % Author: Renzo Eisma
 % Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments and line spacing.
-%   The original concept, code logic, and project structure were created by
-%   a human author
+% ChatGPT Pro 5.5 Thinking Extended was used to adjust the robot-centre
+% compensation structure, variable names, comments and line spacing.
+% The original concept, code logic, and project structure were created by
+% a human author.
 % Date: 06/2026
 %
 % Purpose:
-%   Bebop drone control wrapper for the new MATLAB localization structure.
+% Bebop drone control wrapper for the MATLAB localization structure.
 %
 % New input format:
 %   update(final_position, final_angles)
 %
 %   final_position.position  = [x y z]
-%   final_position.velocity  = [vx vy vz]       optional
-%   final_position.timestamp = time             optional
-%   final_position.valid     = true/false       optional
-%   final_position.source    = string           optional
+%   final_position.velocity  = [vx vy vz] optional
+%   final_position.timestamp = time optional
+%   final_position.valid     = true/false optional
+%   final_position.source    = string optional
 %
-%   final_angles.roll        = roll  [rad]
-%   final_angles.pitch       = pitch [rad]
-%   final_angles.yaw         = yaw   [rad]
-%   final_angles.timestamp   = time             optional
-%   final_angles.valid       = true/false       optional
-%   final_angles.source      = string           optional
+%   final_angles.roll        = roll  [deg]
+%   final_angles.pitch       = pitch [deg]
+%   final_angles.yaw         = yaw   [deg]
+%   final_angles.timestamp   = time optional
+%   final_angles.valid       = true/false optional
+%   final_angles.source      = string optional
 %
 % Design note:
-%   This keeps the old Bebop control logic as much as possible. The main
-%   change is that the selected final_position and final_angles now come from
-%   the master script instead of this controller choosing UWB vs OptiTrack.
+% This controller receives the already-selected final_position and
+% final_angles from MatlabMasterUWBControl.m.
 %
-%   Offset compensation from UWB tag position to drone centre should normally
-%   happen before this controller, inside ImuFusionFilter.m.
 % =========================================================================
 
 classdef ControlBebop < handle
+
     properties
         %% Robot object
         RobotObj
 
-        %% Compatibility / offsets
-        % final_position is expected to already be corrected to the
-        % drone centre. Keep this false to avoid double offset compensation.
-        APPLY_FINAL_POSITION_OFFSET = false;
-        final_position_offset_world = [0; 0; 0];
+        %% Sensor offset compensation
+        % Definition:
+        %   SENSOR_OFFSET_BODY = vector from drone centre to measured sensor point
+        %
+        % Compensation formula:
+        %   drone_centre_position = measured_sensor_position - R_body_to_world * SENSOR_OFFSET_BODY
+        %
+        % The default value below is chosen so that, at zero roll/pitch/yaw,
+        % it behaves like the previous legacy offset:
+        %   current_pos = measured_pos + [-0.03; 0.009; -0.135]
+        APPLY_SENSOR_OFFSET_COMPENSATION = true;
+        SENSOR_OFFSET_BODY = [0.03; -0.009; 0.135];   % [m], centre -> sensor
 
+        %% Legacy compatibility
         % Old offsets from previous controller, kept for reference.
-        % Only used in legacy update mode or if enabled manually.
+        % Only used in legacy update mode.
         legacy_x_offset = -0.03;
         legacy_y_offset = 0.009;
         legacy_z_offset = -0.135;
@@ -59,11 +65,11 @@ classdef ControlBebop < handle
 
         %% Trajectory configuration
         trajectory_mode = 'takeoff_land_test';  % takeoff_land_test, infinity, setpoints, circle
-        rX = 1;                                  % X radius movement [m]
-        rY = 1;                                  % Y radius movement [m]
-        hover_Z = 1;                             % target altitude [m]
-        T = 15;                                  % time per movement [s]
-        Kp = 0.8;                                % proportional gain
+        rX = 1;                                 % X radius movement [m]
+        rY = 1;                                 % Y radius movement [m]
+        hover_Z = 1;                            % target altitude [m]
+        T = 15;                                 % time per movement [s]
+        Kp = 0.8;                               % proportional gain
 
         %% State
         t_start
@@ -88,6 +94,7 @@ classdef ControlBebop < handle
                 obj.w = 2*pi/obj.T;
 
                 fprintf('[BEBOP CONTROL] Ready. Namespace: %s\n', char(namespace));
+
             catch ME
                 fprintf('[BEBOP CONTROL] Error during initialization:\n%s\n', ME.message);
                 fprintf('[BEBOP CONTROL] Controller object created, but drone commands may not work.\n');
@@ -125,6 +132,7 @@ classdef ControlBebop < handle
             if isempty(obj.t_start)
                 obj.t_start = tic;
             end
+
             t_atual = toc(obj.t_start);
 
             % -------------------------------------------------------------
@@ -145,19 +153,18 @@ classdef ControlBebop < handle
                 % Preserve legacy offset behaviour for legacy calls.
                 current_pos = current_pos + [obj.legacy_x_offset; obj.legacy_y_offset; obj.legacy_z_offset];
                 angles = obj.makeInvalidAngles();
+
             else
                 [current_pos, pos_valid] = obj.extractPosition(final_position);
                 angles = obj.extractAngles(final_angles);
-
-                if obj.APPLY_FINAL_POSITION_OFFSET
-                    current_pos = current_pos + obj.final_position_offset_world;
-                end
 
                 if ~pos_valid
                     fprintf('[BEBOP CONTROL] Invalid final_position. Sending hover command.\n');
                     obj.hover();
                     return;
                 end
+
+                current_pos = obj.applySensorOffsetCompensation(current_pos, angles);
             end
 
             obj.last_final_position = final_position;
@@ -177,9 +184,7 @@ classdef ControlBebop < handle
 
             obj.RobotObj.pPos.X(1:3) = current_pos(:);
 
-            % Store orientation when available. The proportional position
-            % controller does not depend on these angles directly, but other
-            % code in the Bebop object may use pPos.X(4:6).
+            % Store orientation when available. Angles are in degrees.
             if angles.valid
                 obj.RobotObj.pPos.X(4) = angles.roll;
                 obj.RobotObj.pPos.X(5) = angles.pitch;
@@ -195,19 +200,28 @@ classdef ControlBebop < handle
                     dXd = [0; 0; 0];
 
                 case 'circle'
-                    Xd = [obj.rX*cos(obj.w*t_atual); obj.rY*sin(obj.w*t_atual); obj.hover_Z];
-                    dXd = [-obj.rX*obj.w*sin(obj.w*t_atual); obj.rY*obj.w*cos(obj.w*t_atual); 0];
+                    Xd = [obj.rX*cos(obj.w*t_atual); ...
+                          obj.rY*sin(obj.w*t_atual); ...
+                          obj.hover_Z];
+                    dXd = [-obj.rX*obj.w*sin(obj.w*t_atual); ...
+                            obj.rY*obj.w*cos(obj.w*t_atual); ...
+                            0];
 
                 case 'setpoints'
                     setPointsX = [1, -1, -1, 1];
                     setPointsY = [1, 1, -1, -1];
                     ptIndex = mod(floor(t_atual / 5), 4) + 1;
+
                     Xd = [setPointsX(ptIndex); setPointsY(ptIndex); obj.hover_Z];
                     dXd = [0; 0; 0];
 
                 case 'infinity'
-                    Xd = [obj.rX*sin(obj.w*t_atual); obj.rY*sin(2*obj.w*t_atual); obj.hover_Z];
-                    dXd = [obj.rX*obj.w*cos(obj.w*t_atual); 2*obj.rY*obj.w*cos(2*obj.w*t_atual); 0];
+                    Xd = [obj.rX*sin(obj.w*t_atual); ...
+                          obj.rY*sin(2*obj.w*t_atual); ...
+                          obj.hover_Z];
+                    dXd = [obj.rX*obj.w*cos(obj.w*t_atual); ...
+                           2*obj.rY*obj.w*cos(2*obj.w*t_atual); ...
+                           0];
 
                 otherwise
                     fprintf('[BEBOP CONTROL] Unknown trajectory_mode: %s. Hovering.\n', obj.trajectory_mode);
@@ -239,6 +253,7 @@ classdef ControlBebop < handle
             if isempty(obj.RobotObj)
                 return;
             end
+
             obj.RobotObj.pSC.Ud = zeros(6,1);
             obj.RobotObj.rCommand();
         end
@@ -263,6 +278,55 @@ classdef ControlBebop < handle
     end
 
     methods (Access = private)
+        function corrected_position = applySensorOffsetCompensation(obj, measured_position, angles)
+            measured_position = measured_position(:);
+
+            if ~obj.APPLY_SENSOR_OFFSET_COMPENSATION
+                corrected_position = measured_position;
+                return;
+            end
+
+            if angles.valid
+                roll = angles.roll;
+                pitch = angles.pitch;
+                yaw = angles.yaw;
+            else
+                % If no attitude is available, use zero attitude as fallback.
+                % This still applies the basic vertical/static sensor offset.
+                roll = 0;
+                pitch = 0;
+                yaw = 0;
+            end
+
+            R_body_to_world = obj.rpyDegreesToRotationMatrix(roll, pitch, yaw);
+            sensor_offset_world = R_body_to_world * obj.SENSOR_OFFSET_BODY(:);
+
+            corrected_position = measured_position - sensor_offset_world;
+        end
+
+        function R = rpyDegreesToRotationMatrix(~, roll, pitch, yaw)
+            % Rotation from body frame to world frame using roll, pitch, yaw in degrees.
+            % Rotation order: Rz(yaw) * Ry(pitch) * Rx(roll)
+
+            cr = cosd(roll);  sr = sind(roll);
+            cp = cosd(pitch); sp = sind(pitch);
+            cy = cosd(yaw);   sy = sind(yaw);
+
+            Rx = [1 0 0; ...
+                  0 cr -sr; ...
+                  0 sr  cr];
+
+            Ry = [ cp 0 sp; ...
+                   0  1 0; ...
+                  -sp 0 cp];
+
+            Rz = [cy -sy 0; ...
+                  sy  cy 0; ...
+                  0   0  1];
+
+            R = Rz * Ry * Rx;
+        end
+
         function [position, valid] = extractPosition(obj, final_position)
             valid = false;
             position = [NaN; NaN; NaN];
@@ -271,11 +335,13 @@ classdef ControlBebop < handle
                 if isfield(final_position, 'position')
                     position = obj.padVector3(final_position.position);
                 end
+
                 if isfield(final_position, 'valid')
                     valid = logical(final_position.valid);
                 else
                     valid = all(isfinite(position));
                 end
+
             elseif isnumeric(final_position)
                 position = obj.padVector3(final_position);
                 valid = all(isfinite(position));
@@ -290,11 +356,12 @@ classdef ControlBebop < handle
             angles = obj.makeInvalidAngles();
 
             if isstruct(final_angles)
-                if isfield(final_angles, 'roll');  angles.roll  = final_angles.roll;  end
-                if isfield(final_angles, 'pitch'); angles.pitch = final_angles.pitch; end
-                if isfield(final_angles, 'yaw');   angles.yaw   = final_angles.yaw;   end
+                if isfield(final_angles, 'roll');      angles.roll = final_angles.roll; end
+                if isfield(final_angles, 'pitch');     angles.pitch = final_angles.pitch; end
+                if isfield(final_angles, 'yaw');       angles.yaw = final_angles.yaw; end
                 if isfield(final_angles, 'timestamp'); angles.timestamp = final_angles.timestamp; end
-                if isfield(final_angles, 'source'); angles.source = string(final_angles.source); end
+                if isfield(final_angles, 'source');    angles.source = string(final_angles.source); end
+
                 if isfield(final_angles, 'valid')
                     angles.valid = logical(final_angles.valid);
                 else
@@ -305,9 +372,9 @@ classdef ControlBebop < handle
 
         function angles = makeInvalidAngles(~)
             angles = struct();
-            angles.roll = 0;
-            angles.pitch = 0;
-            angles.yaw = 0;
+            angles.roll = 0;       % [deg]
+            angles.pitch = 0;      % [deg]
+            angles.yaw = 0;        % [deg]
             angles.timestamp = NaN;
             angles.valid = false;
             angles.source = "none";
@@ -315,6 +382,7 @@ classdef ControlBebop < handle
 
         function v = padVector3(~, input_vector)
             v = input_vector(:);
+
             if numel(v) < 3
                 v(end+1:3,1) = 0;
             elseif numel(v) > 3

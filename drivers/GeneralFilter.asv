@@ -64,22 +64,22 @@ classdef GeneralFilter < handle
         % Higher process noise = faster reaction, less smoothing
         % Higher measurement noise = more smoothing, more lag
         % -------------------------------------------------------------
-        PROCESS_NOISE_POSITION = 0.03; %old = 0.05
-        PROCESS_NOISE_VELOCITY = 0.75; %old = 1.0
+        PROCESS_NOISE_POSITION = 0.05;
+        PROCESS_NOISE_VELOCITY = 1.0;
 
         MEASUREMENT_NOISE_X = 0.5^2;      % expected UWB X noise [m^2]
         MEASUREMENT_NOISE_Y = 0.5^2;      % expected UWB Y noise [m^2]
-        MEASUREMENT_NOISE_Z = 1.0^2; %old 0.7      % expected UWB Z noise [m^2]
+        MEASUREMENT_NOISE_Z = 0.7^2;      % expected UWB Z noise [m^2]
 
-        INITIAL_POSITION_UNCERTAINTY = 1.0; %old 1.0
-        INITIAL_VELOCITY_UNCERTAINTY = 5.0; %old 5.0
+        INITIAL_POSITION_UNCERTAINTY = 1.0;
+        INITIAL_VELOCITY_UNCERTAINTY = 5.0;
 
         % -------------------------------------------------------------
         % Outlier rejection tuning
         % -------------------------------------------------------------
         MAX_ALLOWED_SPEED = 4.0;          % max believable speed [m/s]
         MAX_POSITION_JUMP = 1.0;          % max jump between raw samples [m]
-        MAHALANOBIS_GATE  = 16.27; %old 11.34        % approx. 99% gate for 3D
+        MAHALANOBIS_GATE  = 11.34;        % approx. 99% gate for 3D
         MIN_QUALITY       = -Inf;         % set if quality has a clear scale
 
         % -------------------------------------------------------------

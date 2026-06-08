@@ -2,43 +2,39 @@
 % CONTROL LIMO
 % Author: Renzo Eisma
 % Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments and line spacing.
-%   The original concept, code logic, and project structure were created by
-%   a human author
+% ChatGPT Pro 5.5 Thinking Extended was used to adjust the robot-centre
+% compensation structure, variable names, comments and line spacing.
+% The original concept, code logic, and project structure were created by
+% a human author.
 % Date: 06/2026
 %
 % Purpose:
-%   Limo / wheeled robot control wrapper for the new MATLAB localization
-%   structure.
+% Limo / wheeled robot control wrapper for the MATLAB localization structure.
 %
 % New input format:
 %   update(final_position, final_angles)
 %
 %   final_position.position  = [x y z]
-%   final_position.velocity  = [vx vy vz]       optional
-%   final_position.timestamp = time             optional
-%   final_position.valid     = true/false       optional
-%   final_position.source    = string           optional
+%   final_position.velocity  = [vx vy vz] optional
+%   final_position.timestamp = time optional
+%   final_position.valid     = true/false optional
+%   final_position.source    = string optional
 %
-%   final_angles.roll        = roll  [rad]
-%   final_angles.pitch       = pitch [rad]
-%   final_angles.yaw         = yaw   [rad]
-%   final_angles.timestamp   = time             optional
-%   final_angles.valid       = true/false       optional
-%   final_angles.source      = string           optional
+%   final_angles.roll        = roll  [deg]
+%   final_angles.pitch       = pitch [deg]
+%   final_angles.yaw         = yaw   [deg]
+%   final_angles.timestamp   = time optional
+%   final_angles.valid       = true/false optional
+%   final_angles.source      = string optional
 %
 % Design note:
-%   This file keeps the original Limo control logic as much as possible.
-%   It only changes the input interface so the controller receives the
-%   already-selected final_position and final_angles from the master script.
+% This controller receives the already-selected final_position and
+% final_angles from MatlabMasterUWBControl.m.
 %
-%   Offset compensation from UWB tag position to robot centre should normally
-%   happen before this controller, inside ImuFusionFilter.m. Therefore this
-%   controller assumes final_position is already the robot centre position.
 % =========================================================================
 
 classdef ControlLimo < handle
+
     properties
         %% ROS / robot objects
         RobotObj
@@ -46,24 +42,31 @@ classdef ControlLimo < handle
         msg
 
         %% Optional internal IMU fallback
-        % ReadLimo.m normally provides final_angles.
+        % ReadLimo.m should normally provide final_angles.
         % This subscriber is kept only as a fallback so the old working logic
         % is not broken if final_angles is missing.
         USE_INTERNAL_IMU_FALLBACK = true;
         imu_sub
         latest_accel = [0, 0, 0];
-        latest_yaw = 0;
-        latest_roll = 0;
-        latest_pitch = 0;
+        latest_yaw = 0;      % [deg]
+        latest_roll = 0;     % [deg]
+        latest_pitch = 0;    % [deg]
 
-        %% Compatibility / offsets
-        % final_position is expected to already be corrected to the
-        % robot centre. Keep this false to avoid double offset compensation.
-        APPLY_FINAL_POSITION_OFFSET = false;
-        final_position_offset_world = [0; 0; 0];
+        %% Control position offset
+        % This offset converts the incoming measured/selected position to the
+        % position that should be used for Limo control.
+        %
+        % Definition:
+        %   robot_control_position = incoming_position + CONTROL_POSITION_OFFSET_WORLD
+        %
+        % For the Limo this is kept as a simple world-frame offset. It is
+        % mainly used to move the measured point down to the robot centre.
+        APPLY_CONTROL_POSITION_OFFSET = true;
+        CONTROL_POSITION_OFFSET_WORLD = [0; -0.006; -0.18];  % [m]
 
+        %% Legacy compatibility
         % Old offsets from the previous controller, kept for reference.
-        % Only used in legacy update mode or if enabled manually.
+        % Only used in legacy update mode.
         legacy_x_offset = 0;
         legacy_y_offset = -0.006;
         legacy_z_offset = -0.18;
@@ -73,12 +76,12 @@ classdef ControlLimo < handle
         use_uwb_for_control = false;
 
         %% Trajectory configuration
-        trajectory_mode = 'infinity';    % options: 'infinity', 'setpoints', 'circle'
-        rX = 1;                          % X radius movement [m]
-        rY = 1;                          % Y radius movement [m]
-        T = 15;                          % time per movement [s]
-        Kp = 0.5;                        % proportional gain
-        a = 0.15;                        % feedback linearization point offset
+        trajectory_mode = 'infinity';   % options: 'infinity', 'setpoints', 'circle'
+        rX = 1;                         % X radius movement [m]
+        rY = 1;                         % Y radius movement [m]
+        T = 15;                         % time per movement [s]
+        Kp = 0.5;                       % proportional gain
+        a = 0.15;                       % feedback linearization point offset
 
         %% State
         t_start
@@ -106,6 +109,7 @@ classdef ControlLimo < handle
                 obj.w = 2*pi/obj.T;
 
                 fprintf('[LIMO CONTROL] Ready.\n');
+
             catch ME
                 fprintf('[LIMO CONTROL] Error during initialization:\n%s\n', ME.message);
                 fprintf('[LIMO CONTROL] Controller object created, but robot commands may not work.\n');
@@ -132,6 +136,7 @@ classdef ControlLimo < handle
             if isempty(obj.t_start)
                 obj.t_start = tic;
             end
+
             t_atual = toc(obj.t_start);
 
             % -------------------------------------------------------------
@@ -151,22 +156,22 @@ classdef ControlLimo < handle
 
                 % Preserve legacy offset behaviour for legacy calls.
                 current_pos = current_pos + [obj.legacy_x_offset; obj.legacy_y_offset; obj.legacy_z_offset];
+
                 angles = obj.makeInvalidAngles();
                 angles.yaw = obj.latest_yaw;
                 angles.valid = true;
+
             else
                 [current_pos, pos_valid] = obj.extractPosition(final_position);
                 angles = obj.extractAngles(final_angles);
-
-                if obj.APPLY_FINAL_POSITION_OFFSET
-                    current_pos = current_pos + obj.final_position_offset_world;
-                end
 
                 if ~pos_valid
                     fprintf('[LIMO CONTROL] Invalid final_position. Sending stop command.\n');
                     obj.stop();
                     return;
                 end
+
+                current_pos = obj.applyControlPositionOffset(current_pos);
             end
 
             obj.last_final_position = final_position;
@@ -175,11 +180,12 @@ classdef ControlLimo < handle
             % -------------------------------------------------------------
             % 2. Select yaw
             % -------------------------------------------------------------
-            if isfield(angles, 'valid') && angles.valid && isfield(angles, 'yaw') && isfinite(angles.yaw)
-                psi = angles.yaw;
+            if isfield(angles, 'valid') && angles.valid && ...
+                    isfield(angles, 'yaw') && isfinite(angles.yaw)
+                psi = angles.yaw;   % [deg]
             else
                 % Fallback to internal IMU callback from old controller.
-                psi = obj.latest_yaw;
+                psi = obj.latest_yaw;  % [deg]
             end
 
             % -------------------------------------------------------------
@@ -195,28 +201,33 @@ classdef ControlLimo < handle
             end
 
             obj.RobotObj.pPos.X(1:3) = current_pos(:);
-            obj.RobotObj.pPos.X(4) = angles.roll;
-            obj.RobotObj.pPos.X(5) = angles.pitch;
-            obj.RobotObj.pPos.X(6) = psi;
+            obj.RobotObj.pPos.X(4) = angles.roll;    % [deg]
+            obj.RobotObj.pPos.X(5) = angles.pitch;   % [deg]
+            obj.RobotObj.pPos.X(6) = psi;            % [deg]
 
             % -------------------------------------------------------------
             % 4. Original trajectory generation logic
             % -------------------------------------------------------------
             switch obj.trajectory_mode
                 case 'circle'
-                    obj.RobotObj.pPos.Xd(1:2) = [obj.rX*cos(obj.w*t_atual); obj.rY*sin(obj.w*t_atual)];
-                    obj.RobotObj.pPos.Xd(7:8) = [-obj.rX*obj.w*sin(obj.w*t_atual); obj.rY*obj.w*cos(obj.w*t_atual)];
+                    obj.RobotObj.pPos.Xd(1:2) = [obj.rX*cos(obj.w*t_atual); ...
+                                                  obj.rY*sin(obj.w*t_atual)];
+                    obj.RobotObj.pPos.Xd(7:8) = [-obj.rX*obj.w*sin(obj.w*t_atual); ...
+                                                   obj.rY*obj.w*cos(obj.w*t_atual)];
 
                 case 'setpoints'
                     setPointsX = [1, -1, -1, 1];
                     setPointsY = [1, 1, -1, -1];
                     ptIndex = mod(floor(t_atual / 5), 4) + 1;
+
                     obj.RobotObj.pPos.Xd(1:2) = [setPointsX(ptIndex); setPointsY(ptIndex)];
                     obj.RobotObj.pPos.Xd(7:8) = [0; 0];
 
                 case 'infinity'
-                    obj.RobotObj.pPos.Xd(1:2) = [obj.rX*sin(obj.w*t_atual); obj.rY*sin(2*obj.w*t_atual)];
-                    obj.RobotObj.pPos.Xd(7:8) = [obj.rX*obj.w*cos(obj.w*t_atual); 2*obj.rY*obj.w*cos(2*obj.w*t_atual)];
+                    obj.RobotObj.pPos.Xd(1:2) = [obj.rX*sin(obj.w*t_atual); ...
+                                                  obj.rY*sin(2*obj.w*t_atual)];
+                    obj.RobotObj.pPos.Xd(7:8) = [obj.rX*obj.w*cos(obj.w*t_atual); ...
+                                                  2*obj.rY*obj.w*cos(2*obj.w*t_atual)];
 
                 otherwise
                     fprintf('[LIMO CONTROL] Unknown trajectory_mode: %s. Stopping.\n', obj.trajectory_mode);
@@ -227,12 +238,13 @@ classdef ControlLimo < handle
             % -------------------------------------------------------------
             % 5. Original feedback-linearization control logic
             % -------------------------------------------------------------
-            K = [cos(psi), -obj.a*sin(psi); ...
-                 sin(psi),  obj.a*cos(psi)];
+            % final_angles are in degrees, so use cosd/sind here.
+            K = [cosd(psi), -obj.a*sind(psi); ...
+                 sind(psi),  obj.a*cosd(psi)];
 
             dXd = obj.RobotObj.pPos.Xd(7:8);
-            Xd  = obj.RobotObj.pPos.Xd(1:2);
-            X   = obj.RobotObj.pPos.X(1:2);
+            Xd = obj.RobotObj.pPos.Xd(1:2);
+            X = obj.RobotObj.pPos.X(1:2);
 
             u = K \ (dXd + obj.Kp*(Xd - X));
 
@@ -260,6 +272,7 @@ classdef ControlLimo < handle
 
         function landAndStop(obj)
             fprintf('[LIMO CONTROL] Initiating stop sequence...\n');
+
             for i = 1:obj.nLandMsg
                 obj.stop();
                 pause(0.1);
@@ -267,7 +280,10 @@ classdef ControlLimo < handle
         end
 
         function imuCallback(obj, ~, message)
-            % Fallback IMU reader. The preferred new path is ReadLimo.m.
+            % Fallback IMU reader.
+            % The preferred new path is ReadLimo.m.
+            % Angles are stored in degrees.
+
             obj.latest_accel = [message.LinearAcceleration.X, ...
                                 message.LinearAcceleration.Y, ...
                                 message.LinearAcceleration.Z];
@@ -278,6 +294,7 @@ classdef ControlLimo < handle
             qZ = message.Orientation.Z;
 
             [roll, pitch, yaw] = obj.quatToRpy(qW, qX, qY, qZ);
+
             obj.latest_roll = roll;
             obj.latest_pitch = pitch;
             obj.latest_yaw = yaw;
@@ -285,6 +302,14 @@ classdef ControlLimo < handle
     end
 
     methods (Access = private)
+        function position = applyControlPositionOffset(obj, position)
+            if obj.APPLY_CONTROL_POSITION_OFFSET
+                position = position(:) + obj.CONTROL_POSITION_OFFSET_WORLD(:);
+            else
+                position = position(:);
+            end
+        end
+
         function [position, valid] = extractPosition(obj, final_position)
             valid = false;
             position = [NaN; NaN; NaN];
@@ -293,11 +318,13 @@ classdef ControlLimo < handle
                 if isfield(final_position, 'position')
                     position = obj.padVector3(final_position.position);
                 end
+
                 if isfield(final_position, 'valid')
                     valid = logical(final_position.valid);
                 else
                     valid = all(isfinite(position));
                 end
+
             elseif isnumeric(final_position)
                 position = obj.padVector3(final_position);
                 valid = all(isfinite(position));
@@ -312,11 +339,12 @@ classdef ControlLimo < handle
             angles = obj.makeInvalidAngles();
 
             if isstruct(final_angles)
-                if isfield(final_angles, 'roll');  angles.roll  = final_angles.roll;  end
-                if isfield(final_angles, 'pitch'); angles.pitch = final_angles.pitch; end
-                if isfield(final_angles, 'yaw');   angles.yaw   = final_angles.yaw;   end
+                if isfield(final_angles, 'roll');      angles.roll = final_angles.roll; end
+                if isfield(final_angles, 'pitch');     angles.pitch = final_angles.pitch; end
+                if isfield(final_angles, 'yaw');       angles.yaw = final_angles.yaw; end
                 if isfield(final_angles, 'timestamp'); angles.timestamp = final_angles.timestamp; end
-                if isfield(final_angles, 'source'); angles.source = string(final_angles.source); end
+                if isfield(final_angles, 'source');    angles.source = string(final_angles.source); end
+
                 if isfield(final_angles, 'valid')
                     angles.valid = logical(final_angles.valid);
                 else
@@ -336,9 +364,9 @@ classdef ControlLimo < handle
 
         function angles = makeInvalidAngles(~)
             angles = struct();
-            angles.roll = 0;
-            angles.pitch = 0;
-            angles.yaw = 0;
+            angles.roll = 0;       % [deg]
+            angles.pitch = 0;      % [deg]
+            angles.yaw = 0;        % [deg]
             angles.timestamp = NaN;
             angles.valid = false;
             angles.source = "none";
@@ -346,6 +374,7 @@ classdef ControlLimo < handle
 
         function v = padVector3(~, input_vector)
             v = input_vector(:);
+
             if numel(v) < 3
                 v(end+1:3,1) = 0;
             elseif numel(v) > 3
@@ -354,21 +383,22 @@ classdef ControlLimo < handle
         end
 
         function [roll, pitch, yaw] = quatToRpy(~, qW, qX, qY, qZ)
-            % Quaternion to roll, pitch, yaw in radians.
+            % Quaternion to roll, pitch, yaw in degrees.
+
             sinr_cosp = 2*(qW*qX + qY*qZ);
             cosr_cosp = 1 - 2*(qX^2 + qY^2);
-            roll = atan2(sinr_cosp, cosr_cosp);
+            roll = atan2d(sinr_cosp, cosr_cosp);
 
             sinp = 2*(qW*qY - qZ*qX);
             if abs(sinp) >= 1
-                pitch = sign(sinp) * pi/2;
+                pitch = sign(sinp) * 90;
             else
-                pitch = asin(sinp);
+                pitch = asind(sinp);
             end
 
             siny_cosp = 2*(qW*qZ + qX*qY);
             cosy_cosp = 1 - 2*(qY^2 + qZ^2);
-            yaw = atan2(siny_cosp, cosy_cosp);
+            yaw = atan2d(siny_cosp, cosy_cosp);
         end
     end
 end

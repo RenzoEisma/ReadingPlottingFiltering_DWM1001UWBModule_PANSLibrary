@@ -4,42 +4,40 @@
 % Date: 06/2026
 %
 % Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments and line spacing.
-%   The original concept, code logic, and project structure were created by
-%   a human author
+% ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
+% comments and line spacing.
+% The original concept, code logic, and project structure were created by
+% a human author.
 %
 % Purpose:
-%   Loosely coupled UWB + IMU fusion layer after GeneralFilter.m.
-%   - UWB position from GeneralFilter is used as the correction source.
-%   - IMU acceleration is used for short-term prediction between UWB updates.
-%   - Orientation is used for tilt compensation.
-%   - A configurable UWB tag offset can be compensated to estimate the robot
-%     or drone centre position.
+% Loosely coupled UWB + IMU fusion layer after GeneralFilter.m.
+% - UWB position from GeneralFilter is used as the correction source.
+% - IMU acceleration is used for short-term prediction between UWB updates.
+% - Orientation is used for tilt compensation during IMU prediction.
 %
 % Standard input 1:
-%   uwb_general_filtered.position = [x y z]
-%   uwb_general_filtered.velocity = [vx vy vz]
-%   uwb_general_filtered.timestamp
-%   uwb_general_filtered.quality
-%   uwb_general_filtered.valid
-%   uwb_general_filtered.source = 'general_filter'
+% uwb_general_filtered.position = [x y z]
+% uwb_general_filtered.velocity = [vx vy vz]
+% uwb_general_filtered.timestamp
+% uwb_general_filtered.quality
+% uwb_general_filtered.valid
+% uwb_general_filtered.source = 'general_filter'
 %
 % Standard input 2:
-%   imu_sample.accel_body  = [ax ay az]
-%   imu_sample.gyro_body   = [gx gy gz]
-%   imu_sample.orientation = [roll pitch yaw]
-%   imu_sample.timestamp
-%   imu_sample.valid
-%   imu_sample.source      = 'limo' / 'bebop' / 'custom_pcb'
+% imu_sample.accel_body = [ax ay az]
+% imu_sample.gyro_body = [gx gy gz]
+% imu_sample.orientation = [roll pitch yaw] in degrees
+% imu_sample.timestamp
+% imu_sample.valid
+% imu_sample.source = 'limo' / 'bebop' / 'custom_pcb'
 %
 % Standard output:
-%   uwb_imu_filtered.position = [x y z]
-%   uwb_imu_filtered.velocity = [vx vy vz]
-%   uwb_imu_filtered.orientation = [roll pitch yaw]
-%   uwb_imu_filtered.timestamp
-%   uwb_imu_filtered.valid
-%   uwb_imu_filtered.source = 'imu_fusion_filter'
+% uwb_imu_filtered.position = [x y z]
+% uwb_imu_filtered.velocity = [vx vy vz]
+% uwb_imu_filtered.orientation = [roll pitch yaw] in degrees
+% uwb_imu_filtered.timestamp
+% uwb_imu_filtered.valid
+% uwb_imu_filtered.source = 'imu_fusion_filter'
 % =========================================================================
 
 classdef ImuFusionFilter < handle
@@ -53,31 +51,27 @@ classdef ImuFusionFilter < handle
 
         USE_IMU_PREDICTION = true;
         USE_TILT_COMPENSATION = true;
-        USE_LEVER_ARM_COMPENSATION = true;
 
         % Options: 'GROUND_2D' or 'DRONE_3D'
         ROBOT_MODE = 'GROUND_2D';
 
         % IMU sample freshness relative to the requested output timestamp.
-        IMU_FRESH_TIMEOUT = 0.5;                 % [s]
+        IMU_FRESH_TIMEOUT = 0.5;   % [s]
 
         % Maximum prediction integration step for one IMU update.
-        MAX_IMU_DT = 0.10;                       % [s]
+        MAX_IMU_DT = 0.10;         % [s]
 
         % Gravity compensation. World frame is assumed to be Z-up.
-        GRAVITY = 9.81;                          % [m/s^2]
+        GRAVITY = 9.81;            % [m/s^2]
         REMOVE_GRAVITY = true;
 
         % Optional constant accelerometer bias in body frame.
-        ACCEL_BIAS_BODY = [0; 0; 0];             % [m/s^2]
-
-        % UWB tag offset from robot/drone centre in body frame.
-        TAG_OFFSET_BODY = [0; 0; 0];             % [m]
+        ACCEL_BIAS_BODY = [0; 0; 0];   % [m/s^2]
 
         % Kalman filter tuning.
-        PROCESS_NOISE_POSITION = 0.02;           % [m]
-        PROCESS_NOISE_VELOCITY = 0.50;           % [m/s]
-        MEASUREMENT_NOISE_POSITION = [0.08; 0.08; 0.10];  % [m]
+        PROCESS_NOISE_POSITION = 0.02;                   % [m]
+        PROCESS_NOISE_VELOCITY = 0.50;                   % [m/s]
+        MEASUREMENT_NOISE_POSITION = [0.08; 0.08; 0.10]; % [m]
 
         % Velocity blending on UWB corrections.
         USE_UWB_VELOCITY_INIT = true;
@@ -144,6 +138,7 @@ classdef ImuFusionFilter < handle
             obj.LatestImuSample = obj.makeEmptyImuSample();
             obj.LatestUwbGeneral = obj.makeEmptyUwbGeneralSample();
             obj.LastOutputStruct = obj.makeEmptyOutput();
+
             obj.resetStateOnly();
             obj.openLogIfNeeded();
         end
@@ -154,8 +149,10 @@ classdef ImuFusionFilter < handle
 
         function configure(obj, config)
             names = fieldnames(config);
+
             for i = 1:numel(names)
                 name = names{i};
+
                 if isprop(obj, name)
                     obj.(name) = config.(name);
                 end
@@ -183,9 +180,15 @@ classdef ImuFusionFilter < handle
                     obj.LastStatus = 'imu_prediction_update';
                     obj.LastUsedImu = true;
                     obj.NumOutputs = obj.NumOutputs + 1;
+
                     obj.LastOutputStruct = obj.makeOutputFromCurrentState( ...
-                        imu_out.timestamp, 'imu_prediction_update', true, false, ...
-                        obj.LatestUwbGeneral, imu_out);
+                        imu_out.timestamp, ...
+                        'imu_prediction_update', ...
+                        true, ...
+                        false, ...
+                        obj.LatestUwbGeneral, ...
+                        imu_out);
+
                     obj.logFusedData(obj.LastOutputStruct);
                 end
             end
@@ -197,6 +200,7 @@ classdef ImuFusionFilter < handle
             end
 
             uwb = obj.parseUwbGeneralSample(uwb_general_filtered);
+
             obj.LatestUwbGeneral = uwb;
             obj.HasUwbSample = uwb.valid;
             obj.NumUwbCorrections = obj.NumUwbCorrections + 1;
@@ -206,43 +210,65 @@ classdef ImuFusionFilter < handle
             if ~uwb.valid
                 obj.NumInvalidInputs = obj.NumInvalidInputs + 1;
                 obj.LastStatus = 'invalid_uwb_general_input';
+
                 uwb_imu_filtered = obj.makeOutputStruct( ...
-                    [NaN NaN NaN], [NaN NaN NaN], [NaN NaN NaN], NaN, false, ...
-                    'invalid_uwb_general_input', false, true, uwb, obj.LatestImuSample);
+                    [NaN NaN NaN], ...
+                    [NaN NaN NaN], ...
+                    [NaN NaN NaN], ...
+                    NaN, ...
+                    false, ...
+                    'invalid_uwb_general_input', ...
+                    false, ...
+                    true, ...
+                    uwb, ...
+                    obj.LatestImuSample);
+
                 obj.LastOutputStruct = uwb_imu_filtered;
                 obj.logFusedData(uwb_imu_filtered);
                 return;
             end
 
             imu_available = obj.isImuAvailableForTimestamp(uwb.timestamp);
-            corrected_measurement = obj.applyUwbMeasurementCompensation(uwb.position, imu_available);
+
+            % New structure:
+            % The IMU filter only filters/fuses the measured sensor position.
+            % Robot-centre compensation is handled later inside ControlLimo.m
+            % or ControlBebop.m.
+            corrected_measurement = uwb.position;
             corrected_velocity = uwb.velocity;
 
             if ~obj.Initialized
                 obj.initializeFromUwb(corrected_measurement, corrected_velocity, uwb.timestamp);
+
                 status = 'initialized_from_uwb';
                 used_imu = false;
                 fallback_used = false;
+
             elseif obj.USE_IMU_FILTER && imu_available
                 obj.correctWithUwb(corrected_measurement, corrected_velocity, uwb.timestamp);
+
                 status = 'uwb_imu_corrected';
                 used_imu = true;
                 fallback_used = false;
                 obj.LastUsedImu = true;
+
             else
                 % Keep the state synchronized with UWB even when no IMU is used.
                 obj.correctWithUwb(corrected_measurement, corrected_velocity, uwb.timestamp);
+
                 used_imu = false;
 
                 if ~obj.USE_IMU_FILTER
                     status = 'uwb_only_correction';
                     fallback_used = false;
                     obj.LastFallbackReason = 'imu_filter_disabled';
+
                 elseif ~imu_available
                     status = 'uwb_correction_imu_missing';
                     fallback_used = obj.FALLBACK_TO_GENERAL_FILTER;
                     obj.LastFallbackReason = 'imu_missing_or_old';
                     obj.NumFallbacks = obj.NumFallbacks + 1;
+
                 else
                     status = 'uwb_correction';
                     fallback_used = false;
@@ -256,6 +282,7 @@ classdef ImuFusionFilter < handle
             if ~obj.Initialized || any(~isfinite(obj.StateX))
                 obj.NumFallbacks = obj.NumFallbacks + 1;
                 obj.LastFallbackReason = 'state_not_initialized';
+
                 position = corrected_measurement;
                 velocity = corrected_velocity;
                 status = 'fallback_general_output';
@@ -267,12 +294,21 @@ classdef ImuFusionFilter < handle
             end
 
             uwb_imu_filtered = obj.makeOutputStruct( ...
-                position, velocity, orientation, uwb.timestamp, true, ...
-                status, used_imu, fallback_used, uwb, obj.LatestImuSample);
+                position, ...
+                velocity, ...
+                orientation, ...
+                uwb.timestamp, ...
+                true, ...
+                status, ...
+                used_imu, ...
+                fallback_used, ...
+                uwb, ...
+                obj.LatestImuSample);
 
             obj.LastOutputStruct = uwb_imu_filtered;
             obj.LastStatus = status;
             obj.NumOutputs = obj.NumOutputs + 1;
+
             obj.logFusedData(uwb_imu_filtered);
         end
 
@@ -299,10 +335,12 @@ classdef ImuFusionFilter < handle
             debug.num_fallbacks = obj.NumFallbacks;
             debug.num_invalid_inputs = obj.NumInvalidInputs;
             debug.num_outputs = obj.NumOutputs;
+
             debug.last_status = obj.LastStatus;
             debug.last_fallback_reason = obj.LastFallbackReason;
             debug.last_used_imu = obj.LastUsedImu;
             debug.last_imu_prediction_dt = obj.LastImuPredictionDt;
+
             debug.has_imu_sample = obj.HasImuSample;
             debug.has_uwb_sample = obj.HasUwbSample;
             debug.initialized = obj.Initialized;
@@ -334,8 +372,10 @@ classdef ImuFusionFilter < handle
 
         function setLogFile(obj, log_file_path)
             obj.closeLog();
+
             obj.LOG_FILE_PATH = char(string(log_file_path));
             obj.LogHeaderWritten = false;
+
             obj.openLogIfNeeded();
         end
 
@@ -343,6 +383,7 @@ classdef ImuFusionFilter < handle
             if obj.LogFileId > 0
                 fclose(obj.LogFileId);
             end
+
             obj.LogFileId = -1;
         end
     end
@@ -424,19 +465,19 @@ classdef ImuFusionFilter < handle
 
             if isfield(input, 'accel_body') && numel(input.accel_body) >= 3
                 imu.accel_body = reshape(input.accel_body(1:3), 1, 3);
-            elseif all(isfield(input, {'ax','ay','az'}))
+            elseif all(isfield(input, {'ax', 'ay', 'az'}))
                 imu.accel_body = [input.ax, input.ay, input.az];
             end
 
             if isfield(input, 'gyro_body') && numel(input.gyro_body) >= 3
                 imu.gyro_body = reshape(input.gyro_body(1:3), 1, 3);
-            elseif all(isfield(input, {'gx','gy','gz'}))
+            elseif all(isfield(input, {'gx', 'gy', 'gz'}))
                 imu.gyro_body = [input.gx, input.gy, input.gz];
             end
 
             if isfield(input, 'orientation') && numel(input.orientation) >= 3
                 imu.orientation = reshape(input.orientation(1:3), 1, 3);
-            elseif all(isfield(input, {'roll','pitch','yaw'}))
+            elseif all(isfield(input, {'roll', 'pitch', 'yaw'}))
                 imu.orientation = [input.roll, input.pitch, input.yaw];
             end
 
@@ -458,7 +499,10 @@ classdef ImuFusionFilter < handle
                 imu.valid = true;
             end
 
-            has_some_data = any(isfinite(imu.accel_body)) || any(isfinite(imu.gyro_body)) || any(isfinite(imu.orientation));
+            has_some_data = any(isfinite(imu.accel_body)) || ...
+                            any(isfinite(imu.gyro_body)) || ...
+                            any(isfinite(imu.orientation));
+
             imu.valid = imu.valid && has_some_data && isfinite(imu.timestamp);
         end
 
@@ -508,6 +552,7 @@ classdef ImuFusionFilter < handle
             end
 
             dt = imu.timestamp - obj.LastStateTimestamp;
+
             if ~isfinite(dt) || dt <= 0
                 return;
             end
@@ -516,6 +561,7 @@ classdef ImuFusionFilter < handle
             obj.LastImuPredictionDt = dt;
 
             accel_world = obj.getWorldAcceleration(imu);
+
             F = obj.buildStateTransition(dt);
             B = obj.buildInputMatrix(dt);
             Q = obj.buildProcessNoise(dt);
@@ -529,6 +575,7 @@ classdef ImuFusionFilter < handle
 
             obj.LastStateTimestamp = imu.timestamp;
             obj.NumImuPredictions = obj.NumImuPredictions + 1;
+
             ok = true;
         end
 
@@ -542,9 +589,11 @@ classdef ImuFusionFilter < handle
             end
 
             orientation = imu.orientation(:).';
+
             if obj.USE_TILT_COMPENSATION && all(isfinite(orientation))
                 R = obj.makeRotationMatrix(orientation);
                 accel_world = R * accel_body;
+
             else
                 if strcmpi(obj.ROBOT_MODE, 'GROUND_2D') && isfinite(orientation(3))
                     yaw = orientation(3);
@@ -573,8 +622,10 @@ classdef ImuFusionFilter < handle
             if isfinite(timestamp) && isfinite(obj.LastStateTimestamp) && timestamp > obj.LastStateTimestamp
                 dt = timestamp - obj.LastStateTimestamp;
                 dt = min(dt, obj.MAX_IMU_DT);
+
                 F = obj.buildStateTransition(dt);
                 Q = obj.buildProcessNoise(dt);
+
                 obj.StateX = F * obj.StateX;
                 obj.StateP = F * obj.StateP * F.' + Q;
                 obj.LastStateTimestamp = timestamp;
@@ -584,9 +635,10 @@ classdef ImuFusionFilter < handle
 
             H = [eye(3), zeros(3)];
             R = diag(obj.MEASUREMENT_NOISE_POSITION(:).^2);
-            z = measurement_position(:);
 
+            z = measurement_position(:);
             y = z - H * obj.StateX;
+
             S = H * obj.StateP * H.' + R;
             K = obj.StateP * H.' / S;
 
@@ -594,7 +646,8 @@ classdef ImuFusionFilter < handle
             obj.StateP = (eye(6) - K * H) * obj.StateP;
 
             if all(isfinite(measurement_velocity))
-                obj.StateX(4:6) = (1 - obj.UWB_VELOCITY_BLEND) * obj.StateX(4:6) + ...
+                obj.StateX(4:6) = ...
+                    (1 - obj.UWB_VELOCITY_BLEND) * obj.StateX(4:6) + ...
                     obj.UWB_VELOCITY_BLEND * measurement_velocity(:);
             end
 
@@ -603,48 +656,9 @@ classdef ImuFusionFilter < handle
             end
         end
 
-        function corrected_position = applyUwbMeasurementCompensation(obj, uwb_position, imu_available)
-            corrected_position = uwb_position(:);
-
-            if ~obj.USE_LEVER_ARM_COMPENSATION
-                corrected_position = corrected_position(:).';
-                return;
-            end
-
-            if ~any(abs(obj.TAG_OFFSET_BODY(:)) > 0)
-                corrected_position = corrected_position(:).';
-                return;
-            end
-
-            orientation = [NaN NaN NaN];
-            if imu_available
-                orientation = obj.LatestImuSample.orientation;
-            end
-
-            if strcmpi(obj.ROBOT_MODE, 'GROUND_2D')
-                yaw = NaN;
-                if numel(orientation) >= 3
-                    yaw = orientation(3);
-                end
-                if ~isfinite(yaw)
-                    corrected_position = corrected_position(:).';
-                    return;
-                end
-                R = obj.makeYawRotation(yaw);
-            else
-                if ~all(isfinite(orientation))
-                    corrected_position = corrected_position(:).';
-                    return;
-                end
-                R = obj.makeRotationMatrix(orientation);
-            end
-
-            corrected_position = corrected_position - R * obj.TAG_OFFSET_BODY(:);
-            corrected_position = corrected_position(:).';
-        end
-
         function orientation = getOrientationForOutput(obj, imu_available)
             orientation = [NaN NaN NaN];
+
             if imu_available && obj.HasImuSample && obj.LatestImuSample.valid
                 orientation = obj.LatestImuSample.orientation;
             elseif obj.HasImuSample && obj.LatestImuSample.valid
@@ -653,26 +667,27 @@ classdef ImuFusionFilter < handle
         end
 
         function F = buildStateTransition(~, dt)
-            F = [1 0 0 dt 0 0;
-                 0 1 0 0 dt 0;
-                 0 0 1 0 0 dt;
-                 0 0 0 1 0 0;
-                 0 0 0 0 1 0;
+            F = [1 0 0 dt 0 0; ...
+                 0 1 0 0 dt 0; ...
+                 0 0 1 0 0 dt; ...
+                 0 0 0 1 0 0; ...
+                 0 0 0 0 1 0; ...
                  0 0 0 0 0 1];
         end
 
         function B = buildInputMatrix(~, dt)
-            B = [0.5*dt^2 0 0;
-                 0 0.5*dt^2 0;
-                 0 0 0.5*dt^2;
-                 dt 0 0;
-                 0 dt 0;
+            B = [0.5 * dt^2 0 0; ...
+                 0 0.5 * dt^2 0; ...
+                 0 0 0.5 * dt^2; ...
+                 dt 0 0; ...
+                 0 dt 0; ...
                  0 0 dt];
         end
 
         function Q = buildProcessNoise(obj, dt)
             q_pos = obj.PROCESS_NOISE_POSITION.^2;
             q_vel = obj.PROCESS_NOISE_VELOCITY.^2;
+
             Q = diag([q_pos, q_pos, q_pos, q_vel, q_vel, q_vel]);
             Q = Q * max(dt, 0.001);
         end
@@ -688,20 +703,34 @@ classdef ImuFusionFilter < handle
             pitch = orientation(2);
             yaw = orientation(3);
 
-            cr = cos(roll);  sr = sin(roll);
-            cp = cos(pitch); sp = sin(pitch);
-            cy = cos(yaw);   sy = sin(yaw);
+            % ReadBebop.m and ReadLimo.m should output roll/pitch/yaw in degrees.
+            cr = cosd(roll);  sr = sind(roll);
+            cp = cosd(pitch); sp = sind(pitch);
+            cy = cosd(yaw);   sy = sind(yaw);
 
-            Rx = [1 0 0; 0 cr -sr; 0 sr cr];
-            Ry = [cp 0 sp; 0 1 0; -sp 0 cp];
-            Rz = [cy -sy 0; sy cy 0; 0 0 1];
+            Rx = [1 0 0; ...
+                  0 cr -sr; ...
+                  0 sr cr];
+
+            Ry = [cp 0 sp; ...
+                  0 1 0; ...
+                  -sp 0 cp];
+
+            Rz = [cy -sy 0; ...
+                  sy cy 0; ...
+                  0 0 1];
+
             R = Rz * Ry * Rx;
         end
 
         function R = makeYawRotation(~, yaw)
-            cy = cos(yaw);
-            sy = sin(yaw);
-            R = [cy -sy 0; sy cy 0; 0 0 1];
+            % ReadBebop.m and ReadLimo.m should output yaw in degrees.
+            cy = cosd(yaw);
+            sy = sind(yaw);
+
+            R = [cy -sy 0; ...
+                 sy cy 0; ...
+                 0 0 1];
         end
 
         function output = makeOutputFromCurrentState(obj, timestamp, status, used_imu, fallback_used, uwb, imu)
@@ -712,19 +741,29 @@ classdef ImuFusionFilter < handle
             end
 
             output = obj.makeOutputStruct( ...
-                obj.StateX(1:3).', obj.StateX(4:6).', obj.getOrientationForOutput(true), ...
-                timestamp, true, status, used_imu, fallback_used, uwb, imu);
+                obj.StateX(1:3).', ...
+                obj.StateX(4:6).', ...
+                obj.getOrientationForOutput(true), ...
+                timestamp, ...
+                true, ...
+                status, ...
+                used_imu, ...
+                fallback_used, ...
+                uwb, ...
+                imu);
         end
 
         function output = makeOutputStruct(obj, position, velocity, orientation, timestamp, valid, status, used_imu, fallback_used, uwb, imu)
             output.position = reshape(position(1:3), 1, 3);
             output.velocity = reshape(velocity(1:3), 1, 3);
             output.orientation = reshape(orientation(1:3), 1, 3);
+
             output.timestamp = timestamp;
             output.valid = logical(valid);
             output.source = 'imu_fusion_filter';
 
             output.quality = uwb.quality;
+
             output.used_imu = logical(used_imu);
             output.fallback_used = logical(fallback_used);
             output.status = char(string(status));
@@ -768,8 +807,18 @@ classdef ImuFusionFilter < handle
         function output = makeEmptyOutput(obj)
             uwb = obj.makeEmptyUwbGeneralSample();
             imu = obj.makeEmptyImuSample();
-            output = obj.makeOutputStruct([NaN NaN NaN], [NaN NaN NaN], [NaN NaN NaN], NaN, false, ...
-                'not_initialized', false, true, uwb, imu);
+
+            output = obj.makeOutputStruct( ...
+                [NaN NaN NaN], ...
+                [NaN NaN NaN], ...
+                [NaN NaN NaN], ...
+                NaN, ...
+                false, ...
+                'not_initialized', ...
+                false, ...
+                true, ...
+                uwb, ...
+                imu);
         end
 
         function openLogIfNeeded(obj)
@@ -778,6 +827,7 @@ classdef ImuFusionFilter < handle
             end
 
             [folder, ~, ~] = fileparts(obj.LOG_FILE_PATH);
+
             if ~isempty(folder) && ~exist(folder, 'dir')
                 mkdir(folder);
             end
@@ -792,16 +842,19 @@ classdef ImuFusionFilter < handle
             end
 
             if ~obj.LogHeaderWritten
-                fprintf(obj.LogFileId, ['timestamp,status,position_x,position_y,position_z,', ...
+                fprintf(obj.LogFileId, [ ...
+                    'timestamp,status,position_x,position_y,position_z,', ...
                     'velocity_x,velocity_y,velocity_z,roll,pitch,yaw,quality,valid,', ...
                     'used_imu,fallback_used,imu_valid,imu_source,input_uwb_source,', ...
                     'input_uwb_valid,input_uwb_accepted,input_uwb_rejection_reason,', ...
                     'accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z,', ...
                     'num_predictions,last_prediction_dt,last_fallback_reason\n']);
+
                 obj.LogHeaderWritten = true;
             end
 
-            fprintf(obj.LogFileId, ['%.6f,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,', ...
+            fprintf(obj.LogFileId, [ ...
+                '%.6f,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,', ...
                 '%.6f,%.6f,%.6f,%.6f,%d,%d,%d,%d,%s,%s,%d,%d,%s,', ...
                 '%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%.6f,%s\n'], ...
                 output.timestamp, ...
@@ -821,7 +874,9 @@ classdef ImuFusionFilter < handle
                 obj.safeCsvText(output.input_uwb_rejection_reason), ...
                 output.accel_body(1), output.accel_body(2), output.accel_body(3), ...
                 output.gyro_body(1), output.gyro_body(2), output.gyro_body(3), ...
-                obj.NumImuPredictions, obj.LastImuPredictionDt, obj.safeCsvText(obj.LastFallbackReason));
+                obj.NumImuPredictions, ...
+                obj.LastImuPredictionDt, ...
+                obj.safeCsvText(obj.LastFallbackReason));
         end
 
         function t = getCurrentTimestamp(~)

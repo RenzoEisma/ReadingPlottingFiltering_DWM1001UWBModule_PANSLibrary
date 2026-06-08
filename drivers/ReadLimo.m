@@ -404,7 +404,7 @@ classdef ReadLimo < handle
         % =================================================================
         % Quaternion to roll-pitch-yaw
         % Input q = [w x y z]
-        % Output orientation = [roll pitch yaw] in radians
+        % Output orientation = [roll pitch yaw] in degrees
         % =================================================================
         function [orientation, valid] = quaternionToRollPitchYaw(obj, q) %#ok<INUSL>
             orientation = [NaN, NaN, NaN];
@@ -430,7 +430,7 @@ classdef ReadLimo < handle
 
             yaw = atan2(2*(qw*qz + qx*qy), 1 - 2*(qy^2 + qz^2));
 
-            orientation = [roll, pitch, yaw];
+            orientation = rad2deg([roll, pitch, yaw]);
             valid = true;
         end
     end

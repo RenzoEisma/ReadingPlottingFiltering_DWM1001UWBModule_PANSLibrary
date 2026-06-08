@@ -3,40 +3,43 @@
 % Author: Renzo Eisma
 % Date: 06/2026
 %
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments and line spacing.
-%   The original concept, code logic, and project structure were created by
-%   a human author
-%
 % Purpose:
-%   Central MATLAB coordinator for the UWB localization/control framework.
-%   The master script coordinates data sources and modules. Filtering,
-%   sensor reading, and robot control are handled by separate scripts/classes.
+% Central MATLAB coordinator for the UWB localization/control framework.
+% Filtering, sensor reading, and robot control are handled by separate
+% scripts/classes.
+%
+% Important structure change:
+% - ImuFusionFilter.m does NOT compensate the measured sensor position to the
+%   robot centre anymore.
+% - Robot-centre / sensor-offset compensation is handled inside ControlLimo.m
+%   and ControlBebop.m.
+% - final_position remains the selected measured/filtered sensor position.
+% - final_angles are read from ReadLimo.m or ReadBebop.m and are assumed to be
+%   in degrees.
 %
 % Included:
-%   - Python UDP UWB listener input on port 5005
-%   - Python UDP OptiTrack input on port 5006
-%   - Python settings packet on port 5004
-%   - GeneralFilter.m for UWB position filtering
-%   - Optional ImuFusionFilter.m path using ReadLimo.m or ReadBebop.m
-%   - final_position and final_angles selection inside MATLAB
-%   - Optional ControlLimo.m or ControlBebop.m update interface
-%   - Optional ROS publishing of final_position and final_angles
-%   - simple useful logging for testing/debugging
+% - Python UDP UWB listener input on port 5005
+% - Python UDP OptiTrack input on port 5006
+% - Python settings packet on port 5004
+% - GeneralFilter.m for UWB position filtering
+% - Optional ImuFusionFilter.m path using ReadLimo.m or ReadBebop.m
+% - final_position and final_angles selection inside MATLAB
+% - Optional ControlLimo.m or ControlBebop.m update interface
+% - Optional ROS publishing of final_position and final_angles
+% - simple useful logging for testing/debugging
 %
 % Placeholder/future work:
-%   - custom PCB ROS input is kept in ReadCustomPcb.m
-%   - GPS RTK ROS input is kept in ReadGpsRtk.m
+% - custom PCB ROS input is kept in ReadCustomPcb.m
+% - GPS RTK ROS input is kept in ReadGpsRtk.m
 %
 % Data flow:
-%   Python UWB UDP -> uwb_sample -> GeneralFilter -> uwb_general_filtered
-%                                                        |
-%   Robot IMU ROS -> imu_sample -> ImuFusionFilter -------|-> uwb_imu_filtered
-%                                                        |
-%   Python Opti UDP -> opti_sample -----------------------|-> final_position
-%                                                        |
-%   final_angles -----------------------------------------|-> robot control / ROS
+% Python UWB UDP -> uwb_sample -> GeneralFilter -> uwb_general_filtered
+%                                                   |
+% Robot IMU ROS -> imu_sample -> ImuFusionFilter ---|-> uwb_imu_filtered
+%                                                   |
+% Python Opti UDP ----------------------------------|-> final_position
+%                                                   |
+% final_angles -------------------------------------|-> robot control / ROS
 % =========================================================================
 
 function MatlabMasterUWBControl()
@@ -64,14 +67,14 @@ fprintf('============================================================\n\n');
 % as final_position.
 
 % Final position options:
-%   "UWB_GENERAL" = UWB after GeneralFilter only
-%   "UWB_IMU"     = UWB after GeneralFilter + ImuFusionFilter
-%   "OPTITRACK"   = OptiTrack ground truth used as final_position
+% "UWB_GENERAL" = UWB after GeneralFilter only
+% "UWB_IMU"     = UWB after GeneralFilter + ImuFusionFilter
+% "OPTITRACK"   = OptiTrack ground truth used as final_position
 FINAL_POSITION_SOURCE = "UWB_GENERAL";
 
 % UWB input source used by this master script.
 % Current active option: "PYTHON_UDP"
-% Future placeholder:   "CUSTOM_PCB_ROS" handled inside ReadCustomPcb.m
+% Future placeholder: "CUSTOM_PCB_ROS" handled inside ReadCustomPcb.m
 UWB_SOURCE_MATLAB = "PYTHON_UDP";
 
 % IMU / robot selection.
@@ -80,41 +83,36 @@ USE_IMU_FILTER = false;
 SELECTED_ROBOT = "NONE";
 
 % Robot control. This only calls the updated ControlLimo/ControlBebop
-% interface. The trajectory/control logic remains inside the control class.
+% interface. Robot-specific offset compensation belongs inside the control
+% scripts, not inside this master script and not inside ImuFusionFilter.m.
 USE_ROBOT_CONTROL = false;
 START_ROBOT_MOVEMENT_AUTOMATICALLY = false;
-CONTROL_UPDATE_RATE = 30;             % [Hz]
+CONTROL_UPDATE_RATE = 30;        % [Hz]
 
 % Optional ROS publishing of final output. This is separate from robot
 % control. It can be enabled for debugging or for other ROS nodes.
 USE_ROS_PUBLISHING = false;
-ROS_MASTER_ADDRESS = "";              % empty = rosinit() default
+ROS_MASTER_ADDRESS = "";         % empty = rosinit() default
 ROS_POSITION_TOPIC = "/uwb/final_position";
 ROS_ANGLES_TOPIC = "/uwb/final_angles";
 ROS_FRAME_ID = "map";
-ROS_PUBLISH_RATE = 30;                % [Hz]
+ROS_PUBLISH_RATE = 30;           % [Hz]
 
 % Robot namespaces/topics
 LIMO_NAMESPACE = "/L1";
-BEBOP_NAMESPACE = "/B1";              % reader namespace, including slash
-BEBOP_CONTROL_NAMESPACE = "B1";       % control class namespace, no slash
-
-% Tag offsets from robot/drone centre to UWB tag in body frame [m].
-% These values are used by ImuFusionFilter.m after the fusion script is
-% fully enabled. For now, keep zero unless measured.
-LIMO_TAG_OFFSET_BODY = [0; 0; 0];
-BEBOP_TAG_OFFSET_BODY = [0; 0; 0];
+BEBOP_NAMESPACE = "/B1";         % reader namespace, including slash
+BEBOP_CONTROL_NAMESPACE = "B1";  % control class namespace, no slash
 
 % Runtime settings
-T_exp = 2400;                         % maximum runtime [s]
-T_final_log = 1/30;                   % final_position logging rate [s]
-MAIN_LOOP_PAUSE = 0.001;              % small pause to avoid maxing CPU
+T_exp = 2400;                    % maximum runtime [s]
+T_final_log = 1/30;              % final_position logging rate [s]
+MAIN_LOOP_PAUSE = 0.001;         % small pause to avoid maxing CPU
 
 % Startup sensor wait
 WAIT_FOR_REQUIRED_SENSORS = true;
-SENSOR_WAIT_TIMEOUT = 30;             % [s]
-SENSOR_FRESH_TIMEOUT = 2.0;           % [s]
-IMU_FRESH_TIMEOUT = 0.5;              % [s]
+SENSOR_WAIT_TIMEOUT = 30;        % [s]
+SENSOR_FRESH_TIMEOUT = 2.0;      % [s]
+IMU_FRESH_TIMEOUT = 0.5;         % [s]
 
 % Filter settings
 FILTER_DEFAULT_DT = 0.1;
@@ -138,6 +136,11 @@ if ~any(FINAL_POSITION_SOURCE == ["UWB_GENERAL", "UWB_IMU", "OPTITRACK"])
     FINAL_POSITION_SOURCE = "UWB_GENERAL";
 end
 
+if ~any(UWB_SOURCE_MATLAB == ["PYTHON_UDP", "CUSTOM_PCB_ROS"])
+    fprintf('[MASTER] Invalid UWB_SOURCE_MATLAB. Falling back to PYTHON_UDP.\n');
+    UWB_SOURCE_MATLAB = "PYTHON_UDP";
+end
+
 if ~any(SELECTED_ROBOT == ["NONE", "LIMO", "BEBOP"])
     fprintf('[MASTER] Invalid SELECTED_ROBOT. Falling back to NONE.\n');
     SELECTED_ROBOT = "NONE";
@@ -157,8 +160,9 @@ if FINAL_POSITION_SOURCE == "UWB_IMU" && SELECTED_ROBOT == "NONE"
 end
 
 USE_IMU_FILTER_OBJECT = USE_IMU_FILTER || FINAL_POSITION_SOURCE == "UWB_IMU";
-USE_ROBOT_READER = SELECTED_ROBOT ~= "NONE" && (USE_IMU_FILTER || USE_ROBOT_CONTROL || FINAL_POSITION_SOURCE == "UWB_IMU");
-USE_ROS = USE_IMU_FILTER || USE_ROBOT_CONTROL || USE_ROS_PUBLISHING;
+USE_ROBOT_READER = SELECTED_ROBOT ~= "NONE" && ...
+    (USE_IMU_FILTER || USE_ROBOT_CONTROL || FINAL_POSITION_SOURCE == "UWB_IMU");
+USE_ROS = USE_IMU_FILTER || USE_ROBOT_CONTROL || USE_ROS_PUBLISHING || USE_ROBOT_READER;
 
 T_control = 1 / max(CONTROL_UPDATE_RATE, 1);
 T_ros_publish = 1 / max(ROS_PUBLISH_RATE, 1);
@@ -166,14 +170,14 @@ T_ros_publish = 1 / max(ROS_PUBLISH_RATE, 1);
 %% 3. UDP PORT SETUP
 % =========================================================================
 SETTINGS_PORT = 5004;
-UWB_PORT      = 5005;
-OPTI_PORT     = 5006;
+UWB_PORT = 5005;
+OPTI_PORT = 5006;
 
 fprintf('[MASTER] Opening UDP ports...\n');
 try
     u_settings = udpport("LocalHost", "127.0.0.1", "LocalPort", SETTINGS_PORT);
-    u_uwb      = udpport("LocalHost", "127.0.0.1", "LocalPort", UWB_PORT);
-    u_opti     = udpport("LocalHost", "127.0.0.1", "LocalPort", OPTI_PORT);
+    u_uwb = udpport("LocalHost", "127.0.0.1", "LocalPort", UWB_PORT);
+    u_opti = udpport("LocalHost", "127.0.0.1", "LocalPort", OPTI_PORT);
 catch ME
     fprintf('[MASTER] Failed to open UDP ports: %s\n', ME.message);
     fprintf('[MASTER] Make sure no old MATLAB process is still using ports %d, %d or %d.\n', ...
@@ -189,34 +193,30 @@ fprintf('[MASTER] Opti UDP:     127.0.0.1:%d\n\n', OPTI_PORT);
 % =========================================================================
 % Python still owns session creation and sends the session folder/name.
 % MATLAB uses that information for logging.
-
 disp('[MASTER] Waiting for settings packet on port 5004...');
 settings = struct();
 settings_received = false;
 
 while ~settings_received
     packet = readLatestUdpPacket(u_settings);
-
     if strlength(packet) > 0
         [settings, settings_received] = parseSettingsPacket(packet);
-
         if settings_received
             disp('[MASTER] Settings packet received.');
         else
             disp('[MASTER] Received invalid settings packet. Waiting for a new one...');
         end
     end
-
     pause(0.05);
 end
 
 %% 5. APPLY SETTINGS FROM PYTHON, BUT KEEP FINAL POSITION SOURCE IN MATLAB
 % =========================================================================
 uwb_settings = getFieldDefault(settings, 'uwb', struct());
-gt_settings  = getFieldDefault(settings, 'ground_truth', struct());
+gt_settings = getFieldDefault(settings, 'ground_truth', struct());
 
 session_name = string(getFieldDefault(settings, 'session_name', "Session_Unknown"));
-session_dir  = string(getFieldDefault(settings, 'session_dir', pwd));
+session_dir = string(getFieldDefault(settings, 'session_dir', pwd));
 
 ENABLE_UWB = toLogical(getFieldDefault(uwb_settings, 'enabled', false));
 PYTHON_UWB_SOURCE = string(getFieldDefault(uwb_settings, 'source', "Listener"));
@@ -230,11 +230,17 @@ if ~isfolder(session_dir)
     mkdir(session_dir);
 end
 
-% Current master script uses Python listener UDP for UWB input. Custom PCB
-% input stays as a placeholder in ReadCustomPcb.m.
-if ENABLE_UWB && PYTHON_UWB_SOURCE ~= "Listener"
+% Current master script uses Python listener UDP for active UWB input.
+% Custom PCB input stays as a placeholder in ReadCustomPcb.m.
+if ENABLE_UWB && UWB_SOURCE_MATLAB == "PYTHON_UDP" && PYTHON_UWB_SOURCE ~= "Listener"
     fprintf('[MASTER] Warning: Python selected UWB source "%s".\n', PYTHON_UWB_SOURCE);
     fprintf('[MASTER] This master currently uses Python listener UDP for active UWB input. UWB disabled.\n');
+    ENABLE_UWB = false;
+end
+
+if UWB_SOURCE_MATLAB == "CUSTOM_PCB_ROS"
+    fprintf('[MASTER] Warning: CUSTOM_PCB_ROS is still a placeholder in this master script.\n');
+    fprintf('[MASTER] Active UWB UDP input is disabled until ReadCustomPcb.m is implemented.\n');
     ENABLE_UWB = false;
 end
 
@@ -266,6 +272,7 @@ if USE_ROS && ~ros_available
     USE_ROBOT_CONTROL = false;
     USE_ROS_PUBLISHING = false;
     USE_ROBOT_READER = false;
+
     if FINAL_POSITION_SOURCE == "UWB_IMU"
         fprintf('[MASTER] FINAL_POSITION_SOURCE changed from UWB_IMU to UWB_GENERAL.\n');
         FINAL_POSITION_SOURCE = "UWB_GENERAL";
@@ -281,7 +288,6 @@ end
 
 filter_config = struct();
 filter_config.LOG_TO_CSV = ENABLE_GENERAL_FILTER_LOG;
-
 uwb_general_filter = GeneralFilter(FILTER_DEFAULT_DT, general_filter_log);
 uwb_general_filter.configure(filter_config);
 
@@ -298,9 +304,7 @@ else
 end
 
 if USE_IMU_FILTER_OBJECT
-    imu_config = makeImuFilterConfig(USE_IMU_FILTER, SELECTED_ROBOT, IMU_FRESH_TIMEOUT, ...
-        LIMO_TAG_OFFSET_BODY, BEBOP_TAG_OFFSET_BODY, ENABLE_IMU_FILTER_LOG);
-
+    imu_config = makeImuFilterConfig(USE_IMU_FILTER, SELECTED_ROBOT, IMU_FRESH_TIMEOUT, ENABLE_IMU_FILTER_LOG);
     uwb_imu_filter = ImuFusionFilter(imu_config, imu_filter_log);
 
     if ENABLE_IMU_FILTER_LOG
@@ -443,7 +447,6 @@ disp('[MASTER] Entering main loop. Press Ctrl+C to stop.');
 
 try
     while toc(t_exp) < T_exp
-
         % -------------------------------------------------------------
         % A. UWB from Python UDP -> GeneralFilter
         % -------------------------------------------------------------
@@ -500,12 +503,15 @@ try
         % -------------------------------------------------------------
         if toc(t_final_log) >= T_final_log
             t_final_log = tic;
-            logFinalPosition(final_log_fid, final_position, final_angles, latest_uwb_general, latest_uwb_imu, latest_opti_sample, USE_ROBOT_CONTROL, USE_ROS_PUBLISHING);
+            logFinalPosition(final_log_fid, final_position, final_angles, ...
+                latest_uwb_general, latest_uwb_imu, latest_opti_sample, ...
+                USE_ROBOT_CONTROL, USE_ROS_PUBLISHING);
 
             print_counter_final = print_counter_final + 1;
             if mod(print_counter_final, PRINT_EVERY_FINAL_LINES) == 0 && final_position.valid
-                fprintf('[FINAL] Source: %s -> X: %.3f, Y: %.3f, Z: %.3f | yaw: %.3f\n', ...
-                    final_position.source, final_position.position(1), final_position.position(2), final_position.position(3), final_angles.yaw);
+                fprintf('[FINAL] Source: %s -> X: %.3f, Y: %.3f, Z: %.3f | yaw: %.3f deg\n', ...
+                    final_position.source, final_position.position(1), final_position.position(2), ...
+                    final_position.position(3), final_angles.yaw);
             end
         end
 
@@ -616,11 +622,9 @@ valid = false;
 
 try
     decoded = jsondecode(char(packet));
-    if isfield(decoded, 'packet_type')
-        if string(decoded.packet_type) == "settings"
-            settings = decoded;
-            valid = true;
-        end
+    if isfield(decoded, 'packet_type') && string(decoded.packet_type) == "settings"
+        settings = decoded;
+        valid = true;
     end
 catch ME
     fprintf('[MASTER] Settings JSON parse error: %s\n', ME.message);
@@ -676,30 +680,28 @@ end
 end
 
 % -------------------------------------------------------------------------
-function imu_config = makeImuFilterConfig(use_imu_filter, selected_robot, imu_fresh_timeout, limo_offset, bebop_offset, enable_log)
+function imu_config = makeImuFilterConfig(use_imu_filter, selected_robot, imu_fresh_timeout, enable_log)
 imu_config = struct();
 imu_config.USE_IMU_FILTER = logical(use_imu_filter);
 imu_config.FALLBACK_TO_GENERAL_FILTER = true;
 imu_config.IMU_FRESH_TIMEOUT = imu_fresh_timeout;
 imu_config.LOG_TO_CSV = logical(enable_log);
 
+% Angles from ReadLimo.m and ReadBebop.m should be degrees.
+% The new ImuFusionFilter.m uses cosd/sind internally.
 switch upper(string(selected_robot))
     case "LIMO"
         imu_config.ROBOT_MODE = 'GROUND_2D';
-        imu_config.TAG_OFFSET_BODY = limo_offset;
     case "BEBOP"
         imu_config.ROBOT_MODE = 'DRONE_3D';
-        imu_config.TAG_OFFSET_BODY = bebop_offset;
     otherwise
         imu_config.ROBOT_MODE = 'GROUND_2D';
-        imu_config.TAG_OFFSET_BODY = [0; 0; 0];
 end
 end
 
 % -------------------------------------------------------------------------
 function reader = createRobotReader(selected_robot, limo_namespace, bebop_namespace)
 reader = [];
-
 try
     switch upper(string(selected_robot))
         case "LIMO"
@@ -728,7 +730,6 @@ end
 % -------------------------------------------------------------------------
 function controller = createRobotController(selected_robot, bebop_control_namespace)
 controller = [];
-
 try
     switch upper(string(selected_robot))
         case "LIMO"
@@ -766,6 +767,7 @@ try
 
     ros_publishers.enabled = true;
     fprintf('[MASTER] ROS publishing enabled: %s and %s\n', char(position_topic), char(angles_topic));
+
 catch ME
     fprintf('[MASTER] ROS publisher setup failed: %s\n', ME.message);
     ros_publishers = makeEmptyRosPublishers();
@@ -874,7 +876,6 @@ end
 latest_uwb_sample = uwb_sample;
 last_receive_time = toc(t_exp);
 new_sample = true;
-
 latest_uwb_general = general_filter.processUwbSample(uwb_sample);
 
 print_counter = print_counter + 1;
@@ -938,8 +939,8 @@ if ~isstruct(imu_sample) || ~isfield(imu_sample, 'valid') || ~imu_sample.valid
 end
 
 if isfield(latest_imu_sample, 'timestamp') && isfinite(latest_imu_sample.timestamp) && ...
-        isfield(imu_sample, 'timestamp') && isfinite(imu_sample.timestamp) && ...
-        imu_sample.timestamp == latest_imu_sample.timestamp
+   isfield(imu_sample, 'timestamp') && isfinite(imu_sample.timestamp) && ...
+   imu_sample.timestamp == latest_imu_sample.timestamp
     return;
 end
 
@@ -950,7 +951,7 @@ new_sample = true;
 
 print_counter = print_counter + 1;
 if mod(print_counter, print_every) == 0
-    fprintf('[IMU] Source: %s | accel [%.2f %.2f %.2f] | rpy [%.3f %.3f %.3f]\n', ...
+    fprintf('[IMU] Source: %s | accel [%.2f %.2f %.2f] | rpy [%.3f %.3f %.3f] deg\n', ...
         char(string(imu_sample.source)), ...
         imu_sample.accel_body(1), imu_sample.accel_body(2), imu_sample.accel_body(3), ...
         final_angles.roll, final_angles.pitch, final_angles.yaw);
@@ -978,6 +979,7 @@ try
     if new_uwb_general && latest_uwb_general.valid
         latest_uwb_imu = uwb_imu_filter.processUwbSample(latest_uwb_general);
     end
+
 catch ME
     fprintf('[MASTER] ImuFusionFilter update error: %s\n', ME.message);
 end
@@ -1070,17 +1072,15 @@ try
     pos_msg.Pose.Orientation.X = q(2);
     pos_msg.Pose.Orientation.Y = q(3);
     pos_msg.Pose.Orientation.Z = q(4);
-
     send(ros_publishers.position_pub, pos_msg);
 
-    % Angles as roll/pitch/yaw vector
+    % Angles as roll/pitch/yaw vector in degrees.
     ang_msg = ros_publishers.angles_msg;
     ang_msg.Header.Stamp = rostime('now');
     ang_msg.Header.FrameId = char(frame_id);
     ang_msg.Vector.X = final_angles.roll;
     ang_msg.Vector.Y = final_angles.pitch;
     ang_msg.Vector.Z = final_angles.yaw;
-
     send(ros_publishers.angles_pub, ang_msg);
 
 catch ME
@@ -1089,12 +1089,16 @@ end
 end
 
 % -------------------------------------------------------------------------
-function q = rpyToQuaternion(roll, pitch, yaw)
-% Returns [w x y z]
-if ~all(isfinite([roll, pitch, yaw]))
+function q = rpyToQuaternion(roll_deg, pitch_deg, yaw_deg)
+% Input angles are degrees. Returns quaternion as [w x y z].
+if ~all(isfinite([roll_deg, pitch_deg, yaw_deg]))
     q = [1 0 0 0];
     return;
 end
+
+roll = deg2rad(roll_deg);
+pitch = deg2rad(pitch_deg);
+yaw = deg2rad(yaw_deg);
 
 cy = cos(yaw * 0.5);
 sy = sin(yaw * 0.5);
@@ -1121,6 +1125,7 @@ try
             elseif ismethod(controller, 'landAndStop')
                 controller.landAndStop();
             end
+
         case "BEBOP"
             if ismethod(controller, 'landAndStop')
                 controller.landAndStop();
@@ -1136,6 +1141,7 @@ end
 % -------------------------------------------------------------------------
 function fid = openFinalPositionLog(log_path)
 fid = -1;
+
 try
     [folder, ~, ~] = fileparts(log_path);
     if ~isempty(folder) && ~exist(folder, 'dir')
@@ -1145,11 +1151,12 @@ try
     fid = fopen(log_path, 'w');
     if fid > 0
         fprintf(fid, ['timestamp,final_source,final_x,final_y,final_z,final_vx,final_vy,final_vz,', ...
-            'final_valid,final_quality,roll,pitch,yaw,angles_valid,angles_source,', ...
+            'final_valid,final_quality,roll_deg,pitch_deg,yaw_deg,angles_valid,angles_source,', ...
             'uwb_general_x,uwb_general_y,uwb_general_z,uwb_accepted,uwb_rejection_reason,', ...
             'uwb_imu_x,uwb_imu_y,uwb_imu_z,uwb_imu_valid,uwb_imu_used_imu,uwb_imu_fallback,uwb_imu_status,', ...
             'opti_x,opti_y,opti_z,opti_valid,robot_control_enabled,ros_publish_enabled\n']);
     end
+
 catch ME
     fprintf('[MASTER] Could not open final position log: %s\n', ME.message);
     fid = -1;

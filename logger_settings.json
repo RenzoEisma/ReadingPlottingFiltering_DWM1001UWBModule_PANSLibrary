@@ -16,8 +16,8 @@
     "control_robots": false,
     "read_type": "Tag Position",
     "network_scale": "1 Network / 1 Listener",
-    "rep_name": "FirstPuzzleMatSetupTestSecondTryStartEnd",
-    "rep_notes": "anchors in one plane",
+    "rep_name": "WallAnchorsNewConfigurationTest6Juni_VeryRoughPattern",
+    "rep_notes": "For testing filters",
     "rep_show_anchors": true,
     "rep_use_measurement_window": true
 }
