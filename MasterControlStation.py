@@ -1,11 +1,14 @@
 # ===================== PROGRAM_INFO ==================================================================================
 """
 Author: Renzo Eisma
-Date: 04/2026
+Date: 06/2026
 Description: Master Script for everything to do with measuring, plotting and configuring Qorvo UWB modules
+
+Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
+added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic,
+and project structure were created by Renzo Eisma.
 """
 # =====================================================================================================================
-
 
 # =====================================================================================================================
 # IMPORTS
@@ -26,6 +29,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from drivers.NatNetClient import run_simple_logger
+from drivers.GpsRtkRosReader import run_gps_rtk_logger
 from drivers import uwb_sensor
 from drivers import ComparisonReportMaker
 from drivers import ReadUWBBluetooth
@@ -138,7 +142,7 @@ class MasterControlApp:
 
         # GPS RTK placeholder settings. GPS RTK will be read in MATLAB/ROS later, not live-plotted in Python for now.
         self.gps_rtk_topic = tk.StringVar(value='/gps/rtk')
-        self.gps_rtk_ros_master = tk.StringVar(value='http://localhost:11311')
+        self.gps_rtk_ros_master = tk.StringVar(value='ws://192.168.50.20:9090')
         self.gps_rtk_frame = tk.StringVar(value='map')
 
         # Data Routing Config
@@ -208,7 +212,7 @@ class MasterControlApp:
                 self.opti_client.set(data.get("opti_client", "192.168.1.15"))
 
                 self.gps_rtk_topic.set(data.get("gps_rtk_topic", "/gps/rtk"))
-                self.gps_rtk_ros_master.set(data.get("gps_rtk_ros_master", "http://localhost:11311"))
+                self.gps_rtk_ros_master.set(data.get("gps_rtk_ros_master", "ws://192.168.50.20:9090"))
                 self.gps_rtk_frame.set(data.get("gps_rtk_frame", "map"))
 
                 # Routing settings
@@ -651,8 +655,11 @@ class MasterControlApp:
                 threads.append(t_opti)
                 print("[MASTER] OptiTrack thread started.")
 
+
             elif self.gt_type.get() == "GPS RTK":
-                self.start_gps_rtk_reader()
+                t_gps = self.start_gps_rtk_reader()
+                if t_gps is not None:
+                    threads.append(t_gps)
 
         # ==========================================
         # UWB Setup
@@ -767,9 +774,32 @@ class MasterControlApp:
     # -----------------------------------------------------------------------------------------------------------------
     def start_gps_rtk_reader(self):
         print("[MASTER] GPS RTK selected as ground truth.")
-        print("[MASTER] GPS RTK Python live logging is not implemented yet.")
-        print("[MASTER] For now, GPS RTK should be handled by MATLAB/ROS separately.")
-        print(f"[MASTER] GPS RTK placeholder topic: {self.gps_rtk_topic.get()}")
+        print("[MASTER] Starting GPS RTK rosbridge reader...")
+
+        gps_config = {
+            "gps_rtk_topic": self.gps_rtk_topic.get(),
+            "gps_rtk_ros_master": self.gps_rtk_ros_master.get(),
+            "gps_rtk_frame": self.gps_rtk_frame.get(),
+
+            # Routing to MATLAB ground-truth UDP port.
+            "send_matlab": self.send_matlab.get(),
+            "matlab_host": self.matlab_host,
+            "matlab_gt_port": self.matlab_gt_port,
+
+            # Session info for CSV naming.
+            "session_name": self.current_session_name,
+            "session_dir": self.current_session_dir,
+        }
+
+        t_gps = threading.Thread(
+            target=run_gps_rtk_logger,
+            args=(stop_event, gps_config, self.current_session_dir, self.data_queue),
+            daemon=True
+        )
+
+        t_gps.start()
+        print("[MASTER] GPS RTK thread started.")
+        return t_gps
 
     # Placeholder for reading UWB data through ROS. Listener mode is currently the implemented Python route.
     # -----------------------------------------------------------------------------------------------------------------

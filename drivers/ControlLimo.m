@@ -1,12 +1,13 @@
 % =========================================================================
 % CONTROL LIMO
+% =========================================================================
 % Author: Renzo Eisma
-% Assistance note:
-% ChatGPT Pro 5.5 Thinking Extended was used to adjust the robot-centre
-% compensation structure, variable names, comments and line spacing.
-% The original concept, code logic, and project structure were created by
-% a human author.
 % Date: 06/2026
+% Assistance note:
+% ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
+% comments, line spacing, and error logging in the terminal. The rewritten
+% version was checked by a human. The original concept, code logic, and 
+% project structure were created by Renzo Eisma.
 %
 % Purpose:
 % Limo / wheeled robot control wrapper for the MATLAB localization structure.

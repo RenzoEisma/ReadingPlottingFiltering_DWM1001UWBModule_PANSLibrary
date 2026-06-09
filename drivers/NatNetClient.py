@@ -2309,8 +2309,12 @@ class NatNetClient:
 # ===================== PROGRAM_INFO ==================================================================================
 """
 Author: Renzo Eisma
-Date: 04/2026
+Date: 06/2026
 Description: This program is for reading OptiTrack data and putting it into a csv for data comparison
+
+Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
+added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic, 
+and project structure were created by Renzo Eisma.
 """
 # =====================================================================================================================
 
@@ -2405,7 +2409,6 @@ def build_matlab_packet(timestamp, rigid_body_id, pos):
 # =====================================================================================================================
 # MAIN LOGGER FUNCTION
 # =====================================================================================================================
-
 # Main function called by MasterControlStation.
 # It starts the NatNet client, logs OptiTrack position to CSV, sends live data to MasterControlStation for plotting,
 # and sends live OptiTrack data to MATLAB over UDP.

@@ -1,7 +1,13 @@
 % =========================================================================
 % MATLAB MASTER UWB CONTROL
+% =========================================================================
 % Author: Renzo Eisma
 % Date: 06/2026
+% Assistance note:
+% ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
+% comments, line spacing, and error logging in the terminal. The rewritten
+% version was checked by a human. The original concept, code logic, and 
+% project structure were created by Renzo Eisma.
 %
 % Purpose:
 % Central MATLAB coordinator for the UWB localization/control framework.

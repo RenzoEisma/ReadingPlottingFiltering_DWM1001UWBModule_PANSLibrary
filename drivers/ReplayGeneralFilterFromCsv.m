@@ -1,7 +1,10 @@
 % =========================================================================
 % ReplayGeneralFilterFromCsv.m
+% =========================================================================
 % Author: Renzo Eisma
 % Date: 06/2026
+% Assistance note:
+% ChatGPT Pro 5.5 Thinking Extended was used to write this script.
 %
 % Purpose:
 % Replay a raw UWB CSV through GeneralFilter.m as if the data arrived live.

@@ -1,9 +1,14 @@
 # ===================== PROGRAM_INFO ==================================================================================
-""" Author: Renzo Eisma
-    Date: 04/2026
-    Description: UWB DWM1001 Bluetooth worker script. Takes a configuration list from the GUI
-    and pushes settings to all devices concurrently."""
+"""
+Author: Renzo Eisma
+Date: 04/2026
+Description: UWB DWM1001 Bluetooth worker script. Takes a configuration list from the GUI
+and pushes settings to all devices concurrently.
 
+Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
+added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic,
+and project structure were created by Renzo Eisma.
+"""
 # =====================================================================================================================
 
 import asyncio

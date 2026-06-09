@@ -1,11 +1,13 @@
 % =========================================================================
 % GENERALFILTER
+% =========================================================================
 % Author: Renzo Eisma
+% Date: 06/2026
 % Assistance note:
 % ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-% comments, line spacing, and general code structure.
-% The original concept, code logic, and project structure were created by Renzo Eisma.
-% Date: 06/2026
+% comments, line spacing, and error logging in the terminal. The rewritten
+% version was checked by a human. The original concept, code logic, and 
+% project structure were created by Renzo Eisma.
 %
 % Purpose:
 % First filtering layer for UWB position output.
@@ -69,11 +71,11 @@ classdef GeneralFilter < handle
         % Higher process noise = faster reaction, less smoothing
         % Higher measurement noise = more smoothing, more lag
         % -------------------------------------------------------------
-        PROCESS_NOISE_POSITION = 0.03; % old = 0.05
-        PROCESS_NOISE_VELOCITY = 0.75; % old = 1.0
+        PROCESS_NOISE_POSITION = 0.02; % old = 0.05
+        PROCESS_NOISE_VELOCITY = 0.5; % old = 1.0
 
-        MEASUREMENT_NOISE_X = 0.5^2;      % expected UWB X noise [m^2]
-        MEASUREMENT_NOISE_Y = 0.5^2;      % expected UWB Y noise [m^2]
+        MEASUREMENT_NOISE_X = 0.65^2;      % expected UWB X noise [m^2]
+        MEASUREMENT_NOISE_Y = 0.65^2;      % expected UWB Y noise [m^2]
         MEASUREMENT_NOISE_Z = 1.0^2; % old 0.7      % expected UWB Z noise [m^2]
 
         INITIAL_POSITION_UNCERTAINTY = 1.0;

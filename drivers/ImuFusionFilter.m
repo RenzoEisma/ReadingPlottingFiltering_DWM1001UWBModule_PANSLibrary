@@ -1,13 +1,13 @@
 % =========================================================================
 % IMUFUSIONFILTER
+% =========================================================================
 % Author: Renzo Eisma
 % Date: 06/2026
-%
 % Assistance note:
 % ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-% comments and line spacing.
-% The original concept, code logic, and project structure were created by
-% a human author.
+% comments, line spacing, and error logging in the terminal. The rewritten
+% version was checked by a human. The original concept, code logic, and 
+% project structure were created by Renzo Eisma.
 %
 % Purpose:
 % Loosely coupled UWB + IMU fusion layer after GeneralFilter.m.

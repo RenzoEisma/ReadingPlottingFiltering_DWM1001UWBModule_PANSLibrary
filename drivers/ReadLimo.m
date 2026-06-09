@@ -1,11 +1,13 @@
 % =========================================================================
 % READLIMO
+% =========================================================================
 % Author: Renzo Eisma
-% Assistance note:
-%   ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-%   comments, line spacing, and general code structure.
-%   The original concept, code logic, and project structure were created by Renzo Eisma.
 % Date: 06/2026
+% Assistance note:
+% ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
+% comments, line spacing, and error logging in the terminal. The rewritten
+% version was checked by a human. The original concept, code logic, and 
+% project structure were created by Renzo Eisma.
 %
 % Purpose:
 %   Small ROS reader for the Limo robot IMU.

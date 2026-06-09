@@ -2,43 +2,37 @@
 UNIFIED SOFTWARE FRAMEWORK
 =======================================================================================================================
 
-- Author:               Renzo Eisma
-- Date last Rev.:       26/05/2026
+- Author:               Renzo Eisma (r.eisma@hotmail.com)
+- Date last Rev.:       06/2026
 - Lab:                  Air Lab - UFES - Espirito Santo
-
-- pdf was removed to save code space, the old version can be found in github version x
-- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb 
-geschreven gebasseerd op mijn oude code. Functioneel werkte bijna alles al maar voor finishing touches was het toch
-wel heel erg handig.
-- nieuwe matlab master is 3x zo lang als oudes
-
-Ai description:
-- for first part of project gemini was used, but is not the best at coding so did most of the work mysefl
-- for second part i bought chatgpt pro and it was much better at coding with libraries so then i started offloading a lot
-of the work to it...
-
-
-Angle calculation with two listeners. Describe the mathematical stuff in documentation with images and vectors!!!
-- possibly have more distance between sensors with new holder
-
-the two tags fusion now calculates every time a new data point goes through so instead of 10hz it is now almost like 
-20hz but not really
-
-
 
 -----------------------------------------------------------------------------------------------------------------------
 I. PROJECT OVERVIEW
 -----------------------------------------------------------------------------------------------------------------------
 
-NOTE: THE README IS NOT DONE YET, FAR FROM IT. THIS will be completed after finishing all the tests.
+(The full readme should be written for someone from labair that will use this but also keep in mind that others
+that have similar projects can find this online and maybe use it for their stuff. The focus should be for people
+from labair but it should be readable for someone from somewhere else that finds this github)
 
-short description
+short description...
 
-mention the graduation report document that i have. Could provide more information
+- part of an internship at ufes relating to making a uwb system with qorvo mdek modules
+
+- software was made for measuring UWB (MDEK) data against optitrack and gps rtk in lab air
+- was made for using uwb or optitrack to control robots (bebop2 and limo)
+- made up of a Matlab environment and python environment
+- python sends data to matlab via udp. Not the other way around
+- software can make measurement reports
+- software can configure PANS uwb modules settings if the mac address is known
+- ...
+
+mention the graduation report document that i have. It has more information
 
 -----------------------------------------------------------------------------------------------------------------------
 II. TABLE OF CONTENTS
 -----------------------------------------------------------------------------------------------------------------------
+
+(needs to be updated)
 
 1. SYSTEM ARCHITECTURE ........................................ [SECTION 1]
 2. READING SENSORS SETUP GUIDE ................................ [SECTION 2]
@@ -75,9 +69,11 @@ MasterLogger -> Thread 1: OptiTrack Driver (UDP)
              -> Thread 2: UWB Driver (UART/Serial)
              -> Thread 3: GPS Driver (TBD)
              -> Post-Process: ComparisonReportMaker (Data Fusion)
+Make a text block diagram covering the different scripts and how they communicate with each other (matlab and python both)
 
-[1.3] .
-System overview. Mention block diagram, i have it in the folder
+[1.3] System overview
+(Mention Block diagram. This is a diagram covering the whole system, not only this software but also the linux and windows pc and routers and sensors and robots)
+
 
 
 -----------------------------------------------------------------------------------------------------------------------
@@ -142,13 +138,11 @@ formatting, and COM port setup will go here once integrated.]
 1. ...
     - ...
 
-[2.4.3] Crazyflie Setup
-1. ...
-    - ...
 
 
 [2.5] Connecting all components together
 1. Get the Wifi Router
+2. ...
 
 
 
@@ -156,12 +150,12 @@ formatting, and COM port setup will go here once integrated.]
 3. USER GUIDES
 -----------------------------------------------------------------------------------------------------------------------
 
-[3.1] USING THE MASTER LOGGER
+[3.1] USING THE MASTER LOGGER Python
 The central orchestrator for data collection[cite: 2].
 
-1. Ensure Python 3.x is installed along with: pyserial, pandas, numpy,
-   matplotlib, plotly, scipy, and bleak[cite: 5, 21].
-2. Open MasterLogger.py and update configuration for COM ports and IP
+1. Ensure Python 3.x is installed along with: ...
+   (mention a text file that has all required libraries. I want you to make this text file for me though)
+2. Run MasterLogger.py, a GUI will open, update configuration for COM ports and IP
    addresses.
 3. For OptiTrack setup, open Motive -> Data Streaming -> Broadcast Frame Data ->
    Local IP -> Unicast -> Rigid Bodies[cite: 9, 10, 11].
@@ -243,6 +237,9 @@ Column 4: POSZ          (Z coordinate in meters)
 Example Log Header:
 Time, POSX, POSY, POSZ
 1740673321.451, 1.2345, -0.5678, 2.1012
+
+
+There are also some additional csvs that get output
 
 
 -----------------------------------------------------------------------------------------------------------------------
@@ -358,8 +355,9 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 ...
 
 
-
-
+6.6. GpsRtkRosReader Explanation
+-----------------------------------------------------------------------------------------------------------------------
+...
 
 
 
@@ -368,45 +366,44 @@ serial communication, ReadUWBBluetooth for wireless configuration, and Compariso
 -------------------------------------------------------------------------------
 
 - Master script
-- Filter script
-- Bebop control
-- Crazyflie control
-- Limo control
+- General Filter script
+- Accelerometer fusion script
+- Bebop control / read
+- Limo control / read
+- ReplayGeneralFilterFromCsv
 
-- How to add a new robot very short guide
+
+Not implemented but structure is there:
+- ReadCustomUWB
+
+
+
 
 
 
 -----------------------------------------------------------------------------------------------------------------------
-8. TO-DO LISTS
+8. What can be improved / What still needs to be implemented
 -----------------------------------------------------------------------------------------------------------------------
 
-Robot control
-- Prepare code for Bebop Matlab control.
-  - Get accelerometer data.
-  - Get angle data.
-  - General code.
-- Prepare code for LIMO Matlab control.
-  - Get accelerometer data.
-  - Get angle data.
-  - General code.
-- Program Figure 8 movement for the drone.
-- Get the drone control code from Miguel.
-- Add a trespass area for the drone.
-- Define what should happen if the connection with the drone is lost.
-
-ROS integration
-- Send filtered UWB data to ROS.
-- Make sure ROS still receives control-related information even when UWB is turned off.
-
-
-
--------------------------------------
 to do later:
-
 - Triangulate position from raw distances with kalman filter (can only be received from custom PCB)
 
------------------------------
+
+
+
+-----------------------------------------------------------------------------------------------------------------------
+9. VERSION CHANGES
+-----------------------------------------------------------------------------------------------------------------------
+- Look to the github for all different versions
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------
+
+
+
+Notes:
 
 
 
@@ -414,12 +411,9 @@ Documentation
 - Add an explanation in readme for why matplotlib
 - Add an explanation in readme for the use of threads with live visualization.
 - Make reprogramming or adding features easy for new people
+- in readuwbbluetooth it was not figured out how to adjust the network of uwb modules. In the documentation from qorvo
+there was a guide on how to do it but it didn't work. When you change network they don't change network.
 
-[6.2] COMPARISONREPORTMAKER
-- Automatically calculate Angle offset
-
-[6.3] READUWBBLUETOOTH
-- Snappen hoe die networks werken en modules kunnen wisselen van netwerk
 
 Note: Offset is now calculated in the following way
 - Python: offset of uwb antenna from opti center
@@ -444,14 +438,23 @@ punten die er in moeten:
 - Probleem in verslag zetten van matlab versie
 •	Toolbox problemen, versie met python problemen en cisco problemen
 
------------------------------------------------------------------------------------------------------------------------
-9. VERSION CHANGES
------------------------------------------------------------------------------------------------------------------------
+- pdf was removed to save code space, the old version can be found in github version x
+- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb 
+geschreven gebasseerd op mijn oude code. Functioneel werkte bijna alles al maar voor finishing touches was het toch
+wel heel erg handig.
+- nieuwe matlab master is 3x zo lang als oudes
 
-- Look to the github for all different versions
+Ai description:
+- for first part of project gemini was used, but is not the best at coding so did most of the work mysefl
+- for second part i bought chatgpt pro and it was much better at coding with libraries so then i started offloading a lot
+of the work to it...
 
 
-For the uwb_sensor script the only thing I currently have multiple configurations for reading uwb data
+Angle calculation with two listeners. Describe the mathematical stuff in documentation with images and vectors!!!
+- possibly have more distance between sensors with new holder
+
+the two tags fusion now calculates every time a new data point goes through so instead of 10hz it is now almost like 
+20hz but not really
 
 From listener:
 - read position data

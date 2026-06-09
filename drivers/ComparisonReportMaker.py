@@ -5,8 +5,9 @@ Date: 05/2026
 Description: This program is for calculating and visualizing the error between UWB measurements and ground truth
 measurements.
 
-This rewritten version focuses on the interactive HTML report. The old PDF/static Matplotlib report code was removed
-because the HTML report is the main report used for testing.
+Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
+added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic,
+and project structure were created by Renzo Eisma.
 """
 # =====================================================================================================================
 

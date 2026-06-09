@@ -7,66 +7,45 @@
 = - bericht hendrik opwachten over presentatie datum
 =
 = . wachten antwoord dhl over kleren aanvragen
+=
+= . Componenten zaterdag van werkplaatsbeheerder krijgen???
 = 
 = 
 ==================================================================================================================
 
-
-Filter setup testen
-- die dozen in de filtered output fixen
-- beetje omklooien met kalman waardes
-- die outlier delen fixen
-
-
-
-Uiteindelijk nog een paar tests doen voor dit:
-- output uitlezen uit dwm van afstanden individueel en acceleromter en gyroscoop.
-- dit matchen met de optitrack output (hoeft niet perse met ros)
-- paar metingen hiervan doen.
-- op deze manier kan ik in nederland nog bezig met filters schrijven om een zo ideaal mogelijke filter te krijgen met alles geimplementeerd.
-
-
-
-Mario vragen over componenten
-
-
-
+NOTES:
 
 nummer 3 pcb stuk
-3D printer werkt niet
 pcb op crazyflie doen werkt niet
+optitrack gebruikt windows receive time, niet timestamp van opti
+
+
+----------------------------------------------------------------------------------------------
+
+
+Testen bekijken en in logboek zetten
+- Tripod setup testen analyseren en goed in meetrapport zetten. Ziet er wel heel goed uit
+- Bij hoog en laag ook filter toevoegen
+- filter aanpassen, te veel vertraging
+- Bij 3d test:
+	- start en eind tijd toevoegen
+	- tijd offset toevoegen
+	- goed omschrijven
+
+
+die drawio dinges verbeteren en omschrijven in tekst
 
 
 
-
-aanrader voor laser onder robot + gyroscope om hoogte te meten, klopt nu voor geen meter. En anders camera gebruiken
-
-
-testplan buiten testen morgen maken
+Code opschonen en ontchatgpten
 
 
 
-Hele anchor setup klaarmaken
-- Middle anchors toevoegen voor muur
-- Groffe meting doen met de tag met een accurate Z meting:
-	- hogere XY accuracy krijgen met filters
-	- hogere Z accuracy krijgen met filters
-	- vier anchors gebruiken met variabele z
-- z axis nog steeds niet goed
+Twee tag fusion code verbeteren
 
+Accelerometer reading code checken
 
-Python code fixen vandaag:
-- twee anchors:
-	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
-	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
-	- kijken hoe accuraat het is
-
-
-
-
-
-ROS met python meten
-
+Bezig met onderzoek document afmaken
 
 
 
@@ -74,17 +53,25 @@ ROS met python meten
 
 
 
-- behuizing afmaken (alleen 3d laten, printer is stuk)
-- bezig met research document
-- logbook document netjes doen
+Robot control
+- Prepare code for Bebop Matlab control.
+  - Get accelerometer data.
+  - Get angle data.
+  - General code.
+- Prepare code for LIMO Matlab control.
+  - Get accelerometer data.
+  - Get angle data.
+  - General code.
+- Program Figure 8 movement for the drone.
+- Get the drone control code from Miguel.
+- Add a trespass area for the drone.
+- Define what should happen if the connection with the drone is lost.
+
+ROS integration
+- Send filtered UWB data to ROS.
+- Make sure ROS still receives control-related information even when UWB is turned off.
 
 
-
-
-ROS code afmaken vandaag
-- accelerometer uit robots lezen
-- robots kunnen besturen met uwb en optitrack/ground truth
-- filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
 
 
 
@@ -96,14 +83,20 @@ ROS code afmaken vandaag
 
 
 ---
-
-Avond:
-
-3d behuizing afmaken van pcb
-
-Beetje naar documentatie kijken van code en code goed schrijven
+AVOND
+---
 
 
+kamernet mails nieuwe sturen
+antwoorden kamernet mail van leuke huis
+reageren roomspot email
+
+Hospis openstaand:
+- huize blauw, 6 juli
+- klein huis met kat 5 man, ...
+- jongenshuis die ik niet leuk vind, ...
+- huis met 2 vrouw 2 man 3d printers, ...
+- huize les bos
 
 - bericht max
 Yo, kan ik ook nog binnenkort een antwoord verwachten?
@@ -115,35 +108,16 @@ Hey Mario,
 Tomorrow will be my last week here and this friday is the last day you will be here before leaving for greece.
 . time on wednesday for looking at progress?
 . you need to fill in an evaluation form
-. 
+. beoordelingsformulier
+
+
+Bericht Aline
 
 
 
+Bericht Ruyther
 
 
-
-
-die drawio dinges verbeteren
-
-
-
-UWB onderzoek document afronden
-- hardware research
-- filter research
-- conclusions
-
-
-
-Ding klaarmaken voor GPS RTK in python lezen.
-
-Ding klaarmaken om ROS toch maar uit python te lezen voor custom PCB
-
-
-
-
-
-
-kamernet mails
 
 
 
@@ -154,7 +128,28 @@ kamernet mails
 =========================================================================================================
 
 
-maandag:
+Add a warning for pcb rotation on crazyflie on each pcb
+
+Check if pcb 3 can be fixed
+
+Behuizing printen
+
+Wifi chip test on pcb
+
+Control limo and bebop with ROS
+
+
+
+Dinsdag Ochtend:
+twee anchors
+	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
+	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
+	- kijken hoe accuraat het is
+
+
+
+
+dinsdag afternoon:
 
 
 - Testen met Enzo
@@ -218,15 +213,6 @@ groen:
 
 
 
-
-
-
-
-
----------------------------------------------------------------------------------------------------------
-
-dinsdag
-
 - laatste tests afronden
 
 
@@ -241,23 +227,43 @@ pcb (Ruyther hulp)
 
 
 
----------------------------------------------------------------------------------------------------------
 
-woensdag
-- paper/conclusies maken 
-- handleidingen schrijven
-- mario beoordelingsformulier laten invullen
-- evaluatieformulier google sheets invullen en inleveren
+
+
+
+
+
+ROS code afmaken vandaag
+- accelerometer uit robots lezen
+- robots kunnen besturen met uwb en optitrack/ground truth
+- Accelerometer gebruiken voor fusion
+- filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
+
+
+
 
 
 
 ---------------------------------------------------------------------------------------------------------
 
 donderdag:
-- verder met paper/conclusies
+
+- paper/conclusies maken 
+- handleidingen schrijven
+- mario beoordelingsformulier laten invullen
+- evaluatieformulier google sheets invullen en inleveren
 
 
-- mastercontrol script makkelijk herprogrammeerbaar maken voor nieuwe mensen met guide en de andere scripts
+UWB onderzoek document afronden
+- hardware research
+- filter research
+- conclusions
+
+
+
+Ding klaarmaken om ROS toch maar uit python te lezen voor custom PCB
+
+
 
 
 
@@ -270,6 +276,14 @@ donderdag:
 vrijdag:
 
 - verder met paper/conclusies
+
+
+Uiteindelijk nog een paar tests doen voor dit:
+- output uitlezen uit dwm van afstanden individueel en acceleromter en gyroscoop.
+- dit matchen met de optitrack output (hoeft niet perse met ros)
+- paar metingen hiervan doen.
+- op deze manier kan ik in nederland nog bezig met filters schrijven om een zo ideaal mogelijke filter te krijgen met alles geimplementeerd.
+
 
 
 
@@ -303,6 +317,8 @@ alles met einddocument
 - anchor pritnen die modules van muur afzet idee maar niet uitgewerkt, geen tijd
 - langere micro usb kabels bestellen
 - speed of measurements can theoretically be increased with the custom PCB
+- aanrader voor laser onder robot + gyroscope om hoogte te meten, klopt nu voor geen meter. En anders camera gebruiken
+- verbetering voor muur setup is twee anchors in het midden
 
 
 
