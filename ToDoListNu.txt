@@ -3,8 +3,6 @@
 = - hendrik mail afwachten wanneer assessment
 =
 = - bericht max opwachten
-= - bericht ruyther opwachten chips solderen
-= - bericht hendrik opwachten over presentatie datum
 =
 = . wachten antwoord dhl over kleren aanvragen
 =
@@ -15,61 +13,52 @@
 
 NOTES:
 
-nummer 3 pcb stuk
-pcb op crazyflie doen werkt niet
 optitrack gebruikt windows receive time, niet timestamp van opti
+
+- Bericht terug van calslaan huis opwachten
+...
+- kamernet mails nieuwe sturen
+...
+bericht 17 juni huis opwachten
+
 
 
 ----------------------------------------------------------------------------------------------
 
 
-Testen bekijken en in logboek zetten
-- Tripod setup testen analyseren en goed in meetrapport zetten. Ziet er wel heel goed uit
-- Bij hoog en laag ook filter toevoegen
-- filter aanpassen, te veel vertraging
-- Bij 3d test:
-	- start en eind tijd toevoegen
-	- tijd offset toevoegen
-	- goed omschrijven
 
-
-die drawio dinges verbeteren en omschrijven in tekst
+Robot control (only to prove that I can control the robots)
+// I don't know yet if I will read data from them as well, but when the accelerometer fusion has been simulated i need to have proven that robots can be controlled.
+- Prepare code for LIMO Matlab control.
+  - Get accelerometer data.
+  - Get angle data.
+- Make it do figure 8 with optitrack
+- Make it do figure 8 with filtered UWB
 
 
 
-Code opschonen en ontchatgpten
+--
 
 
 
-Twee tag fusion code verbeteren
-
-Accelerometer reading code checken
-
-Bezig met onderzoek document afmaken
-
-
-
-
-
-
-
-Robot control
 - Prepare code for Bebop Matlab control.
   - Get accelerometer data.
   - Get angle data.
   - General code.
-- Prepare code for LIMO Matlab control.
-  - Get accelerometer data.
-  - Get angle data.
-  - General code.
-- Program Figure 8 movement for the drone.
 - Get the drone control code from Miguel.
+- Program Figure 8 movement for the drone.
 - Add a trespass area for the drone.
 - Define what should happen if the connection with the drone is lost.
 
-ROS integration
-- Send filtered UWB data to ROS.
-- Make sure ROS still receives control-related information even when UWB is turned off.
+
+
+
+
+
+
+--
+
+Twee tag fusion code verbeteren
 
 
 
@@ -83,161 +72,68 @@ ROS integration
 
 
 ---
-AVOND
----
 
 
-kamernet mails nieuwe sturen
-antwoorden kamernet mail van leuke huis
-reageren roomspot email
+Avond:
 
-Hospis openstaand:
-- huize blauw, 6 juli
-- klein huis met kat 5 man, ...
-- jongenshuis die ik niet leuk vind, ...
-- huis met 2 vrouw 2 man 3d printers, ...
-- huize les bos
 
-- bericht max
-Yo, kan ik ook nog binnenkort een antwoord verwachten?
-En anders, kennen jullie ook nog huizen die nieuwe mensen zoeken
 
+Bericht aline
 
-- bericht mario algemeen
-Hey Mario,
-Tomorrow will be my last week here and this friday is the last day you will be here before leaving for greece.
-. time on wednesday for looking at progress?
-. you need to fill in an evaluation form
-. beoordelingsformulier
 
 
-Bericht Aline
+finish research pcb document
+	- programming DWM (firmware stuff)
+	- conclusions and what could be improved.
+	
+finish research qorvo stuff in research document
 
 
 
-Bericht Ruyther
+--
 
+Verwerken GPS RTK spul:
 
+My zero was in lat:  -20.27170892 N | lon: -40.30452453 E | altitude: -6.198m, but we can use any point
 
 
 
+--
 
 
 
+Testen bekijken en in logboek zetten
+	- Tripod setup testen analyseren en goed in meetrapport zetten. Ziet er wel heel goed uit
+	- Bij hoog en laag ook filter toevoegen
+	- Bij 3d test:
+		- start en eind tijd toevoegen
+		- tijd offset toevoegen
+		- goed omschrijven
+GPS RTK en buiten tests in logboek zetten
 
-=========================================================================================================
+Filters: 
+	- Outlier rejection beter doen
+	- Kalman vertraging verlagen
 
 
-Add a warning for pcb rotation on crazyflie on each pcb
 
-Check if pcb 3 can be fixed
 
-Behuizing printen
+--
 
-Wifi chip test on pcb
 
-Control limo and bebop with ROS
+Software framework Code opschonen en ontchatgpten
 
 
 
-Dinsdag Ochtend:
-twee anchors
-	- dan kijken of angle berekening wel goed werkt (denk het wel, maar door slechte anchor meting doet het helemaal niks.)
-	- logging in GUI goed krijgen (is het denk ik al maar moet zeker weten)
-	- kijken hoe accuraat het is
 
+--
 
 
+Report about accelerometer fusion and triangulation after the fact:
+- accelerometer fusion not tested in real time.
+- Things have been logged though, so you can simulate it afterwards, this has not been done either though
+- used gpt generated script
 
-dinsdag afternoon:
-
-
-- Testen met Enzo
-	- matten mee naar buiten nemen
-
-- tag aan lange stok vast plakken met dinges en dan op de grond liggen tijdens de meting
-
-- test being within range with stick and outside of it
-
-Talk to Vinicius. I believe he knows which laptop has Linus/ROS installed.  He certainly also knows which router they use when visit schools to make any presentation.
-- nadenken over hoe ik gps data ga uitlezen
-
-
-
-
-
-rules:
-- measure top middle of mdek anchors for coordinates
-- red is small tripod (two different heights)
-- yellow is tall tripod (various heights)
-- always angle tripods to center and have them loodrecht to the ground
-
-
-notes:
-- mats in middle outside could not be placed there and had to be moved down one because cameras couldn't detect them accurately enough
-- hoogte variatie doe ik door de tripods op verschillende hoogtes te doen (niet perse vast)
-
-
-
-Werkende setup op de matten krijgen
-87 puzzles -> 21 per tripod. One mat = 1cm = 21cm - 1cm = 20cm hoger per box
-- 7x9 tiles met uiterste dingen
-
-
-
-Lijst van anchors:
-geel:
--2.11,-1.29,1.27
-0.27,-1.30,1.26
-2.64,-1.23,1.26
-2.64,1.6,1.26
-0.22,1.61,1.24
--2.17,1.56,1.24
-
-
-rood:
--1.66,-1.32,0.74
-0.26,-1.3,0.52
-2.15,-1.19,0.52
-2.16,1.63,0.73
-0.21,1.65,0.51
--1.77,1.66,0.51
-
-
-groen:
-2.71,-0.20,0.51
--2.15,0.14,0.51
-
-
-
-
-
-
-- laatste tests afronden
-
-
-
-Meeste tests afronden.
-
-
-pcb (Ruyther hulp)
-- dwm1001 solderen op 2 pcbs (soldering wick nodig)
-- Crazy GND werkt niet...
-
-
-
-
-
-
-
-
-
-
-ROS code afmaken vandaag
-- accelerometer uit robots lezen
-- robots kunnen besturen met uwb en optitrack/ground truth
-- Accelerometer gebruiken voor fusion
-- filmpje maken met go pro en screenrecorden op laptop om te laten zien hoe een meting gedaan wordt.
 
 
 
@@ -246,79 +142,99 @@ ROS code afmaken vandaag
 
 ---------------------------------------------------------------------------------------------------------
 
-donderdag:
+zondag:
 
-- paper/conclusies maken 
-- handleidingen schrijven
-- mario beoordelingsformulier laten invullen
-- evaluatieformulier google sheets invullen en inleveren
+
+something with height on wall anchors is incorrect
+
+
+
+
+
+
+Nieuwe tests doen met tripods volgens testplan
+Als je meer dan 4 anchors hebt, hoe kiest qorvo voor de vier waarmee het berekeningen gaat doen?
+met een stok buiten anchors om metingen doen
+
+Testen met muur setup (8 anchors, 4 anchors plat en 4 anchors hoog en onder, kijken wat beste configuratie is)
+
+
+
+
+Laatste tests met Anchor configurations.
+
+
+
+
+conclusies maken 
+handleidingen afmaken
+evaluatieformulier google sheets invullen en inleveren
 
 
 UWB onderzoek document afronden
-- hardware research
 - filter research
 - conclusions
 
 
 
-Ding klaarmaken om ROS toch maar uit python te lezen voor custom PCB
 
-
-
-
-
-
-
-
-
----------------------------------------------------------------------------------------------------------
-
-vrijdag:
-
-- verder met paper/conclusies
-
-
-Uiteindelijk nog een paar tests doen voor dit:
-- output uitlezen uit dwm van afstanden individueel en acceleromter en gyroscoop.
-- dit matchen met de optitrack output (hoeft niet perse met ros)
-- paar metingen hiervan doen.
-- op deze manier kan ik in nederland nog bezig met filters schrijven om een zo ideaal mogelijke filter te krijgen met alles geimplementeerd.
-
-
-
-
-
-
-
----------------------------------------------------------------------------------------------------------
-
-zaterdag/zondag:
-
-alles met einddocument
+ALLES MET EINDDOCUMENT
+format:
+- make fonts and styles the same
 - Make sure every document name in the report matches the actual file name exactly.
 - Export the important Word documents to PDF as well, so the layout cannot shift when Johannes opens them.
+- zelfde tables en font enzo in elk document gebruiken
+- document format fixen en consistent hebben in elk document
+
+
+the rest:
 - blokdiagram aanpassen: 
 	- ground truths moeten verbonden zijn met router
 	- verbindingen beter labelel en de uwb tag kan verbonden worden met de router via wifi
 	- blokdiagram tag plaatje aanpassen
 	- kijken of alle blokken van de software nog kloppen.
-- description software framework
-- manual pcb document
-- make fonts and styles the same
 - meer over ros 1 uitleggen en zelf snappen. en waarom niet ros 2. Uitleg staat in chatgpt sources
-- gewicht meten pcb
-- zelfde tables en font enzo in elk document gebruiken
-- document format fixen en consistent hebben in elk document
 - Volgende toevoegen aan verslag voor aankopen:
 	- uwb antennes onderin plaatsen en meten en de antennes boven meer naar buiten verplaatsen. Dit is voor een semi permanente setup
-	- mogelijk nieuwe tape bestellen
 	- mogelijk niewue usb micro kabels bestellen die langer zijn
 	- mogelijk nieuwe holders printen
 - anchor pritnen die modules van muur afzet idee maar niet uitgewerkt, geen tijd
-- langere micro usb kabels bestellen
-- speed of measurements can theoretically be increased with the custom PCB
 - aanrader voor laser onder robot + gyroscope om hoogte te meten, klopt nu voor geen meter. En anders camera gebruiken
 - verbetering voor muur setup is twee anchors in het midden
+- die drawio dinges omschrijven in tekst met tripod setup
+- neerzetten dat als er ooit problemen zijn er met mij gebeld kan worden
+- reference naar jelmer
+- [Link] dingen misschien de echte link plakken
+- finish pcb design document conclusion and future improvements
+- finish pcb part in final document
+- noemen dat paper niet gemaakt is
+- omschrijven dat er twee programmas zijn in read_sensor
+- gpt vragen om readme te updaten over de twee programmas in read_me, de tweede is tijdelijk en moet in de toekomst in matlab of zijn eigen script worden
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+maandag:
+- Laatste PCBs solderen en testen
+- goede software op alle pcbs doen
+
+
+- unified software framework op andere pc zetten in lab
+- foto van router
+- uitleggen hoe je het naar buiten zo kunnen nemen en een robot kan besturen
+
+- GoPro filmpje
+
+
+Avond:
+- Laatste dingetjes van het verslag afronden
+
+
+
 
 
 
@@ -327,16 +243,15 @@ alles met einddocument
 
 
 Na het eindverslag:
-- handleiding en gebruikvriendelijk maken van software.
-- verder pcb solderen en testen
-- meer fine tuning voor betere accuracy
 - iemand in lab laten zien hoe alles werkt
-- verslag uitprinten
-- manuals uitprinten
+- verslag en manuals uitprinten
+
+
 
 
 1 dag presentatie maken
-1 dag presentatie de hele dag oefenen
+- dat stukje over threads in de code goed snappen
+- Was mijn batterij beveiliging nou echt zo slecht?
 
 
 

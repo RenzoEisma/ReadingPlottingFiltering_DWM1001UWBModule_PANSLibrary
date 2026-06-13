@@ -1,7 +1,23 @@
-pyserial
-numpy
-pandas
-matplotlib
-plotly
-scipy
-bleak
+# Python dependencies for the UWB localization software framework.
+# Install from the repository root with:
+#   pip install -r requirements.txt
+#
+# Notes:
+# - tkinter is part of most standard Python installations and is not installed through pip.
+# - MATLAB Engine may need to be installed separately depending on the MATLAB version.
+# - ROS 1 itself is installed on Ubuntu, not through this Windows Python requirements file.
+
+numpy>=1.26
+pandas>=2.2
+matplotlib>=3.8
+plotly>=5.22
+scipy>=1.12
+pyserial>=3.5
+bleak>=0.22
+roslibpy>=1.6
+
+# Optional, depending on the MATLAB/Python version combination:
+# matlabengine
+
+# Optional, only needed if future report exports require static images:
+# kaleido

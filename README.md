@@ -2,409 +2,836 @@
 UNIFIED SOFTWARE FRAMEWORK
 =======================================================================================================================
 
-- Author:               Renzo Eisma (r.eisma@hotmail.com)
-- Date last Rev.:       06/2026
-- Lab:                  Air Lab - UFES - Espirito Santo
+- Author: Renzo Eisma
+- Date last revision: 06/2026
+- Lab: LAB-AIR - UFES - Espirito Santo
+- Project: Robot localization and control based on a UWB radio system
+- Repository purpose: Software framework for reading, logging, filtering, plotting and using UWB localization data
 
 -----------------------------------------------------------------------------------------------------------------------
 I. PROJECT OVERVIEW
 -----------------------------------------------------------------------------------------------------------------------
 
-(The full readme should be written for someone from labair that will use this but also keep in mind that others
-that have similar projects can find this online and maybe use it for their stuff. The focus should be for people
-from labair but it should be readable for someone from somewhere else that finds this github)
+This repository contains the software framework developed for the UWB localization project at LAB-AIR. The framework was
+created during a graduation internship at UFES and is intended to make UWB testing, validation and robot-control
+experiments easier to repeat.
 
-short description...
+The project uses Qorvo / Decawave DWM1001C and MDEK1001 UWB modules with the PANS firmware. The software can read UWB
+data from listener modules, compare it against ground-truth systems such as OptiTrack and GPS RTK, generate measurement
+reports, filter UWB data in MATLAB, and send the resulting position to ROS 1 for robot control.
 
-- part of an internship at ufes relating to making a uwb system with qorvo mdek modules
+The framework consists of two main parts:
 
-- software was made for measuring UWB (MDEK) data against optitrack and gps rtk in lab air
-- was made for using uwb or optitrack to control robots (bebop2 and limo)
-- made up of a Matlab environment and python environment
-- python sends data to matlab via udp. Not the other way around
-- software can make measurement reports
-- software can configure PANS uwb modules settings if the mac address is known
-- ...
+1. Python environment
+   - Main GUI and measurement control station.
+   - UWB serial reading.
+   - OptiTrack NatNet reading.
+   - GPS RTK reading from ROS.
+   - UWB module Bluetooth configuration.
+   - HTML measurement report generation.
+   - Session folder creation and raw CSV logging.
 
-mention the graduation report document that i have. It has more information
+2. MATLAB environment
+   - Receives data from Python over UDP.
+   - Applies UWB filtering.
+   - Publishes filtered position data to ROS 1.
+   - Reads robot state / IMU data where needed.
+   - Performs  robot control for the Bebop 2 drone and Limo ground robot.
+
+Python sends measurement data to MATLAB over UDP. MATLAB does not send data back to Python in the current structure.
+ROS 1 is used as the communication layer between the localization software and the robot-control environment.
+
+This README is written for future LAB-AIR users first, but it should also be useful for other students or researchers who
+find this repository online and want to understand the software framework.
+
+For the full engineering context, research, design choices, test results and project conclusions, see the graduation
+report and the additional project documentation delivered with the internship.
 
 -----------------------------------------------------------------------------------------------------------------------
 II. TABLE OF CONTENTS
 -----------------------------------------------------------------------------------------------------------------------
 
-(needs to be updated)
-
-1. SYSTEM ARCHITECTURE ........................................ [SECTION 1]
-2. READING SENSORS SETUP GUIDE ................................ [SECTION 2]
-    a. Client Computer Setup (Python)
-    b. OptiTrack Setup
-    c. UWB Setup
-    d. GPS Setup
-3. USER GUIDES ................................................ [SECTION 3]
-    a. Using the Master Logger
-    b. Using the Plotting Script (Report Maker)
-    c. Using the Bluetooth Assigner (DWM1001C)
-4. DATA OUTPUT SCHEMA ......................................... [SECTION 4]
-5. TROUBLESHOOTING / COMMON ERRORS ............................ [SECTION 5]
-6. TO-DO LISTS BY MODULE ...................................... [SECTION 6]
-    a. MasterLogger
-    b. ComparisonReportMaker
-    c. ReadUWBBluetooth
-    d. UWB_Sensor Driver
-7. VERSION HISTORY ............................................ [SECTION 7]
-
+1. System Architecture
+2. Installation and Setup Guide
+3. User Guides
+4. Data Output Schema
+5. Python Script Explanations
+6. MATLAB Script Explanations
+7. ROS and Robot Commands
+8. Troubleshooting / Common Errors
+9. AI Assistance and Code Authorship
+10. Current Status and Future Work
+11. Version History
 
 -----------------------------------------------------------------------------------------------------------------------
 1. SYSTEM ARCHITECTURE
 -----------------------------------------------------------------------------------------------------------------------
 
 [1.1] Broad system overview
-The system uses a multi-threaded approach where the MasterLogger script acts as
-the primary orchestrator. It initializes separate threads for each
-enabled sensor (UWB, OptiTrack, GPS) to ensure high-frequency data collection
-without blocking the main process.
 
-[1.2] Code Blockdiagram
-MasterLogger -> Thread 1: OptiTrack Driver (UDP)
-             -> Thread 2: UWB Driver (UART/Serial)
-             -> Thread 3: GPS Driver (TBD)
-             -> Post-Process: ComparisonReportMaker (Data Fusion)
-Make a text block diagram covering the different scripts and how they communicate with each other (matlab and python both)
+The framework connects several localization and robot-control systems into one workflow. Before this framework, UWB
+reading, OptiTrack reading, plotting, filtering and robot control were handled by separate scripts or tools. This made
+measurements slower and made it harder to repeat tests in a consistent way.
 
-[1.3] System overview
-(Mention Block diagram. This is a diagram covering the whole system, not only this software but also the linux and windows pc and routers and sensors and robots)
+The current framework centralizes the workflow:
 
+- The user starts measurements from MasterControlStation.py.
+- Python starts the selected sensor readers.
+- Sensor readers log raw data into a session folder.
+- Python optionally sends live UWB and ground-truth data to MATLAB over UDP.
+- MATLAB filters the UWB data and can publish or use the filtered result in ROS.
+- The report maker generates an interactive HTML report from the recorded CSV files.
 
+[1.2] Main data flow
+
+```text
+UWB Listener / UWB ROS source
+        |
+        v
+Python sensor reader
+        |
+        |-- raw CSV log in measurements/Session_...
+        |
+        |-- UDP to MATLAB port 5005
+        v
+MATLAB filtering
+        |
+        |-- filtered CSV log
+        |
+        |-- ROS 1 publishing / robot control
+        v
+Robot control or analysis
+```
+
+Ground truth follows a similar path:
+
+```text
+OptiTrack / GPS RTK
+        |
+        v
+Python ground-truth reader
+        |
+        |-- raw CSV log in measurements/Session_...
+        |
+        |-- UDP to MATLAB port 5006
+        v
+MATLAB comparison / control / logging
+```
+
+[1.3] Text block diagram
+
+A block diagram of the full system was made
+![SystemOverviewBlockDiagram.png](SystemOverviewBlockDiagram.png)
+
+[1.4] Why Python and MATLAB are both used
+
+Python is used for the main application because it is practical for GUI development, serial communication, CSV logging,
+network communication and report generation. It also makes it easier for future students to modify the sensor readers and
+measurement workflow.
+
+MATLAB is used because existing LAB-AIR control and filtering work already used MATLAB and ROS Toolbox. The MATLAB side
+therefore handles filtering, ROS publishing and experimental robot control. This split avoids rewriting all existing
+MATLAB/ROS work in Python while still giving the project a more user-friendly Python front end.
+
+[1.5] Main UDP ports
+
+The Python and MATLAB parts communicate locally over UDP.
+
+```text
+Purpose                         IP              Port
+MATLAB settings packet           127.0.0.1       5004
+Live UWB data to MATLAB          127.0.0.1       5005
+Live ground-truth data to MATLAB 127.0.0.1       5006
+```
+
+Other important ports:
+
+```text
+Purpose                         Port
+OptiTrack NatNet command         1510
+OptiTrack NatNet data            1511
+ROS master                       11311
+rosbridge websocket              9090
+```
 
 -----------------------------------------------------------------------------------------------------------------------
-2. SETUP GUIDE
+2. INSTALLATION AND SETUP GUIDE
 -----------------------------------------------------------------------------------------------------------------------
 
-[2.1] WINDOWS COMPUTER SETUP
-1. Required Programs:
-    - Matlab 2025b
-        - Can be acquired for free with a 30 day free trial Matlab license
-          License can be extended for free every month
-        - Needs the ROS and UDP toolboxes
-    - Python installation between 3.x and 3.12 (3.13 and above won't work with matlabengine) [maybe leave out last part about matlabengine]
-    - Python environment (Pycharm or Visual Studio Code are ideal)
-2. Have this Unified Software Framework installed on PC
-2. Install all necessary python libraries
-    - Can be found in the requirements.txt file
-3. When launching MasterControlStation.py configure all settings according to your computer
-    - IP address
-    - COM Ports
-    - ...
-5. Connect Controller to a USB port (optional)
-    - For backup control of robots
+[2.1] Windows computer setup
 
-[2.2] Linux PC setup
-1. Required Programs
-    - ROS 1 [insert ROS version here]
-    - ubuntu pc
-2. Connect Linux PC to Client PC with ethernet
+The Windows computer is the main operator computer. It runs the Python GUI and MATLAB.
 
-[2.3] UWB sensors setup
-1. have an anchor system ready according to ideal anchor geometry
-2. have a tag
-3.1 If connecting tag via normal way (listeners)
-- Put one listener per network into a USB port on the windows computer
-3.2 If connecting tag via Wi-Fi
-- ...
+Required software:
 
-[2.4] GROUND TRUTH SETUP
-[2.3.1] Optitrack
-1. Open Motive on the server PC and ensure your drone's Rigid Body is
-   tracking
-2. Go to View -> Data Streaming Pane
-3. Check the box for "Broadcast Frame Data"
-4. Set "Local Interface" to the Motive PC's specific IP address. Do not use
-   Loopback
-5. Set "Transmission Type" to Unicast
-6. Check the box for "Rigid Bodies"
-* Note: Ensure Windows Firewall on the Motive PC allows UDP traffic on
-  ports 1510 and 1511
+- Python 3.14.4
+- MATLAB with required toolboxes (ROS Toolbox, Instrument Control Toolbox, TCP/UDP/IP communication support)
+- PyCharm or Visual Studio Code, optional but recommended
+- DRTLS app for some DWM1001/PANS network configuration tasks
 
-[2.3.2] GPS RTK SETUP
-[Placeholder: Instructions for RTK GPS base/rover configuration, NMEA
-formatting, and COM port setup will go here once integrated.]
+Recommended Python setup from the repository root:
 
-[2.4] Robot Setup
-[2.4.1] Limu Setup
-1. ...
-    - ...
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-[2.4.2] Bebop2 Setup
-1. ...
-    - ...
+Start the main GUI:
+
+```bash
+python MasterControlStation.py
+```
+
+The first time the GUI starts, check and save the local settings:
+
+- UWB COM ports
+- OptiTrack server IP
+- OptiTrack local client IP
+- GPS RTK settings, if used
+- MATLAB routing checkbox
+- read mode: Tag Position or Tag Distances
+- network scale: 1 Network / 1 Listener or 2 Networks / 2 Listeners
 
 
+The main MATLAB script is:
 
-[2.5] Connecting all components together
-1. Get the Wifi Router
-2. ...
+```text
+MatlabMasterUWBControl.m
+```
 
+Normal order:
 
+1. Open MATLAB.
+2. Open the folder containing the MATLAB scripts.
+3. Start `MatlabMasterUWBControl.m`.
+4. Start logging from `MasterControlStation.py`.
+5. Python sends the settings packet and live sensor data to MATLAB.
+
+MATLAB should be started manually. The Python GUI does not start MATLAB automatically in the current version.
+This could be achieved with MatlabEngine.
+
+[2.2] Linux ROS 1 computer setup
+
+The robot side uses ROS 1 on Ubuntu. The exact ROS distribution depends on the LAB-AIR computer, but the README assumes a
+normal ROS 1 setup.
+
+Basic ROS setup:
+
+```bash
+source /opt/ros/<ros_distro>/setup.bash
+roscore
+```
+
+Example for a Noetic installation:
+
+```bash
+source /opt/ros/noetic/setup.bash
+roscore
+```
+
+When Python needs to read ROS topics over the network, start rosbridge on the Linux ROS computer:
+
+```bash
+roslaunch rosbridge_server rosbridge_websocket.launch
+```
+
+The default rosbridge port is usually:
+
+```text
+9090
+```
+
+[2.3] UWB sensor setup
+
+The current UWB setup is based on Qorvo / Decawave DWM1001C or MDEK1001 modules running PANS firmware.
+
+Basic setup:
+
+1. Create an anchor setup according to the chosen test plan.
+2. Measure and save the anchor coordinates.
+3. Configure the anchors and tag in the same UWB network.
+4. Put one listener per active network into a USB port on the Windows computer.
+5. Fill in the listener COM ports in `MasterControlStation.py`.
+6. Choose the correct read mode:
+   - Tag Position
+   - Tag Distances
+
+[2.4] OptiTrack setup
+
+OptiTrack is used as indoor ground truth.
+
+In Motive:
+
+1. Open the project with the correct rigid body.
+2. Check that the rigid body is tracking correctly.
+3. Open the Data Streaming pane.
+4. Enable Broadcast Frame Data.
+5. Set the Local Interface to the correct Motive PC network interface.
+6. Do not use Loopback if the data must go to another computer.
+7. Set the Transmission Type to Unicast.
+8. Enable Rigid Bodies.
+9. Make sure UDP traffic on ports 1510 and 1511 is allowed through Windows Firewall.
+
+In the Python GUI:
+
+1. Enable Ground Truth.
+2. Select OptiTrack.
+3. Fill in the OptiTrack server IP.
+4. Fill in the local client IP of the Windows computer running this framework.
+
+[2.5] GPS RTK setup
+
+GPS RTK support is implemented as a Python-side reader. The exact ROS topic and message type are still setup-dependent
+because they depend on the external GPS RTK system that is connected during outdoor testing.
+
+The GPS RTK reader is:
+
+```text
+drivers/GpsRtkRosReader.py
+```
+
+workflow:
+
+1. Start the GPS RTK base/rover system.
+2. Make sure the GPS RTK data is available on the ROS 1 computer.
+3. Start rosbridge if Windows reads the data through rosbridge.
+4. Fill in the GPS RTK topic, rosbridge URL and frame ID in the Python GUI.
+5. Start logging.
+6. The GPS RTK data is logged as outdoor ground truth.
+
+[2.6] Measurement session folders
+
+Each logging run creates a new session folder inside:
+
+```text
+measurements/
+```
+
+The folder name uses a timestamp, for example:
+
+```text
+Session_20260603_204050
+```
+
+The folder contains the raw logs, filtered logs, error logs, report files and measurement-window file.
 
 -----------------------------------------------------------------------------------------------------------------------
 3. USER GUIDES
 -----------------------------------------------------------------------------------------------------------------------
 
-[3.1] USING THE MASTER LOGGER Python
-The central orchestrator for data collection[cite: 2].
+[3.1] Normal indoor UWB + OptiTrack measurement
 
-1. Ensure Python 3.x is installed along with: ...
-   (mention a text file that has all required libraries. I want you to make this text file for me though)
-2. Run MasterLogger.py, a GUI will open, update configuration for COM ports and IP
-   addresses.
-3. For OptiTrack setup, open Motive -> Data Streaming -> Broadcast Frame Data ->
-   Local IP -> Unicast -> Rigid Bodies[cite: 9, 10, 11].
-4. Turn on all sensors and run: python MasterLogger.py[cite: 16].
-5. Fly the drone or move the sensors as needed[cite: 16].
-6. Press Ctrl+C to stop logging, close ports, and trigger report
-   generation[cite: 17].
+1. Turn on and configure the UWB anchors, tag and listener. `ReadUWBBluetooth` can be used.
+2. Connect the listener to the Windows computer.
+3. Start Motive and check the OptiTrack rigid body.
+4. Start MATLAB and run `MatlabMasterUWBControl.m` if MATLAB filtering or ROS publishing is needed.
+5. Start the Python GUI:
 
-[3.2] USING THE PLOTTING SCRIPT
-The report maker can be run independently to analyze previous sessions.
+```bash
+python MasterControlStation.py
+```
 
-1. Run: python drivers/ComparisonReportMaker.py.
-2. A configuration window appears for name, notes, and preferences.
-3. Click "Start Analysis" and select the session folder in /measurements.
-4. The script calculates offsets, generates a PDF, and an interactive HTML
-   dashboard.
+6. In the GUI:
+   - Enable UWB.
+   - Select Listener as UWB source.
+   - Fill in COM port(s).
+   - Enable Ground Truth.
+   - Select OptiTrack.
+   - Fill in OptiTrack IP settings.
+   - Enable Send Data to MATLAB if filtering/control is needed.
+7. Click Start Logging.
+8. Click Start Measuring when the useful measurement begins.
+9. Move the robot, drone or tag through the test path.
+10. Click Stop Measuring.
+11. Click Stop Logging.
+12. Generate the HTML report from the Report Maker tab.
 
-[3.3] USING THE BLUETOOTH ASSIGNER
-Direct configuration of DWM1001C modules via BLE[cite: 18, 19].
+[3.2] Outdoor UWB + GPS RTK measurement
 
-1. Update dictionaries in ReadUWBBluetooth.py with MAC addresses[cite: 23].
-2. Run: python drivers/ReadUWBBluetooth.py.
-3. The script assigns roles (Tag/Anchor/Listener), pushes positions, and
-   optionally streams location data[cite: 25, 26, 28].
+1. Set up the UWB anchors outside.
+2. Measure anchor positions as accurately as possible.
+3. Start the GPS RTK system.
+4. Make sure GPS RTK data is visible on ROS or rosbridge.
+5. Start the Python GUI.
+6. Select GPS RTK as ground truth.
+7. Fill in the GPS RTK topic and connection settings.
+8. Start logging and perform the test movement.
+9. Stop logging and generate an HTML report.
 
-[3.4] USING ROS
-In ROS heb je configurations voor robots. De bebop heeft zijn configuration op de linux pc, de limu heeft het intern.
-Die configuration is bebop_lau_1 bijvoorbeeld. Dit heeft allemaal dingen geconfigureerd. Als je dingen wilt aanpassen
-kan je nog de configurations pakken zoals ip en het veranderen.
-- List topics for seeing all available topics
-		○ Belangrijk: land, takeoff, cmd_vel
+This workflow depends on the exact external GPS RTK setup. Always verify the topic and message format before relying on
+the measurement.
 
-Limu Instructions:
-	- First do 'roscore' in terminal (initiaization)
+[3.3] Start-up order for full robot control
 
-	- Turn on Limu
-	- Open roscore terminal
-	- Open another roscore terminal
-	- sudo ssh agilex@192.168.0.103 (username always the same but ip can change, ip is on the frame of the limu. (103))
-	- Password for pc: admin
-	- Password Limu: agx
-	- Password Linux PC: admin
-	- Launch ros node: roslaunch limo_base limo_base.launch namespace:=L1
-		○ Press tab twice to see options
-		○ Namespace:=L1 represents name of robot in matlab code
-	- Red lights on limu = error mode, fix by pressing power button once
-Create rigidbody:
-	- When creating rigid body, have it facing in x axis
-	- Have balls center be robot center
-In ros:
-	- Rostopic list
-	- Rostopic pub /L1/cmd_vel geometry_msgs -> then press tab tab
-    - Je kan ook rostopic + tab tab doen om alle opties te zien
+For a full robot-control test, the safest order is:
 
-
-Bebop Instructions:
-	- Turn on
-		○ Press once, wait
-		○ Press three times
-	- Ping ip: 192.168.0.21x
-	- Roslaunch bebop_driver bebop_lai_1.launch ip:=… namespace:=…
-	- Driver for bebop is inside computer and limu is inside limo
-	- Rostopic pub /B7/land std_msgs/Empty "{}"
-    - Rostopic pub /B7/takeoff std_msgs/Empty "{}"
-
+1. Start ROS 1 on the Linux computer.
+2. Start the robot driver.
+3. Check robot topics with `rostopic list`.
+4. Start MATLAB and run `MatlabMasterUWBControl.m`.
+5. Start `MasterControlStation.py` on Windows.
+6. Start UWB or ground-truth logging, Robot will use this position data to perform programmed movement.
+7. Keep manual emergency control available.
 
 -----------------------------------------------------------------------------------------------------------------------
 4. DATA OUTPUT SCHEMA
 -----------------------------------------------------------------------------------------------------------------------
 
-All logs follow a standardized 4-column CSV format for internal compatibility
-between drivers and the report generator:
+[4.1] General idea
 
-Column 1: Time          (Unix PC Timestamp in seconds)
-Column 2: POSX          (X coordinate in meters)
-Column 3: POSY          (Y coordinate in meters)
-Column 4: POSZ          (Z coordinate in meters)
+The framework writes data to CSV files so that the same measurement can be inspected later, plotted, filtered again, or
+used for report generation.
 
-Example Log Header:
-Time, POSX, POSY, POSZ
-1740673321.451, 1.2345, -0.5678, 2.1012
+Most important logs contain at least:
 
+```text
+timestamp,x,y,z
+```
 
-There are also some additional csvs that get output
+Some logs include additional columns such as quality, listener ID, network ID, position type, error messages or debug
+information.
 
+[4.2] Common session outputs
 
------------------------------------------------------------------------------------------------------------------------
-5. TROUBLESHOOTING / COMMON ERRORS
------------------------------------------------------------------------------------------------------------------------
+Example files inside a session folder:
 
-- ERROR: "Permission Denied" during folder rename
-  Cause: A CSV log from the session is open in Excel or another program.
-  Fix: Close all CSV files before ending the MasterLogger script.
+```text
+[Log]_uwb_listener1_Session_YYYYMMDD_HHMMSS.csv
+[Log]_uwb_listener2_Session_YYYYMMDD_HHMMSS.csv
+[Log]_optitrack_Session_YYYYMMDD_HHMMSS.csv
+[Log]_gps_rtk_Session_YYYYMMDD_HHMMSS.csv
+[Log]_uwb_general_filter_Session_YYYYMMDD_HHMMSS.csv
+[Log]_measurement_window_Session_YYYYMMDD_HHMMSS.csv
+[Report]_....html
+```
 
-- ERROR: OptiTrack data not appearing in logs
-  Cause: Windows Firewall blocking UDP ports 1510/1511 or Motive set to Loopback.
-  Fix: Disable firewall temporarily or add an exception; set Motive to a specific
-  Local IP[cite: 10, 12].
+The exact files depend on which sensors and processing options were enabled.
 
-- ERROR: UWB Jumps/Outliers in Raw Data
-  Cause: Non-Line-of-Sight (NLOS) interference or radio collisions.
-  Fix: Check "uwbFiltered_log" which uses the UWBSmoother Kalman Filter for
-  outlier rejection.
+[4.3] Measurement window file
 
-- ERROR: Bluetooth device connection fails
-  Cause: Device already connected to another host or MAC address mismatch.
-  Fix: Reset DWM1001C power and verify the MAC address in the script[cite: 23, 35].
+The measurement window file stores the time range selected by the Start Measuring and Stop Measuring buttons. The report
+maker can use this to ignore setup time before or after the actual measurement.
 
-- more ...
+Example structure:
 
+```text
+Event,PC_Timestamp,Description,DateTime
+start,1760000000.12345,Measurement started,2026-06-03 20:40:50.123450
+stop,1760000015.12345,Measurement stopped,2026-06-03 20:41:05.123450
+```
 
+[4.4] Coordinate and offset notes
 
--------------------------------------------------------------------------------
-6. Explanations Python scripts
--------------------------------------------------------------------------------
+Coordinate frames must be checked carefully when comparing UWB, OptiTrack and GPS RTK.
 
-6.1. MasterControlStation Explanation
--------------------------------------------------------------------------------
-This script serves as the central command and control station for a drone localization system. It provides a graphical
-interface to manage high-precision Ultra-Wideband (UWB) sensors alongside ground truth systems like OptiTrack. Its
-primary purpose is to orchestrate data collection, visualize drone movement in real time, and configure the hardware
-network without requiring manual command-line interaction.
+Important current offset idea:
 
+- Python-side offset: UWB antenna position relative to the OptiTrack rigid-body center.
+- MATLAB-side offset: robot center relative to the OptiTrack/UWB center used for control.
 
-KEY FEATURES
----
-1. Live Logging and Visualization
-This section handles the simultaneous recording of data from UWB sensors and ground truth systems. It features a
-real-time 3D plot that compares the estimated position from the UWB modules against the actual position provided by the
-ground truth system.
-2. Network Configuration
-Users can manage a list of UWB modules including anchors, tags, and listeners. The script allows for editing MAC
-addresses, network IDs, and physical coordinates. These configurations can be saved to or loaded from JSON files and
-pushed to the physical hardware via Bluetooth Low Energy (BLE).
-3. Automated Reporting
-The script includes a utility to generate comprehensive measurement reports. It can process a recorded session to
-create PDF dashboards and individual plots that analyze the accuracy and performance of the localization setup.
-4. Data Routing
-Beyond local logging, the script can stream data to external environments like MATLAB or ROS (Robot Operating System)
-for further filtering or advanced control algorithms.
-
-
-HOW IT WORKS
----
-The application architecture is built on a multithreaded model to ensure the user interface remains responsive while
-handling high-frequency data streams.
-
-When the logging process starts, the script spawns dedicated background threads for each hardware component. For
-example, it starts one thread for the UWB serial connection and another for the OptiTrack network client. As these
-threads receive new coordinate data, they place it into a thread-safe queue.
-
-The main GUI thread runs a continuous loop every 100 milliseconds to check this queue. If new data is present, the
-script updates the internal coordinate arrays and refreshes the Matplotlib 3D canvas. This separation of concerns
-prevents the heavy computational load of 3D plotting and data processing from freezing the buttons and menus. Settings
-and hardware configurations are persisted using JSON files, allowing the system to restore its previous state upon
-restart.
-
-LIBRARIES AND DEPENDENCIES
----
-- Tkinter and Ttk
-Used to build the entire graphical user interface, including the window, tabs, buttons, and text consoles.
-- Matplotlib
-Specifically using the toolkit for 3D projections, this library handles the live trajectory plotting and the generation
-of visual charts for reports.
-- Threading and Queue
-These manage the concurrent execution of sensor drivers and the safe transfer of data between the background workers
-and the GUI.
-- JSON
-Used for parsing and writing configuration files for the hardware network and application settings.
-- Matlab Engine
-An optional library that allows the script to start a MATLAB session and call custom scripts directly from Python.
-- Custom Drivers
-The script integrates several project-specific modules including NatNetClient for ground truth data, uwb_sensor for
-serial communication, ReadUWBBluetooth for wireless configuration, and ComparisonReportMaker for post-processing.
-
-
-
-6.2. ComparisonReportMaker Explanation
------------------------------------------------------------------------------------------------------------------------
-...
-
-
-6.3. ReadUWBBluetooth Explanation
------------------------------------------------------------------------------------------------------------------------
-...
-
-
-
-6.4. NatNetClient Explanation
------------------------------------------------------------------------------------------------------------------------
-...
-
-
-
-6.5. uwb_sensor Explanation
------------------------------------------------------------------------------------------------------------------------
-...
-
-
-6.6. GpsRtkRosReader Explanation
------------------------------------------------------------------------------------------------------------------------
-...
-
-
-
--------------------------------------------------------------------------------
-7. matlab Scripts Explanations
--------------------------------------------------------------------------------
-
-- Master script
-- General Filter script
-- Accelerometer fusion script
-- Bebop control / read
-- Limo control / read
-- ReplayGeneralFilterFromCsv
-
-
-Not implemented but structure is there:
-- ReadCustomUWB
-
-
-
-
-
+For drones, tilt can also change the effective UWB tag position relative to the robot center. This is one reason why IMU
+fusion and tag-offset compensation are included in the MATLAB structure.
 
 -----------------------------------------------------------------------------------------------------------------------
-8. What can be improved / What still needs to be implemented
+5. PYTHON SCRIPT EXPLANATIONS
 -----------------------------------------------------------------------------------------------------------------------
 
-to do later:
-- Triangulate position from raw distances with kalman filter (can only be received from custom PCB)
+[5.1] MasterControlStation.py
 
+`MasterControlStation.py` is the central Python GUI and command station.
 
+Main responsibilities:
 
+- Start GUI with live logging / robot-control tab, report-maker tab and UWB anchor configuration tab.
+- Start UWB, OptiTrack and GPS RTK reader threads.
+- Create measurement session folders.
+- Send session settings to MATLAB over UDP port 5004.
+- Display live UWB and ground-truth trajectories.
+- Start and stop measurement windows.
+
+The GUI uses threads so that sensor reading does not freeze the interface. Sensor readers place data into a thread-safe
+queue. The GUI checks this queue periodically and updates the live plot.
+
+[5.2] drivers/uwb_sensor.py
+
+`uwb_sensor.py` reads UWB data from DWM1001/PANS listener modules over serial COM ports.
+
+Main responsibilities:
+
+- Open one or two serial listener ports.
+- Read tag position output.
+- Parse UWB shell/API output.
+- Log raw UWB data to CSV.
+- Send live UWB packets to MATLAB over UDP port 5005.
+- Store parsing errors in separate error logs where needed.
+
+Supported use cases:
+
+- 1 Network / 1 Listener reading position data.
+- 2 Networks / 2 Listeners reading position data.
+
+[5.3] drivers/NatNetClient.py
+
+`NatNetClient.py` reads OptiTrack motion-capture data over NatNet.
+
+Main responsibilities:
+
+- Connect to the Motive streaming server.
+- Receive rigid-body position data.
+- Log OptiTrack ground-truth CSV files.
+- Send ground-truth data to MATLAB over UDP port 5006.
+
+A big part of this script is taken from the official OptiTrack / NaturalPoint NatNet Python example. Only a small
+portion on the bottom was written to integrate it with this framework
+
+[5.4] drivers/GpsRtkRosReader.py
+
+`GpsRtkRosReader.py` reads GPS RTK data through Python. It is intended for outdoor ground-truth measurements.
+
+Main responsibilities:
+
+- Connect to the external GPS RTK data source.
+- Read position from the configured ROS/rosbridge source.
+- Log GPS RTK ground-truth data.
+- Optionally send ground-truth packets to MATLAB over UDP port 5006.
+
+[5.5] drivers/ComparisonReportMaker.py
+
+`ComparisonReportMaker.py` generates measurement reports from saved session folders.
+
+Main responsibilities:
+
+- Load UWB, OptiTrack, GPS RTK and filtered CSV logs.
+- Align data streams by timestamp.
+- Calculate position errors.
+- Calculate quality metrics such as MAE, RMSE, median error and P95.
+- Generate interactive plots.
+- Write an HTML report.
+
+The report maker is important for comparing anchor configurations, filter settings and indoor/outdoor test results.
+
+[5.6] drivers/ReadUWBBluetooth.py
+
+`ReadUWBBluetooth.py` is a Bluetooth helper for DWM1001/PANS modules.
+
+Main responsibilities:
+
+- Connect to known UWB modules over BLE.
+- Configure roles and settings where supported.
+- Help avoid needing a separate app for every basic configuration action.
+
+Known limitation:
+
+- Network ID changes were not found to work reliably through this script. Use the DRTLS app for changing UWB networks.
 
 -----------------------------------------------------------------------------------------------------------------------
-9. VERSION CHANGES
------------------------------------------------------------------------------------------------------------------------
-- Look to the github for all different versions
-
-
-
-
+6. MATLAB SCRIPT EXPLANATIONS
 -----------------------------------------------------------------------------------------------------------------------
 
+[6.1] `MatlabMasterUWBControl.m`
 
+This is the main MATLAB coordinator script.
+
+Main responsibilities:
+
+- Receive settings from Python on UDP port 5004.
+- Receive UWB data from Python on UDP port 5005.
+- Receive ground-truth data from Python on UDP port 5006.
+- Create and manage filtered logs.
+- Call the selected filter scripts.
+- Select final position source.
+- Publish position to ROS 1 when enabled.
+- Call robot-control scripts when enabled.
+
+[6.2] GeneralFilter.m
+
+`GeneralFilter.m` is the main UWB-only filter.
+
+Main responsibilities:
+
+- Receive raw UWB XYZ samples.
+- Reject impossible jumps or outliers.
+- Apply Kalman filtering.
+- Optionally apply light low-pass filtering.
+- Output filtered position and velocity.
+- Log the filtered data.
+
+This filter is the first filtering layer and is useful even when IMU fusion is disabled.
+
+[6.3] ImuFusionFilter.m
+
+`ImuFusionFilter.m` is the second filtering layer.
+
+Main responsibilities:
+
+- Combine filtered UWB data with high frequency IMU data to fill in the gaps
+- Fall back to the GeneralFilter output if IMU data is missing or disabled.
+
+[6.4] `ReadBebop.m` and `ReadLimo.m`
+
+These scripts read robot state, IMU or angle information from ROS 1 for the Bebop 2 and Limo robot.
+
+Main responsibilities:
+
+- Read relevant ROS topics.
+- Convert robot-specific data into a standard structure.
+- Provide angles and IMU data to MATLAB control and filtering scripts.
+
+[6.5] `ControlBebop.m` and `ControlLimo.m`
+
+These scripts handle robot control.
+
+Main responsibilities:
+
+- Receive final position and angle input from the master script.
+- Compare current position to target position.
+- Publish robot commands through ROS.
+- Control the Bebop 2 drone or Limo ground robot.
+
+
+[6.6] `ReplayGeneralFilterFromCsv.m`
+
+This script is used to replay a raw UWB CSV through the same general filter that is used live.
+
+Main use:
+
+- Test filter settings offline.
+- Compare filter configurations without repeating the same physical measurement.
+- Generate filtered output in the same format expected by the plotting/report scripts.
+
+[6.7] ReadCustomPcb.m
+
+`ReadCustomPcb.m` is a placeholder/future structure for reading the Mini UWB PCB data.
+
+Future purpose:
+
+- Either read UWB position data from the Mini UWB PCB or read raw UWB tag to anchor distances and triangulate position.
+- Read BMI270 IMU data.
+- Output data in the same structure as the current UWB and IMU readers.
+
+-----------------------------------------------------------------------------------------------------------------------
+7. ROS AND ROBOT COMMANDS
+-----------------------------------------------------------------------------------------------------------------------
+
+Password Limo: ...
+Password ...: 2021
+
+[7.1] General ROS commands
+
+Start ROS master:
+
+```bash
+roscore
+```
+
+List available topics:
+
+```bash
+rostopic list
+```
+
+Inspect a topic:
+
+```bash
+rostopic info <topic_name>
+```
+
+Print topic data:
+
+```bash
+rostopic echo <topic_name>
+```
+
+Check message type help by using tab completion:
+
+```bash
+rostopic pub <topic_name> <message_type>
+```
+
+[7.2] rosbridge
+
+Start rosbridge websocket server:
+
+```bash
+roslaunch rosbridge_server rosbridge_websocket.launch
+```
+
+Default rosbridge URL from Windows:
+
+```text
+ws://<linux_ros_pc_ip>:9090
+```
+
+[7.3] Limo setup commands
+
+Connect to the Limo if required:
+
+```bash
+ssh agilex@<limo_ip>
+```
+
+Start the Limo base driver:
+
+```bash
+roslaunch limo_base limo_base.launch namespace:=L1
+```
+
+List topics:
+
+```bash
+rostopic list
+```
+
+Example manual velocity command structure:
+
+```bash
+rostopic pub /L1/cmd_vel geometry_msgs/Twist "<fill message here>"
+```
 
 Notes:
 
+- The namespace `L1` must match the namespace expected in the MATLAB code.
+- If the Limo shows an error mode with red lights, check the robot manual or reset procedure.
+- When creating the OptiTrack rigid body, align the robot with the X-axis and put the rigid-body center as close as
+  possible to the robot center.
+
+[7.4] Bebop 2 setup commands
+
+Turn on the Bebop and connect to its network or router setup as used in the lab.
+
+Check connection:
+
+```bash
+ping <bebop_ip>
+```
+
+Start the Bebop driver:
+
+```bash
+roslaunch bebop_driver bebop_lai_1.launch ip:=<bebop_ip> namespace:=B7
+```
+
+Takeoff:
+
+```bash
+rostopic pub /B7/takeoff std_msgs/Empty "{}"
+```
+
+Land:
+
+```bash
+rostopic pub /B7/land std_msgs/Empty "{}"
+```
+
+Emergency/manual control should always be available during tests.
+
+-----------------------------------------------------------------------------------------------------------------------
+8. TROUBLESHOOTING / COMMON ERRORS
+-----------------------------------------------------------------------------------------------------------------------
+
+[8.1] OptiTrack data is not appearing
+
+Possible causes client side:
+- Wrong server/client IP in the Python GUI.
+- Not connected to same network
+
+Possible causes Optitrack computer side:
+- Motive streaming not enabled.
+- Motive is using Loopback instead of the correct network interface.
+- Motive is streaming in Multicast instead of Unicast
+
+
+[8.2] UWB listener does not produce data
+
+- Wrong COM port, check Device manager.
+- Serial port is already open in another program, close other serial terminals
+- Listener not configured as listener, verify in DRTLS app.
+- Tag/anchors are not in the same network, verify in DRTLS app.
+
+
+[8.3] UWB position jumps or contains outliers
+
+- Non-Line-of-Sight, Improve line of sight to get rid of jumps.
+
+
+[8.4] MATLAB does not receive data
+
+Possible causes:
+- MATLAB script is not running, Start MatlabMasterUWBControl.m first.
+- Python Send Data to MATLAB option is disabled.
+- UDP ports are already in use, Check ports 5004, 5005 and 5006.
+- Firewall blocks local UDP traffic.
+
+
+-----------------------------------------------------------------------------------------------------------------------
+9. AI ASSISTANCE AND CODE AUTHORSHIP
+-----------------------------------------------------------------------------------------------------------------------
+
+AI assistance was used during the development process as a support tool. Mainly ChatGPT 5.5 and Gemini Pro. It was 
+mainly used for refactoring code, cleaning up structure, improving comments, debugging, and making existing scripts 
+more consistent.
+
+The project concept, system structure, measurement workflow, engineering decisions and testing approach were made by the
+developer. Most of the software was first designed and built manually, after which AI assistance was used to improve or
+restructure parts of it. In scripts where AI-generated code was used more directly, this is mentioned in the script
+itself.
+
+-----------------------------------------------------------------------------------------------------------------------
+10. CURRENT STATUS AND FUTURE WORK
+-----------------------------------------------------------------------------------------------------------------------
+
+[10.1] Current status
+
+```text
+Python GUI / MasterControlStation.py            Working
+UWB serial listener logging                     Working
+Two-listener / two-network structure            Working / experimental
+OptiTrack NatNet logging                        Working
+GPS RTK Python reader                           Implemented, setup-dependent topic still placeholder
+HTML report generation                          Working
+MATLAB UDP receiving                            Working
+General UWB filtering                           Working
+IMU fusion structure                            Working / experimental
+ROS 1 publishing                                Working
+Bebop 2 control                                 Working but experimental
+Limo control                                    Working but experimental
+UWB Bluetooth module configuration              Working
+UWB module network changing through Bluetooth   Not reliable, use qorvo DRTLS app
+Mini UWB PCB ROS input                          Future / placeholder
+Mini UWB Raw-distance triangulation             Future work
+```
+
+[10.2] Future work
+
+Important improvements for future students or researchers:
+
+- Finish raw-distance triangulation from UWB anchor distances.
+- Improve two-tag / two-network fusion.
+- Improve IMU fusion and tag-offset compensation.
+- Validate GPS RTK outdoor ground-truth workflow fully.
+- Add automatic detection of COM ports and connected UWB listeners.
+- Add clearer coordinate-frame tools for UWB, OptiTrack and GPS RTK alignment.
+- Add custom Mini UWB PCB support when the PCB firmware is ready.
+- Add unit tests for parsers and filtering functions.
+
+[10.3] Nice-to-have improvements
+
+- Better live plots, possibly showing 3d models in real time.
+- More GUI themes.
+- Direct anchor-geometry visualization.
+
+-----------------------------------------------------------------------------------------------------------------------
+11. VERSION HISTORY
+-----------------------------------------------------------------------------------------------------------------------
+
+For detailed version history, use the GitHub commit history.
+
+
+=======================================================================================================================
+END OF DOCUMENT
+=======================================================================================================================
 
 
 Documentation
@@ -465,7 +892,3 @@ From ROS:
 - read seperate distances and triangulate them into one coordinate
 - read position data from two ros networks and combine them efficiently
 - read seperate position data from two ros networks and triangulate them into one coordinate
-
-=======================================================================================================================
-END OF DOCUMENT
-=======================================================================================================================
