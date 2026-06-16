@@ -3,7 +3,8 @@
 Author: Renzo Eisma
 Date: 05/2026
 Description: This program is for calculating and visualizing the error between UWB measurements and ground truth
-measurements.
+measurements. Generates a .html measurement report based on a measurement folder containing csvs from logging. Further
+info can be found in the readme.
 
 Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
 added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic,
@@ -43,7 +44,7 @@ REPORT_INFO = {
 }
 
 # 2. Define your datasets here.
-# If one is found in the selected file it will be graphed
+# If one is found in the selected folder it will be graphed
 # If a signal is selected as ground truth the other signals will be compared to it
 # Offsets can be defined
 DATASETS = [
@@ -122,7 +123,6 @@ DATASETS = [
 ]
 
 # 3. Features Configuration
-DT = 0.1  # Measurement interval (10Hz = 0.1 seconds)
 SHOW_ANCHORS = True  # Toggle to show/hide UWB anchors on the map
 USE_MEASUREMENT_WINDOW = True
 MEASUREMENT_WINDOW_PREFIX = "[Log]_measurement_window"
@@ -179,8 +179,8 @@ class SettingsDialog(tk.Toplevel):
         self.destroy()
 
 
-# Finds the most recent log file by searching the directory manually
-# This is not used currently
+# Finds the latest matching CSV based on filename sorting.
+# This assumes filenames contain sortable timestamps, such as Session_YYYYMMDD_HHMMSS.
 # ---------------------------------------------------------------------------------------------------------------------
 def get_latest_file(prefix, folder_path):
     if not os.path.exists(folder_path):
@@ -315,75 +315,6 @@ def calculate_velocity(df):
     return np.insert(dists / dt, 0, 0.0)
 
 
-# This function stands for Absolute Trajectory Error. It compares the estimated UWB positions against the actual ground
-# truth positions. It calculates the overall 3D distances between the points to find the mean error, maximum error, and
-# root-mean-square error. It also calculates the error for the individual X, Y, and Z axes and returns a formatted list
-# of strings to be displayed in the final report table.
-# ---------------------------------------------------------------------------------------------------------------------
-def calculate_ate(df_est, df_gt, label):
-    """Calculates the Error and returns formatting for the table."""
-    min_len = min(len(df_est), len(df_gt))
-    if min_len == 0:
-        return None
-
-    est_pts = df_est[['x', 'y', 'z']].values[:min_len]
-    gt_pts = df_gt[['x', 'y', 'z']].values[:min_len]
-
-    # Calculate 3D Euclidean error
-    errors = np.linalg.norm(est_pts - gt_pts, axis=1)
-
-    mae_3d = np.mean(errors) * 100
-    rmse_3d = np.sqrt(np.mean(errors ** 2)) * 100
-    p95_3d = np.percentile(errors, 95) * 100
-
-    return [label, f"{mae_3d:.2f} cm", f"{rmse_3d:.2f} cm", f"{p95_3d:.2f} cm"]
-
-
-# This function acts as an auto calibration tool. It takes the UWB data and the ground truth data and uses a
-# mathematical optimization algorithm called Nelder Mead. The algorithm tests different spatial shifts for X, Y, and Z,
-# as well as time shifts, to find the exact offset values that make the two datasets align as good as possible. It then
-# prints these suggested offset values to the console.
-# ---------------------------------------------------------------------------------------------------------------------
-def find_best_alignment(df_uwb, df_gt, label="UWB"):
-    # 1. Normalize time to start at 0
-    uwb_t = (df_uwb['pc_timestamp'] - df_uwb['pc_timestamp'].iloc[0]).values
-    gt_t = (df_gt['pc_timestamp'] - df_gt['pc_timestamp'].iloc[0]).values
-
-    uwb_pts = df_uwb[['x', 'y', 'z']].values
-    gt_pts = df_gt[['x', 'y', 'z']].values
-
-    # Interpolator for Ground Truth (so we can sample it at any time)
-    interp_gt = interp1d(gt_t, gt_pts, axis=0, bounds_error=False, fill_value="extrapolate")
-
-    def objective_function(params):
-        dx, dy, dz, dt = params
-
-        # Apply time shift and spatial offset
-        shifted_t = uwb_t + dt
-        shifted_uwb = uwb_pts + [dx, dy, dz]
-
-        # Sample Ground Truth at the shifted UWB times
-        sampled_gt = interp_gt(shifted_t)
-
-        # Calculate Euclidean Error
-        error = np.linalg.norm(shifted_uwb - sampled_gt, axis=1)
-        return np.mean(error ** 2)
-
-    # Initial guess: [0 offset x, 0 offset y, 0 offset z, 0 time shift]
-    initial_guess = [0, 0, 0, 0]
-    res = minimize(objective_function, initial_guess, method='Nelder-Mead')
-    dx, dy, dz, dt = res.x
-
-    print(f"\nOptimization results for: {label}")
-    print("-" * 40)
-    print(f"Suggested 'offset': [{dx:.4f}, {dy:.4f}, {dz:.4f}]")
-    print(f"Suggested 'time_offset': {dt:.4f}")
-    print("-" * 40)
-
-    # Return the values but won't force them into the data automatically
-    return dx, dy, dz, dt
-
-
 # This function synchronizes one measured dataset to the ground truth data. Ground truth is interpolated at the
 # measurement timestamps. The signed axis errors are calculated in centimeters and the absolute magnitude errors are
 # calculated from those signed errors.
@@ -504,7 +435,7 @@ def add_percentile_lines(fig, errors, row, col, color, label):
 # This function builds a fully interactive web based dashboard. It uses the Plotly library to create a grid containing
 # a 3D trajectory map, a 2D top down view, individual axis position graphs, individual signed error graphs, total 3D
 # and XY error graphs, CDF plots, velocity-vs-error diagnostics, sample timing, and a statistical error table. It
-# synchronizes the time across all datasets, calculates live error metrics, plots the UWB anchor locations, and exports
+# synchronizes the time across all datasets, calculates error metrics, plots the UWB anchor locations, and exports
 # the entire interactive figure as an HTML file.
 # =====================================================================================================================
 def generate_plotly_dashboard(loaded_data, session_folder, report_name):
@@ -763,7 +694,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
             # 8. 3D CDF Plot
             sorted_err_3d = np.sort(error_df['error_3d_cm'])
-            y_vals_3d = np.arange(len(sorted_err_3d)) / float(len(sorted_err_3d))
+            y_vals_3d = np.arange(1, len(sorted_err_3d) + 1) / float(len(sorted_err_3d))
             fig.add_trace(
                 go.Scatter(
                     x=sorted_err_3d,
@@ -780,7 +711,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
             # 9. XY CDF Plot
             sorted_err_xy = np.sort(error_df['error_xy_cm'])
-            y_vals_xy = np.arange(len(sorted_err_xy)) / float(len(sorted_err_xy))
+            y_vals_xy = np.arange(1, len(sorted_err_xy) + 1) / float(len(sorted_err_xy))
             fig.add_trace(
                 go.Scatter(
                     x=sorted_err_xy,
@@ -798,7 +729,7 @@ def generate_plotly_dashboard(loaded_data, session_folder, report_name):
 
             # 10. Z CDF Plot
             sorted_err_z = np.sort(error_df['error_z_abs_cm'])
-            y_vals_z = np.arange(len(sorted_err_z)) / float(len(sorted_err_z))
+            y_vals_z = np.arange(1, len(sorted_err_z) + 1) / float(len(sorted_err_z))
             fig.add_trace(
                 go.Scatter(
                     x=sorted_err_z,
@@ -1085,7 +1016,6 @@ def run_dashboard(session_folder=None, skip_popup=False):
         for lbl, df in loaded_data.items():
             if lbl != gt_key and "UWB Raw" in lbl:
                 # This just prints the suggestions to the console
-                find_best_alignment(df, loaded_data[gt_key], label=lbl)
                 break
 
     generate_plotly_dashboard(loaded_data, session_folder, REPORT_INFO['name'])

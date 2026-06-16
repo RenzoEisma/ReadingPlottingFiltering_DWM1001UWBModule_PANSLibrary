@@ -16,8 +16,8 @@
     "control_robots": false,
     "read_type": "Tag Position",
     "network_scale": "1 Network / 1 Listener",
-    "rep_name": "TripodTests_10_06_InsideWithUWBPCBAsUWBSourceT3",
-    "rep_notes": "First Test but looked good, and did measurement laying down with antenna attacched to stick",
+    "rep_name": "TripodTests_14_06_6TestWallAnchors2Up2DownT2",
+    "rep_notes": "Using stick, body not in field",
     "rep_show_anchors": true,
     "rep_use_measurement_window": true
 }

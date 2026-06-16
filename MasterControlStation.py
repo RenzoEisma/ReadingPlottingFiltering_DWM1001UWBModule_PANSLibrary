@@ -2,7 +2,22 @@
 """
 Author: Renzo Eisma
 Date: 06/2026
-Description: Master Script for everything to do with measuring, plotting and configuring Qorvo UWB modules
+Description: Master Script for everything to do with measuring, plotting and configuring Qorvo UWB modules. Further info
+can be found in the readme.
+
+For a future maintainable version, the following improvements are recommended:
+
+1. The UWB ROS source is currently a placeholder. UWB can be read via Wi-Fi, however. The uwb_sensor script currently has
+   two pieces of code inside it. One for reading via listener and one via Wi-Fi. But it has to be manually uncommented.
+
+2. Add input validation for COM ports, IP addresses, rosbridge URLs, MAC addresses, and anchor coordinates.
+
+3. Optional features such as Bluetooth configuration and GPS RTK rosbridge reading could be imported only when used,
+   so missing optional dependencies do not prevent the main GUI from starting.
+
+4. Make console logging thread-safe.
+   Currently print output is redirected directly to a Tkinter text widget. Since sensor scripts run in background
+   threads, a safer approach would be to send log messages through a queue and update the GUI from root.after().
 
 Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
 added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic,
@@ -140,7 +155,7 @@ class MasterControlApp:
         self.opti_server = tk.StringVar(value='192.168.1.188')
         self.opti_client = tk.StringVar(value='192.168.1.15')
 
-        # GPS RTK placeholder settings. GPS RTK will be read in MATLAB/ROS later, not live-plotted in Python for now.
+        # GPS RTK placeholder settings
         self.gps_rtk_topic = tk.StringVar(value='/gps/rtk')
         self.gps_rtk_ros_master = tk.StringVar(value='ws://192.168.50.20:9090')
         self.gps_rtk_frame = tk.StringVar(value='map')
@@ -243,7 +258,7 @@ class MasterControlApp:
             except Exception as e:
                 print(f"Could not load UWB config: {e}")
 
-    # Gathers all current inputs from the GUI variables and writes them back into JSON files for persistence.
+    # Gathers all current inputs from the GUI variables and writes them back into JSON files
     # -----------------------------------------------------------------------------------------------------------------
     def save_settings(self):
         self.save_current_module_edits()
@@ -635,7 +650,7 @@ class MasterControlApp:
                     'server_ip': self.opti_server.get(),
                     'client_ip': self.opti_client.get(),
                     'multicast': False,
-                    'latency': 0,
+                    'latency': 0, # Still works but should not be defined here, it should be done in the plotting script
 
                     # OptiTrack-specific script routing. NatNetClient keeps writing its own CSV and sending live
                     # ground-truth packets to MATLAB. MasterControlStation only sends the session/settings packet.
@@ -671,7 +686,7 @@ class MasterControlApp:
                     'port1': self.uwb_port1.get(),
                     'port2': self.uwb_port2.get() if self.enable_uwb_port2.get() else None,
                     'baud': 115200,
-                    'latency': 0,
+                    'latency': 0, # Still works but should not be defined here, it should be done in the plotting script
 
                     # UWB-specific script routing. The UWB script keeps writing its own CSV and sending live UWB
                     # measurement packets to MATLAB. MasterControlStation only sends the session/settings packet.
@@ -770,7 +785,7 @@ class MasterControlApp:
             f.write(f"matlab_uwb_port={self.matlab_uwb_port}\n")
             f.write(f"matlab_gt_port={self.matlab_gt_port}\n")
 
-    # Placeholder for GPS RTK reading. For now GPS RTK will be handled in MATLAB/ROS and not live-plotted in Python.
+    # GPS RTK reading (works same as OptiTrack but opens GPS RTK script instead)
     # -----------------------------------------------------------------------------------------------------------------
     def start_gps_rtk_reader(self):
         print("[MASTER] GPS RTK selected as ground truth.")
@@ -801,7 +816,8 @@ class MasterControlApp:
         print("[MASTER] GPS RTK thread started.")
         return t_gps
 
-    # Placeholder for reading UWB data through ROS. Listener mode is currently the implemented Python route.
+    # Placeholder for reading UWB data through ROS. Listener mode is currently the implemented Python route (this also
+    # includes reading from UWB PCB data from Wifi if uncommented in the read_sensor script)
     # -----------------------------------------------------------------------------------------------------------------
     def start_uwb_ros_reader(self):
         print("[MASTER] UWB ROS source selected.")
@@ -926,7 +942,7 @@ class MasterControlApp:
                 print(f"Error generating report: {e}")
 
     # =================================================================================================================
-    # Bluetooth Configuration Tab
+    # UWB anchor/module configuration tab
     # =================================================================================================================
 
     # Builds the visual layout for the UWB Anchors tab
@@ -1280,7 +1296,7 @@ class MasterControlApp:
             updated = True
 
         elif packet["source"] == "gps_rtk":
-            # GPS RTK is not live-plotted in Python for now. It is expected to be handled in MATLAB/ROS.
+            # ...
             pass
 
         return updated

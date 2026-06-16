@@ -2,44 +2,83 @@
 = 
 = - hendrik mail afwachten wanneer assessment
 =
-= - bericht max opwachten
-=
 = . wachten antwoord dhl over kleren aanvragen
 =
-= . Componenten zaterdag van werkplaatsbeheerder krijgen???
+= . wachten op antwoord huis maxi kosi
+=
+= . aline bericht afwachten
+=
+= . het paarse huis antwoord kamernet
 = 
 = 
 ==================================================================================================================
 
 NOTES:
 
-optitrack gebruikt windows receive time, niet timestamp van opti
+onderzoek wat ik wil
 
-- Bericht terug van calslaan huis opwachten
-...
-- kamernet mails nieuwe sturen
-...
-bericht 17 juni huis opwachten
+planning komende drie jaar
 
+- dhl kleren bestellen en antwoorden wim
+- aanmelden studie via osiris
 
 
 ----------------------------------------------------------------------------------------------
 
+Vandaag
+- research document helemaal af
+- fysieke dingetjes op ufes klaar
 
+
+
+
+Screenshots maken van computer van software framework (geen filmpje)
+
+
+
+Matlab opschonen
+- sensor fusion ding bekijken in code
+
+
+GoPro filmpje of filmpje screen recorden van een meting, Alles opnemen met de software framework, de log, de live plot en die shit
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+Dingen fixen:
+
+
+Filters: 
+	- Outlier rejection beter doen
+	- Kalman vertraging verlagen
+
+Verwerken GPS RTK spul:
+- My zero was in lat:  -20.27170892 N | lon: -40.30452453 E | altitude: -6.198m, but we can use any point
+
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+Fysiek spul:
+
+
+Topics bekijken van limu en bebop
 
 Robot control (only to prove that I can control the robots)
 // I don't know yet if I will read data from them as well, but when the accelerometer fusion has been simulated i need to have proven that robots can be controlled.
+Limo Robot besturen en Filmpje maken van programma die werkt met alle dingen
 - Prepare code for LIMO Matlab control.
   - Get accelerometer data.
   - Get angle data.
 - Make it do figure 8 with optitrack
 - Make it do figure 8 with filtered UWB
 
-
-
 --
-
-
 
 - Prepare code for Bebop Matlab control.
   - Get accelerometer data.
@@ -51,14 +90,9 @@ Robot control (only to prove that I can control the robots)
 - Define what should happen if the connection with the drone is lost.
 
 
+Twee tag fusion code verbeteren bewijzen dat het werkt, en dat is het gewoon
 
-
-
-
-
---
-
-Twee tag fusion code verbeteren
+foto van router
 
 
 
@@ -71,15 +105,23 @@ Twee tag fusion code verbeteren
 
 
 
----
+---------------------------------------------------------------------------------------------------------
 
 
-Avond:
+Documentatie:
+
+Readme updaten
 
 
 
-Bericht aline
+Z axis should have heavy filtering
 
+
+kijken naar onenote spul
+
+
+
+measurements outside in de goede map zetten
 
 
 finish research pcb document
@@ -90,86 +132,19 @@ finish research qorvo stuff in research document
 
 
 
---
-
-Verwerken GPS RTK spul:
-
-My zero was in lat:  -20.27170892 N | lon: -40.30452453 E | altitude: -6.198m, but we can use any point
 
 
 
---
+uitleggen hoe je het naar buiten zo kunnen nemen en een robot kan besturen
 
 
 
-Testen bekijken en in logboek zetten
-	- Tripod setup testen analyseren en goed in meetrapport zetten. Ziet er wel heel goed uit
-	- Bij hoog en laag ook filter toevoegen
-	- Bij 3d test:
-		- start en eind tijd toevoegen
-		- tijd offset toevoegen
-		- goed omschrijven
-GPS RTK en buiten tests in logboek zetten
-
-Filters: 
-	- Outlier rejection beter doen
-	- Kalman vertraging verlagen
-
-
-
-
---
-
-
-Software framework Code opschonen en ontchatgpten
-
-
-
-
---
-
-
-Report about accelerometer fusion and triangulation after the fact:
-- accelerometer fusion not tested in real time.
-- Things have been logged though, so you can simulate it afterwards, this has not been done either though
-- used gpt generated script
-
-
-
-
-
-
-
----------------------------------------------------------------------------------------------------------
-
-zondag:
-
-
-something with height on wall anchors is incorrect
-
-
-
-
-
-
-Nieuwe tests doen met tripods volgens testplan
-Als je meer dan 4 anchors hebt, hoe kiest qorvo voor de vier waarmee het berekeningen gaat doen?
-met een stok buiten anchors om metingen doen
-
-Testen met muur setup (8 anchors, 4 anchors plat en 4 anchors hoog en onder, kijken wat beste configuratie is)
-
-
-
-
-Laatste tests met Anchor configurations.
+Noemen dat accelerometer ook als battery saver gebruikt kan worden
 
 
 
 
 conclusies maken 
-handleidingen afmaken
-evaluatieformulier google sheets invullen en inleveren
-
 
 UWB onderzoek document afronden
 - filter research
@@ -177,39 +152,33 @@ UWB onderzoek document afronden
 
 
 
-
-ALLES MET EINDDOCUMENT
-format:
-- make fonts and styles the same
-- Make sure every document name in the report matches the actual file name exactly.
-- Export the important Word documents to PDF as well, so the layout cannot shift when Johannes opens them.
-- zelfde tables en font enzo in elk document gebruiken
-- document format fixen en consistent hebben in elk document
-
-
 the rest:
 - blokdiagram aanpassen: 
 	- ground truths moeten verbonden zijn met router
-	- verbindingen beter labelel en de uwb tag kan verbonden worden met de router via wifi
-	- blokdiagram tag plaatje aanpassen
-	- kijken of alle blokken van de software nog kloppen.
-- meer over ros 1 uitleggen en zelf snappen. en waarom niet ros 2. Uitleg staat in chatgpt sources
-- Volgende toevoegen aan verslag voor aankopen:
-	- uwb antennes onderin plaatsen en meten en de antennes boven meer naar buiten verplaatsen. Dit is voor een semi permanente setup
-	- mogelijk niewue usb micro kabels bestellen die langer zijn
-	- mogelijk nieuwe holders printen
-- anchor pritnen die modules van muur afzet idee maar niet uitgewerkt, geen tijd
-- aanrader voor laser onder robot + gyroscope om hoogte te meten, klopt nu voor geen meter. En anders camera gebruiken
-- verbetering voor muur setup is twee anchors in het midden
-- die drawio dinges omschrijven in tekst met tripod setup
-- neerzetten dat als er ooit problemen zijn er met mij gebeld kan worden
-- reference naar jelmer
+	- verbindingen beter labelel en de uwb tag kan verbonden worden met de router via wifi en via 	- de computer via wifi en via normale mdek manier
+
 - [Link] dingen misschien de echte link plakken
-- finish pcb design document conclusion and future improvements
-- finish pcb part in final document
-- noemen dat paper niet gemaakt is
-- omschrijven dat er twee programmas zijn in read_sensor
-- gpt vragen om readme te updaten over de twee programmas in read_me, de tweede is tijdelijk en moet in de toekomst in matlab of zijn eigen script worden
+- finish reprogramming firmware part.
+- omschrijven dat er twee programmas zijn in read_sensor. gpt vragen om readme te updaten over de twee programmas in read_me, de tweede is tijdelijk en moet in de toekomst in matlab of zijn eigen script worden
+
+
+- definitie lijst toevoegen?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -218,22 +187,10 @@ the rest:
 
 ---------------------------------------------------------------------------------------------------------
 
-maandag:
-- Laatste PCBs solderen en testen
-- goede software op alle pcbs doen
+Final Control:
 
-
-- unified software framework op andere pc zetten in lab
-- foto van router
-- uitleggen hoe je het naar buiten zo kunnen nemen en een robot kan besturen
-
-- GoPro filmpje
-
-
-Avond:
-- Laatste dingetjes van het verslag afronden
-
-
+- Make sure every document name in the report matches the actual file name exactly.
+- Export the important Word documents to PDF as well, so the layout cannot shift when Johannes opens them.
 
 
 
@@ -242,12 +199,13 @@ Avond:
 =========================================================================================================
 
 
-Na het eindverslag:
-- iemand in lab laten zien hoe alles werkt
-- verslag en manuals uitprinten
+Na het eindverslag (donderdag):
 
+verslag en manuals uitprinten
 
+Miguel in lab laten zien hoe alles werkt
 
+Software op de hoofd pc zetten
 
 1 dag presentatie maken
 - dat stukje over threads in de code goed snappen
@@ -256,6 +214,12 @@ Na het eindverslag:
 
 
 =========================================================================================================
+
+
+
+
+
+
 
 
 

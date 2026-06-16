@@ -1,4 +1,11 @@
-﻿# =============================================================================
+﻿# ===================== PROGRAM_INFO ==================================================================================
+""" For Plotting Code go to the bottom of the script
+    All of the rest of this code is taken from an example from the NatNetClient website"""
+# =====================================================================================================================
+
+
+
+# =============================================================================
 # Copyright © 2025 NaturalPoint, Inc. All Rights Reserved.
 #
 # THIS SOFTWARE IS GOVERNED BY THE OPTITRACK PLUGINS EULA AVAILABLE AT
@@ -17,10 +24,6 @@
 # information.
 # =============================================================================
 
-# ===================== PROGRAM_INFO ==================================================================================
-""" For Plotting Code go to the bottom of the script
-    All of this code is taken from an example from the NatNetClient"""
-# =====================================================================================================================
 
 # OptiTrack NatNet direct depacketization library for Python 3.x
 
@@ -2310,7 +2313,8 @@ class NatNetClient:
 """
 Author: Renzo Eisma
 Date: 06/2026
-Description: This program is for reading OptiTrack data and putting it into a csv for data comparison
+Description: This program is for reading OptiTrack data and putting it into a csv for data comparison. Further info can 
+be found in the readme.
 
 Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
 added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic, 

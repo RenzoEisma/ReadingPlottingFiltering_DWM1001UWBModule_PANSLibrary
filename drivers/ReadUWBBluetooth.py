@@ -3,11 +3,22 @@
 Author: Renzo Eisma
 Date: 04/2026
 Description: UWB DWM1001 Bluetooth worker script. Takes a configuration list from the GUI
-and pushes settings to all devices concurrently.
+and pushes settings to all PANS UWB devices concurrently.
+
+Improvements:
+1. Works fine but due to high speeds sometimes a module is skipped and the program has to be run twice. Should be
+reprogrammed to connect to each device individually one after another, not concurrently.
+2. Network changing in modules is not supported yet.
+3. The script does not verify settings after writing them. A future version should read back the settings to confirm
+that the device accepted the settings.
+4. Failed devices are currently only printed once. A future version should retry failed connections automatically, for
+example two or three times with a delay between attempts.
 
 Assistance note: ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names, comments, line spacing, and
 added in depth logging in the terminal. The rewritten version was checked by a human. The original concept, code logic,
 and project structure were created by Renzo Eisma.
+
+All information relating to this can be found in the 'Decawave / Qorvo — DWM1001 Firmware API Guide'
 """
 # =====================================================================================================================
 

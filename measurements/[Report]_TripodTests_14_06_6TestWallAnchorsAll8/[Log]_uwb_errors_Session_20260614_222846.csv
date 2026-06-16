@@ -1,0 +1,4 @@
+Time,Port,ListenerID,NetworkID,Line,Error
+1781486935.4558198,COM5,1,1,"POS,0,4D18,nan,nan,nan,0,x07",Could not parse tag position line.
+1781486935.5565805,COM5,1,1,"POS,0,4D18,nan,nan,nan,0,x07",Could not parse tag position line.
+1781486942.7562675,COM5,1,1,"POS,0,4D18,nan,nan,nan,0,x08",Could not parse tag position line.
