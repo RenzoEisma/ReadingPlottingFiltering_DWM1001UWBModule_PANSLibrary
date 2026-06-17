@@ -19,28 +19,67 @@ onderzoek wat ik wil
 
 planning komende drie jaar
 
-- dhl kleren bestellen en antwoorden wim
+- dhl kleren bestellen
 - aanmelden studie via osiris
+
 
 
 ----------------------------------------------------------------------------------------------
 
-Vandaag
-- research document helemaal af
-- fysieke dingetjes op ufes klaar
+5. Does IMU need to be rotated to world frame before getting to this script?
+
+No. In the current design, the IMU acceleration should come into this script in the body/IMU frame as:
+
+imu_sample.accel_body = [ax ay az];
+
+Then this script rotates it to the world frame inside:
+
+getWorldAcceleration()
+
+using:
+
+imu_sample.orientation = [roll pitch yaw];
+
+So the reader does not need to rotate acceleration to world frame before passing it to ImuFusionFilter.
+
+But the reader does need to make sure the IMU axes are standardized first.
+
+So the split should be:
+
+ReadCustomPcb / ReadLimo / ReadBebop:
+    fix IMU axis mapping and signs
+    output accel_body in expected body-frame convention
+    output orientation in degrees
+
+ImuFusionFilter:
+    rotate accel_body from body frame to world frame
+    remove gravity if needed
+    integrate acceleration
+
+So to confirm:
+
+Do not rotate to world frame before this script.
+Do fix axis/sign mapping before this script.
 
 
-
-
-Screenshots maken van computer van software framework (geen filmpje)
-
+----------------------------------------------------------------------------------------------
 
 
 Matlab opschonen
-- sensor fusion ding bekijken in code
+- general filter
+	- position jump uitzetten en meer met speed bezig zijn. ALs vorige meting gereject was is de volgende jump 2x zo groot en kan de gate zomaar denken dat het niet klopt en dan zet hij het weer uit
+	- kalman filter fixen
+
+readme afmaken
 
 
-GoPro filmpje of filmpje screen recorden van een meting, Alles opnemen met de software framework, de log, de live plot en die shit
+
+
+
+hoe werkt kalman filter?
+Extended kalman filter is voor als je direct met anchor distances berekening doet (non linear omdat er een square root in zit, distance_to_anchor = sqrt((x - ax)^2 + (y - ay)^2 + (z - az)^2)) en linear is voor als je positie al hebt (zit geen kwadraat in)
+
+Research document helemaal af
 
 
 
@@ -52,10 +91,6 @@ GoPro filmpje of filmpje screen recorden van een meting, Alles opnemen met de so
 Dingen fixen:
 
 
-Filters: 
-	- Outlier rejection beter doen
-	- Kalman vertraging verlagen
-
 Verwerken GPS RTK spul:
 - My zero was in lat:  -20.27170892 N | lon: -40.30452453 E | altitude: -6.198m, but we can use any point
 
@@ -65,6 +100,19 @@ Verwerken GPS RTK spul:
 ---------------------------------------------------------------------------------------------------------
 
 Fysiek spul:
+
+
+- Lees ik accelerometer wel van juiste topic?
+
+
+
+
+Screenshots maken van computer van software framework (geen filmpje)
+
+
+
+GoPro filmpje of filmpje screen recorden van een meting, Alles opnemen met de software framework, de log, de live plot en die shit
+
 
 
 Topics bekijken van limu en bebop
@@ -78,7 +126,6 @@ Limo Robot besturen en Filmpje maken van programma die werkt met alle dingen
 - Make it do figure 8 with optitrack
 - Make it do figure 8 with filtered UWB
 
---
 
 - Prepare code for Bebop Matlab control.
   - Get accelerometer data.
@@ -210,6 +257,7 @@ Software op de hoofd pc zetten
 1 dag presentatie maken
 - dat stukje over threads in de code goed snappen
 - Was mijn batterij beveiliging nou echt zo slecht?
+- classes in de scripts snappen
 
 
 

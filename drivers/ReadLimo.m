@@ -10,10 +10,10 @@
 % project structure were created by Renzo Eisma.
 %
 % Purpose:
-%   Small ROS reader for the Limo robot IMU.
+%   ROS reader for the Limo robot IMU data.
 %   This class does NOT control the robot. It only reads sensor data and
 %   converts it to the standard imu_sample and angles structs used by the
-%   new MATLAB localization structure.
+%   MATLAB localization structure.
 %
 % Current Limo topic:
 %   /L1/imu    sensor_msgs/Imu
@@ -37,9 +37,8 @@
 % Design notes:
 %   - Limo is treated as a ground robot. The full [roll pitch yaw] fields are
 %     still output to keep the format compatible with Bebop/custom PCB later.
-%   - The control script should stay separate. ControlLimo.m or the existing
-%     RobotControlCodeLimuClass.m should only receive final_position and
-%     final_angles later.
+%   - The control script should stay separate. ControlLimo.m should only 
+%     receive final_position and final_angles later.
 % =========================================================================
 
 classdef ReadLimo < handle

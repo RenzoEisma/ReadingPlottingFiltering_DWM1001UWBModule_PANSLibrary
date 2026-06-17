@@ -15,6 +15,13 @@
 % position, logs useful debug data, and outputs a standard
 % uwb_general_filtered struct.
 %
+% Programmed filters:
+% - Linear Kalman Filter 
+% - Outlier rejection 
+%   - Speed gate
+%   - Position jump gate
+% - low pass filter
+%
 % Standard input:
 % uwb_sample.position  = [x y z]
 % uwb_sample.quality   = optional quality value
@@ -31,11 +38,33 @@
 % uwb_general_filtered.source    = 'general_filter'
 %
 % Design notes:
-% - This class intentionally only handles calculated UWB XYZ positions.
-% - IMU fusion belongs in ImuFusionFilter.m.
-% - Raw-anchor-distance EKF logic belongs in the future custom PCB reader
-%   or in a separate future filter, not here.
-% - Minimal runaway fix: rejected samples hold the last accepted position instead of outputting prediction-only motion.
+% - This class intentionally only handles calculated UWB XYZ positions. 
+% IMU fusion belongs in ImuFusionFilter.m. Raw-anchor-distance EKF logic 
+% belongs in the custom PCB reader.
+
+
+
+
+
+
+% Outlier rejection note:
+% The outlier gates are meant to reject clearly impossible UWB jumps, not to
+% force the trajectory to be smooth. If the gates are set too strict, real
+% movement can be rejected and the filter may appear to freeze or coast.
+% For this project the speed gate is the most useful simple gate. The
+% position-jump gate and Mahalanobis gate are available for testing, but are
+% disabled by default because they can reject valid movement if not tuned
+% carefully.
+
+
+% Kalman model note:
+% This is a practical constant-velocity Kalman filter for already-calculated
+% UWB XYZ positions. The current Q and R values are empirical tuning values.
+% A future improvement would be to replace the diagonal Q matrix with a
+% physically derived acceleration-noise process model.
+
+
+% momentele kalman filter q matrix is niet een echte
 
 % =========================================================================
 
@@ -53,8 +82,9 @@ classdef GeneralFilter < handle
         % Outlier rejections
         USE_OUTLIER_REJECTION   = true; % Enables the following three outlier rejections
         USE_SPEED_GATE          = true; % Rejects measurements that would require the robot or tag to move faster than physically believable.
-        USE_POSITION_JUMP_GATE  = true; % Rejects raw UWB measurements that suddenly jump too far compared to the previous raw measurement.
+        USE_POSITION_JUMP_GATE  = false; % Rejects raw UWB measurements that suddenly jump too far compared to the previous raw measurement.
         USE_MAHALANOBIS_GATE    = false; % Rejects measurements that are too far away from the Kalman filter prediction based on the filter uncertainty.
+                                         % Implemented for future testing, but disabled by default because it depends strongly on correct Kalman covariance tuning.
         % Smoothing
         USE_LOW_PASS_OUTPUT     = false; % Applies optional low-pass smoothing to the final filtered output to reduce small remaining jitter.
 
@@ -92,11 +122,10 @@ classdef GeneralFilter < handle
         % -------------------------------------------------------------
         % Anti-runaway tuning
         % -------------------------------------------------------------
-        MAX_REJECTED_COAST_STEPS = 2;
-        MAX_CONSECUTIVE_REJECTS = 2;          % reset if this many measurements are rejected in a row
+        MAX_REJECTED_COAST_STEPS = 2;       % reset if this many measurements are rejected in a row
         MAX_COAST_SPEED = 3.0;              % [m/s]
         PREDICT_ONLY_VELOCITY_DAMPING = 0.20; % reduce velocity when no measurement update is accepted
-        FILTER_RAW_RESET_DISTANCE = 0.0;     % reset to raw UWB if prediction is this far from raw [m]
+        FILTER_RAW_RESET_DISTANCE = 0.0;     % Distance threshold for re-locking to raw UWB after repeated rejects. Set to 0.0 to always re-lock after MAX_REJECTED_COAST_STEPS rejects.
 
         % -------------------------------------------------------------
         % Optional low-pass output smoothing
@@ -390,33 +419,6 @@ classdef GeneralFilter < handle
             obj.LastTimestamp = timestamp;
             obj.LastVelocity = output_vel;
             obj.logFilteredData(uwb_general_filtered);
-        end
-
-        % =================================================================
-        % Legacy wrapper
-        % Supports calls: [x,y,z] = filter.process(raw_x,raw_y,raw_z)
-        % =================================================================
-        function varargout = process(obj, raw_x, raw_y, raw_z)
-            uwb_sample.position = [raw_x raw_y raw_z];
-            uwb_sample.quality = NaN;
-            uwb_sample.timestamp = obj.getCurrentTimestamp();
-            uwb_sample.source = 'legacy_process';
-            uwb_sample.valid = true;
-
-            out = obj.processUwbSample(uwb_sample);
-
-            if nargout >= 1
-                varargout{1} = out.position(1);
-            end
-            if nargout >= 2
-                varargout{2} = out.position(2);
-            end
-            if nargout >= 3
-                varargout{3} = out.position(3);
-            end
-            if nargout >= 4
-                varargout{4} = out;
-            end
         end
 
         % =================================================================
@@ -900,15 +902,6 @@ classdef GeneralFilter < handle
                 output.position(2), ...
                 output.position(3));
 
-        end
-
-        % =================================================================
-        % Keep CSV text simple
-        % =================================================================
-        function txt = safeCsvText(~, value)
-            txt = char(string(value));
-            txt = strrep(txt, ',', '_');
-            txt = strrep(txt, newline, ' ');
         end
     end
 end

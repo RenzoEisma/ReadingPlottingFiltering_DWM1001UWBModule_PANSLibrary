@@ -63,7 +63,7 @@ DEFAULT_MESSAGE_TYPE = "sensor_msgs/NavSatFix"
 DEFAULT_UDP_IP = "127.0.0.1"
 DEFAULT_UDP_PORT_GROUND_TRUTH = 5006
 
-SOURCE_TYPE = "gps_rtk"
+SOURCE_TYPE = "OptiTrack"
 DEFAULT_RIGID_BODY_ID = 0
 
 # WGS84 ellipsoid constants.
@@ -444,7 +444,7 @@ def build_matlab_packet(timestamp: float,
         timestamp,x,y,z,quality,rigid_body_id,source_type
 
     This is intentionally the same ground-truth format used by the OptiTrack reader,
-    with source_type changed to gps_rtk.
+    with source_type kept as Optitrack so that Matlab can receive it.
     """
     x, y, z = pos
 

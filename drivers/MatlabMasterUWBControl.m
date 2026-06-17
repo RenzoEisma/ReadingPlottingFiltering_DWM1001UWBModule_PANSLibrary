@@ -14,15 +14,6 @@
 % Filtering, sensor reading, and robot control are handled by separate
 % scripts/classes.
 %
-% Important structure change:
-% - ImuFusionFilter.m does NOT compensate the measured sensor position to the
-%   robot centre anymore.
-% - Robot-centre / sensor-offset compensation is handled inside ControlLimo.m
-%   and ControlBebop.m.
-% - final_position remains the selected measured/filtered sensor position.
-% - final_angles are read from ReadLimo.m or ReadBebop.m and are assumed to be
-%   in degrees.
-%
 % Included:
 % - Python UDP UWB listener input on port 5005
 % - Python UDP OptiTrack input on port 5006
@@ -32,23 +23,26 @@
 % - final_position and final_angles selection inside MATLAB
 % - Optional ControlLimo.m or ControlBebop.m update interface
 % - Optional ROS publishing of final_position and final_angles
-% - simple useful logging for testing/debugging
+% - Useful logging for testing/debugging
 %
-% Placeholder/future work:
-% - custom PCB ROS input is kept in ReadCustomPcb.m
-% - GPS RTK ROS input is kept in ReadGpsRtk.m
+% Placeholders:
+% - Custom PCB data ROS input is kept in ReadCustomPcb.m and has not been
+% integrated into the Master script yet.
 %
-% Data flow:
-% Python UWB UDP -> uwb_sample -> GeneralFilter -> uwb_general_filtered
-%                                                   |
-% Robot IMU ROS -> imu_sample -> ImuFusionFilter ---|-> uwb_imu_filtered
-%                                                   |
-% Python Opti UDP ----------------------------------|-> final_position
-%                                                   |
-% final_angles -------------------------------------|-> robot control / ROS
+% Future Work:
+% - Currently both GPS-RTK and OptiTrack send their source as 'OptiTrack' 
+% in the packets. This is not very clean. In the future they should send
+% their own names and this script should be able to receive both and use
+% them as ground truth.
+% - 'Send Data To ROS' and 'Control Robots' from the python GUI are
+% currently not being sent to Matlab, these settings have to be enabled
+% manually. Matlab variables: USE_ROS_PUBLISHING & USE_ROBOT_CONTROL.
+%
 % =========================================================================
 
 function MatlabMasterUWBControl()
+
+
 
 %% 0. CLEANUP
 % =========================================================================
@@ -66,6 +60,8 @@ fprintf('\n============================================================\n');
 fprintf('[MASTER] MATLAB Master UWB Control started.\n');
 fprintf('============================================================\n\n');
 
+
+
 %% 1. MANUAL MATLAB CONFIGURATION
 % =========================================================================
 % These settings are intentionally controlled inside MATLAB. Python starts
@@ -79,21 +75,18 @@ fprintf('============================================================\n\n');
 FINAL_POSITION_SOURCE = "UWB_GENERAL";
 
 % UWB input source used by this master script.
-% Current active option: "PYTHON_UDP"
-% Future placeholder: "CUSTOM_PCB_ROS" handled inside ReadCustomPcb.m
-UWB_SOURCE_MATLAB = "PYTHON_UDP";
+UWB_SOURCE_MATLAB = "PYTHON_UDP"; % PYTHON_UDP or CUSTOM_PCB_ROS
 
 % IMU / robot selection.
 % SELECTED_ROBOT options: "NONE", "LIMO", "BEBOP"
-USE_IMU_FILTER = false;
+USE_IMU_FILTER = true;
 SELECTED_ROBOT = "NONE";
 
 % Robot control. This only calls the updated ControlLimo/ControlBebop
-% interface. Robot-specific offset compensation belongs inside the control
-% scripts, not inside this master script and not inside ImuFusionFilter.m.
+% interface
 USE_ROBOT_CONTROL = false;
 START_ROBOT_MOVEMENT_AUTOMATICALLY = false;
-CONTROL_UPDATE_RATE = 30;        % [Hz]
+CONTROL_UPDATE_RATE = 50;       % [Hz]
 
 % Optional ROS publishing of final output. This is separate from robot
 % control. It can be enabled for debugging or for other ROS nodes.
@@ -102,9 +95,9 @@ ROS_MASTER_ADDRESS = "";         % empty = rosinit() default
 ROS_POSITION_TOPIC = "/uwb/final_position";
 ROS_ANGLES_TOPIC = "/uwb/final_angles";
 ROS_FRAME_ID = "map";
-ROS_PUBLISH_RATE = 30;           % [Hz]
+ROS_PUBLISH_RATE = 50;           % [Hz]
 
-% Robot namespaces/topics
+% Robot namespaces/topics, they must match the namespace used in ROS
 LIMO_NAMESPACE = "/L1";
 BEBOP_NAMESPACE = "/B1";         % reader namespace, including slash
 BEBOP_CONTROL_NAMESPACE = "B1";  % control class namespace, no slash
@@ -125,11 +118,13 @@ FILTER_DEFAULT_DT = 0.1;
 ENABLE_GENERAL_FILTER_LOG = true;
 ENABLE_IMU_FILTER_LOG = true;
 
-% Simple status printing
+% Status printing in command window, speed can be throttled
 PRINT_EVERY_UWB_PACKETS = 10;
 PRINT_EVERY_OPTI_PACKETS = 200;
 PRINT_EVERY_IMU_PACKETS = 50;
 PRINT_EVERY_FINAL_LINES = 30;
+
+
 
 %% 2. DERIVED CONFIGURATION AND SAFETY CHECKS
 % =========================================================================
@@ -173,6 +168,8 @@ USE_ROS = USE_IMU_FILTER || USE_ROBOT_CONTROL || USE_ROS_PUBLISHING || USE_ROBOT
 T_control = 1 / max(CONTROL_UPDATE_RATE, 1);
 T_ros_publish = 1 / max(ROS_PUBLISH_RATE, 1);
 
+
+
 %% 3. UDP PORT SETUP
 % =========================================================================
 SETTINGS_PORT = 5004;
@@ -195,6 +192,8 @@ fprintf('[MASTER] Settings UDP: 127.0.0.1:%d\n', SETTINGS_PORT);
 fprintf('[MASTER] UWB UDP:      127.0.0.1:%d\n', UWB_PORT);
 fprintf('[MASTER] Opti UDP:     127.0.0.1:%d\n\n', OPTI_PORT);
 
+
+
 %% 4. WAIT FOR SETTINGS PACKET FROM PYTHON
 % =========================================================================
 % Python still owns session creation and sends the session folder/name.
@@ -215,6 +214,8 @@ while ~settings_received
     end
     pause(0.05);
 end
+
+
 
 %% 5. APPLY SETTINGS FROM PYTHON, BUT KEEP FINAL POSITION SOURCE IN MATLAB
 % =========================================================================
@@ -251,7 +252,6 @@ if UWB_SOURCE_MATLAB == "CUSTOM_PCB_ROS"
 end
 
 % Current master script uses OptiTrack UDP as active ground truth input.
-% GPS RTK stays as a placeholder in ReadGpsRtk.m.
 if ENABLE_GT && GT_SOURCE ~= "OptiTrack"
     fprintf('[MASTER] Warning: Python selected ground truth "%s".\n', GT_SOURCE);
     fprintf('[MASTER] This master currently uses OptiTrack UDP as active ground truth input. Ground truth disabled.\n');
@@ -267,6 +267,8 @@ fprintf('[MASTER] OptiTrack enabled: %d\n', ENABLE_GT);
 fprintf('[MASTER] Final position source: %s\n', FINAL_POSITION_SOURCE);
 fprintf('[MASTER] Selected robot: %s | IMU filter: %d | Robot control: %d | ROS publishing: %d\n\n', ...
     SELECTED_ROBOT, USE_IMU_FILTER, USE_ROBOT_CONTROL, USE_ROS_PUBLISHING);
+
+
 
 %% 6. ROS SETUP, READERS, FILTERS, CONTROLLERS AND LOGGING
 % =========================================================================
@@ -347,6 +349,8 @@ else
     fprintf('[MASTER] Warning: final_position logging disabled.\n\n');
 end
 
+
+
 %% 7. STATE VARIABLES
 % =========================================================================
 t_exp = tic;
@@ -375,6 +379,8 @@ print_counter_final = 0;
 require_uwb = ENABLE_UWB && any(FINAL_POSITION_SOURCE == ["UWB_GENERAL", "UWB_IMU"]);
 require_opti = ENABLE_GT && FINAL_POSITION_SOURCE == "OPTITRACK";
 require_imu = USE_IMU_FILTER && USE_ROBOT_READER;
+
+
 
 %% 8. WAIT FOR REQUIRED SENSORS
 % =========================================================================
@@ -437,6 +443,8 @@ if WAIT_FOR_REQUIRED_SENSORS
     end
 end
 
+
+
 %% 9. START ROBOT MOVEMENT IF ENABLED
 % =========================================================================
 if USE_ROBOT_CONTROL && START_ROBOT_MOVEMENT_AUTOMATICALLY && ~isempty(robot_controller)
@@ -446,6 +454,8 @@ if USE_ROBOT_CONTROL && START_ROBOT_MOVEMENT_AUTOMATICALLY && ~isempty(robot_con
         fprintf('[MASTER] Could not start robot movement: %s\n', ME.message);
     end
 end
+
+
 
 %% 10. MAIN LOOP
 % =========================================================================
@@ -532,6 +542,8 @@ catch ME
     end
 end
 
+
+
 %% 11. SAFE SHUTDOWN
 % =========================================================================
 disp('[MASTER] Cleaning up resources...');
@@ -577,6 +589,8 @@ end
 disp('[MASTER] Shutdown complete.');
 
 end
+
+
 
 %% ========================================================================
 % LOCAL HELPER FUNCTIONS
@@ -694,7 +708,7 @@ imu_config.IMU_FRESH_TIMEOUT = imu_fresh_timeout;
 imu_config.LOG_TO_CSV = logical(enable_log);
 
 % Angles from ReadLimo.m and ReadBebop.m should be degrees.
-% The new ImuFusionFilter.m uses cosd/sind internally.
+% The ImuFusionFilter.m uses cosd/sind internally.
 switch upper(string(selected_robot))
     case "LIMO"
         imu_config.ROBOT_MODE = 'GROUND_2D';

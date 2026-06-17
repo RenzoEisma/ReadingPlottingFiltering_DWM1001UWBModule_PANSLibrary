@@ -4,10 +4,9 @@
 % Author: Renzo Eisma
 % Date: 06/2026
 % Assistance note:
-% ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
-% comments, line spacing, and error logging in the terminal. The rewritten
-% version was checked by a human. The original concept, code logic, and 
-% project structure were created by Renzo Eisma.
+% ChatGPT Pro 5.5 Thinking Extended was used to write a big part of the 
+% code. Minimal work was done by hand. The final version was checked by a
+% human but the script has not been fully tested.
 %
 % Purpose:
 % Loosely coupled UWB + IMU fusion layer after GeneralFilter.m.
@@ -15,29 +14,54 @@
 % - IMU acceleration is used for short-term prediction between UWB updates.
 % - Orientation is used for tilt compensation during IMU prediction.
 %
-% Standard input 1:
-% uwb_general_filtered.position = [x y z]
-% uwb_general_filtered.velocity = [vx vy vz]
-% uwb_general_filtered.timestamp
-% uwb_general_filtered.quality
-% uwb_general_filtered.valid
-% uwb_general_filtered.source = 'general_filter'
+% Process loop summary: 
+% 1. GeneralFilter.m first filters the calculated UWB XYZ position. 
+% 2. ImuFusionFilter.m receives this filtered UWB position as an absolute 
+% correction source. 
+% 3. When fresh IMU data is available, acceleration is rotated from the IMU 
+% body frame to the world frame using roll/pitch/yaw and is used for 
+% short-term prediction between UWB updates. 
+% 4. Every new UWB sample corrects the predicted state again, preventing 
+% long-term IMU drift. 
+% 5. If no valid or fresh IMU data is available, the filter falls back to the 
+% GeneralFilter UWB output instead of crashing.
 %
-% Standard input 2:
-% imu_sample.accel_body = [ax ay az]
-% imu_sample.gyro_body = [gx gy gz]
-% imu_sample.orientation = [roll pitch yaw] in degrees
-% imu_sample.timestamp
-% imu_sample.valid
-% imu_sample.source = 'limo' / 'bebop' / 'custom_pcb'
+% Notes:
+% - This is loosely coupled UWB/IMU fusion, not tightly coupled fusion. 
+% Tightly coupled fusion would use the individual UWB anchor distances 
+% directly together with IMU data. 
+% - This is a linear Kalman filter, not an Extended Kalman Filter. The state 
+% is [x y z vx vy vz], and the UWB correction is a direct XYZ position 
+% update. Extended kalman filter can be used when raw anchor to tag 
+% distances are available.
 %
-% Standard output:
-% uwb_imu_filtered.position = [x y z]
-% uwb_imu_filtered.velocity = [vx vy vz]
-% uwb_imu_filtered.orientation = [roll pitch yaw] in degrees
-% uwb_imu_filtered.timestamp
-% uwb_imu_filtered.valid
-% uwb_imu_filtered.source = 'imu_fusion_filter'
+% Inputs and Outputs:
+% - Standard input 1:
+%       uwb_general_filtered.position = [x y z]
+%       uwb_general_filtered.velocity = [vx vy vz]
+%       uwb_general_filtered.timestamp
+%       uwb_general_filtered.quality
+%       uwb_general_filtered.valid
+%       uwb_general_filtered.source = 'general_filter'
+%
+% - Standard input 2:
+%       imu_sample.accel_body = [ax ay az]
+%       imu_sample.gyro_body = [gx gy gz]
+%       imu_sample.orientation = [roll pitch yaw] in degrees
+%       imu_sample.timestamp
+%       imu_sample.valid
+%       imu_sample.source = 'limo' / 'bebop' / 'custom_pcb'
+%
+% - Standard output:
+%       uwb_imu_filtered.position = [x y z]
+%       uwb_imu_filtered.velocity = [vx vy vz]
+%       uwb_imu_filtered.orientation = [roll pitch yaw] in degrees
+%       uwb_imu_filtered.timestamp
+%       uwb_imu_filtered.valid
+%       uwb_imu_filtered.source = 'imu_fusion_filter'
+%
+% Future work:
+% - Implement quality factor from UWB for the R in the kalman filter
 % =========================================================================
 
 classdef ImuFusionFilter < handle
@@ -46,38 +70,48 @@ classdef ImuFusionFilter < handle
     % USER CONFIGURATION
     % =====================================================================
     properties
-        USE_IMU_FILTER = false;
-        FALLBACK_TO_GENERAL_FILTER = true;
-
-        USE_IMU_PREDICTION = true;
-        USE_TILT_COMPENSATION = true;
-
+        % -------------------------------------------------------------
+        % Main switches
+        % -------------------------------------------------------------
+        USE_IMU_FILTER = false;          % Enables IMU-based prediction. False = mostly follows GeneralFilter.
+        FALLBACK_TO_GENERAL_FILTER = true; % If IMU is missing/old, mark output as fallback to GeneralFilter.
+    
+        USE_IMU_PREDICTION = true;       % Uses acceleration to predict position/velocity between UWB updates.
+        USE_TILT_COMPENSATION = true;    % Uses orientation to rotate IMU body acceleration to world frame.
+    
         % Options: 'GROUND_2D' or 'DRONE_3D'
-        ROBOT_MODE = 'GROUND_2D';
-
-        % IMU sample freshness relative to the requested output timestamp.
-        IMU_FRESH_TIMEOUT = 0.5;   % [s]
-
-        % Maximum prediction integration step for one IMU update.
-        MAX_IMU_DT = 0.10;         % [s]
-
-        % Gravity compensation. World frame is assumed to be Z-up.
-        GRAVITY = 9.81;            % [m/s^2]
-        REMOVE_GRAVITY = true;
-
-        % Optional constant accelerometer bias in body frame.
-        ACCEL_BIAS_BODY = [0; 0; 0];   % [m/s^2]
-
-        % Kalman filter tuning.
-        PROCESS_NOISE_POSITION = 0.02;                   % [m]
-        PROCESS_NOISE_VELOCITY = 0.50;                   % [m/s]
-        MEASUREMENT_NOISE_POSITION = [0.08; 0.08; 0.10]; % [m]
-
-        % Velocity blending on UWB corrections.
-        USE_UWB_VELOCITY_INIT = true;
-        UWB_VELOCITY_BLEND = 0.20;
-
-        % Simple logging.
+        ROBOT_MODE = 'DRONE_3D';        % GROUND_2D forces vertical velocity/acceleration to zero.
+    
+        % -------------------------------------------------------------
+        % Timing
+        % -------------------------------------------------------------
+        IMU_FRESH_TIMEOUT = 0.5;         % Maximum allowed age difference between UWB and IMU sample [s].
+        MAX_IMU_DT = 0.10;               % Maximum integration step for one IMU prediction [s].
+    
+        % -------------------------------------------------------------
+        % Acceleration handling
+        % -------------------------------------------------------------
+        GRAVITY = 9.81;                  % Gravity magnitude [m/s^2], world frame Z-up.
+        REMOVE_GRAVITY = true;           % Subtracts [0 0 9.81] after rotating acceleration to world frame.
+        ACCEL_BIAS_BODY = [0; 0; 0];     % Constant accelerometer bias in body frame [m/s^2].
+    
+        % -------------------------------------------------------------
+        % Kalman tuning
+        % -------------------------------------------------------------
+        % These are empirical standard-deviation-like tuning values.
+        PROCESS_NOISE_POSITION = 0.02;   % Position process noise tuning [m].
+        PROCESS_NOISE_VELOCITY = 0.50;   % Velocity process noise tuning [m/s].
+        MEASUREMENT_NOISE_POSITION = [0.08; 0.08; 0.10]; % UWB correction noise std [m].
+    
+        % -------------------------------------------------------------
+        % UWB velocity handling
+        % -------------------------------------------------------------
+        USE_UWB_VELOCITY_INIT = true;    % Initializes velocity from GeneralFilter if available.
+        UWB_VELOCITY_BLEND = 0.20;       % Blends GeneralFilter velocity into fused velocity on UWB correction.
+    
+        % -------------------------------------------------------------
+        % CSV logging
+        % -------------------------------------------------------------
         LOG_TO_CSV = true;
         LOG_FILE_PATH = '';
     end
@@ -229,6 +263,38 @@ classdef ImuFusionFilter < handle
             end
 
             imu_available = obj.isImuAvailableForTimestamp(uwb.timestamp);
+
+            % If IMU fusion is disabled or no fresh IMU is available, do not apply a
+            % second Kalman layer. Just pass through the GeneralFilter output.
+            if ~obj.USE_IMU_FILTER || ~imu_available
+                if ~obj.USE_IMU_FILTER
+                    status = 'passthrough_imu_filter_disabled';
+                    obj.LastFallbackReason = 'imu_filter_disabled';
+                else
+                    status = 'passthrough_imu_missing';
+                    obj.LastFallbackReason = 'imu_missing_or_old';
+                end
+
+                uwb_imu_filtered = obj.makeOutputStruct( ...
+                    uwb.position, ...
+                    uwb.velocity, ...
+                    obj.getOrientationForOutput(false), ...
+                    uwb.timestamp, ...
+                    true, ...
+                    status, ...
+                    false, ...
+                    true, ...
+                    uwb, ...
+                    obj.LatestImuSample);
+
+                obj.LastOutputStruct = uwb_imu_filtered;
+                obj.LastStatus = status;
+                obj.NumFallbacks = obj.NumFallbacks + 1;
+                obj.NumOutputs = obj.NumOutputs + 1;
+
+                obj.logFusedData(uwb_imu_filtered);
+                return;
+            end
 
             % New structure:
             % The IMU filter only filters/fuses the measured sensor position.

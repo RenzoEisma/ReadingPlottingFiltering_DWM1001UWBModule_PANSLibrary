@@ -7,30 +7,40 @@
 % ChatGPT Pro 5.5 Thinking Extended was used to clean up variable names,
 % comments, line spacing, and error logging in the terminal. The rewritten
 % version was checked by a human. The original concept, code logic, and 
-% project structure were created by Renzo Eisma.
+% project structure were created by Renzo Eisma and people at Lab-Air.
 %
 % Purpose:
 % Limo / wheeled robot control wrapper for the MATLAB localization structure.
 %
-% New input format:
+% Trajectory Modes:
+% The script includes three operational modes for trajectory generation:
+% 1. Circular trajectory
+% 2. Infinity pattern (Lissajous figure-eight)
+% 3. Continuous set points
+%
+% Input format:
 %   update(final_position, final_angles)
 %
 %   final_position.position  = [x y z]
-%   final_position.velocity  = [vx vy vz] optional
-%   final_position.timestamp = time optional
-%   final_position.valid     = true/false optional
-%   final_position.source    = string optional
+%   final_position.velocity  = [vx vy vz]   (optional)
+%   final_position.timestamp = time         (optional)
+%   final_position.valid     = true/false   (optional)
+%   final_position.source    = string       (optional)
 %
 %   final_angles.roll        = roll  [deg]
 %   final_angles.pitch       = pitch [deg]
 %   final_angles.yaw         = yaw   [deg]
-%   final_angles.timestamp   = time optional
-%   final_angles.valid       = true/false optional
-%   final_angles.source      = string optional
+%   final_angles.timestamp   = time         (optional)
+%   final_angles.valid       = true/false   (optional)
+%   final_angles.source      = string       (optional)
 %
-% Design note:
-% This controller receives the already-selected final_position and
+% Design notes:
+% - This controller receives the already-selected final_position and
 % final_angles from MatlabMasterUWBControl.m.
+% - No stop button or joystick control is implemented
+% - See RobotControlCodeLimuStandalone in the standalone scripts folder if
+% this script does not work as intended. That one should always work. For
+% implementing stop button and joystick control it can be copied from here.
 %
 % =========================================================================
 
@@ -65,17 +75,6 @@ classdef ControlLimo < handle
         APPLY_CONTROL_POSITION_OFFSET = true;
         CONTROL_POSITION_OFFSET_WORLD = [0; -0.006; -0.18];  % [m]
 
-        %% Legacy compatibility
-        % Old offsets from the previous controller, kept for reference.
-        % Only used in legacy update mode.
-        legacy_x_offset = 0;
-        legacy_y_offset = -0.006;
-        legacy_z_offset = -0.18;
-
-        % Setting kept for backwards compatibility.
-        % The master script normally chooses final_position.
-        use_uwb_for_control = false;
-
         %% Trajectory configuration
         trajectory_mode = 'infinity';   % options: 'infinity', 'setpoints', 'circle'
         rX = 1;                         % X radius movement [m]
@@ -88,7 +87,6 @@ classdef ControlLimo < handle
         t_start
         w
         nLandMsg = 5;
-        EmergencyTriggered = false;
         last_final_position
         last_final_angles
     end
@@ -141,39 +139,20 @@ classdef ControlLimo < handle
             t_atual = toc(obj.t_start);
 
             % -------------------------------------------------------------
-            % 1. Read position and angles from new or legacy format
+            % 1. Read position and angles
             % -------------------------------------------------------------
-            legacy_mode = isnumeric(final_position) && isnumeric(final_angles);
 
-            if legacy_mode
-                uwb_pos = final_position(:);
-                opti_pos = final_angles(:);
+            [current_pos, pos_valid] = obj.extractPosition(final_position);
+            angles = obj.extractAngles(final_angles);
 
-                if obj.use_uwb_for_control
-                    current_pos = obj.padVector3(uwb_pos);
-                else
-                    current_pos = obj.padVector3(opti_pos);
-                end
-
-                % Preserve legacy offset behaviour for legacy calls.
-                current_pos = current_pos + [obj.legacy_x_offset; obj.legacy_y_offset; obj.legacy_z_offset];
-
-                angles = obj.makeInvalidAngles();
-                angles.yaw = obj.latest_yaw;
-                angles.valid = true;
-
-            else
-                [current_pos, pos_valid] = obj.extractPosition(final_position);
-                angles = obj.extractAngles(final_angles);
-
-                if ~pos_valid
-                    fprintf('[LIMO CONTROL] Invalid final_position. Sending stop command.\n');
-                    obj.stop();
-                    return;
-                end
-
-                current_pos = obj.applyControlPositionOffset(current_pos);
+            if ~pos_valid
+                fprintf('[LIMO CONTROL] Invalid final_position. Sending stop command.\n');
+                obj.stop();
+                return;
             end
+
+            current_pos = obj.applyControlPositionOffset(current_pos);
+
 
             obj.last_final_position = final_position;
             obj.last_final_angles = angles;

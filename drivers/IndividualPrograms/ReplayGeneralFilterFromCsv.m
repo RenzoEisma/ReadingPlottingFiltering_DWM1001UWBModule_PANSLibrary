@@ -12,7 +12,6 @@
 % new measurement every time.
 %
 % Important:
-% - This script does NOT contain filter settings.
 % - Change filter settings inside GeneralFilter.m.
 % - This script only selects a raw UWB CSV, feeds each row to GeneralFilter,
 %   and lets GeneralFilter write the normal live-format CSV.
