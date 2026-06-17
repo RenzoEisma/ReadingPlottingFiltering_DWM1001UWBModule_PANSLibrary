@@ -1,4 +1,3 @@
-=======================================================================================================================
 UNIFIED SOFTWARE FRAMEWORK
 =======================================================================================================================
 
@@ -33,10 +32,11 @@ The framework consists of two main parts:
 
 2. MATLAB environment
    - Receives data from Python over UDP.
-   - Applies UWB filtering.
-   - Publishes filtered position data to ROS 1.
    - Reads robot state / IMU data where needed.
-   - Performs  robot control for the Bebop 2 drone and Limo ground robot.
+   - If enabled, reads UWB and IMU data from ROS 1 from a custom designed DWM1001C PCB
+   - Applies UWB filtering.
+   - Performs robot control for the Bebop 2 drone and Limo ground robot.
+   - Publishes filtered position data to a ROS 1 master
 
 Python sends measurement data to MATLAB over UDP. MATLAB does not send data back to Python in the current structure.
 ROS 1 is used as the communication layer between the localization software and the robot-control environment.
@@ -79,13 +79,14 @@ The current framework centralizes the workflow:
 - Python starts the selected sensor readers.
 - Sensor readers log raw data into a session folder.
 - Python optionally sends live UWB and ground-truth data to MATLAB over UDP.
+- MATLAB optionally reads data from connected robot and / or custom UWB PCB.
 - MATLAB filters the UWB data and can publish or use the filtered result in ROS.
 - The report maker generates an interactive HTML report from the recorded CSV files.
 
 [1.2] Main data flow
 
 ```text
-UWB Listener / UWB ROS source
+UWB Listener
         |
         v
 Python sensor reader
@@ -118,10 +119,14 @@ Python ground-truth reader
 MATLAB comparison / control / logging
 ```
 
+Here is a block diagram of the data flow:
+![img.png](CommunicationOverviewBlockDiagram.png)
+
 [1.3] Text block diagram
 
 A block diagram of the full system was made
-![SystemOverviewBlockDiagram.png](SystemOverviewBlockDiagram.png)
+![img.png](SystemOverviewBlockDiagramV2.png)
+
 
 [1.4] Why Python and MATLAB are both used
 
@@ -210,7 +215,7 @@ Normal order:
 5. Python sends the settings packet and live sensor data to MATLAB.
 
 MATLAB should be started manually. The Python GUI does not start MATLAB automatically in the current version.
-This could be achieved with MatlabEngine.
+This could be achieved in the future with MatlabEngine.
 
 [2.2] Linux ROS 1 computer setup
 
@@ -243,20 +248,33 @@ The default rosbridge port is usually:
 9090
 ```
 
-[2.3] UWB sensor setup
+[2.3.1] UWB sensor setup MDEK
 
 The current UWB setup is based on Qorvo / Decawave DWM1001C or MDEK1001 modules running PANS firmware.
 
 Basic setup:
 
-1. Create an anchor setup according to the chosen test plan.
+1. Create an anchor network setup according to the chosen test plan.
 2. Measure and save the anchor coordinates.
 3. Configure the anchors and tag in the same UWB network.
 4. Put one listener per active network into a USB port on the Windows computer.
 5. Fill in the listener COM ports in `MasterControlStation.py`.
-6. Choose the correct read mode:
-   - Tag Position
-   - Tag Distances
+6. Choose the correct read mode (one or two networks)
+
+[2.3.2] UWB sensor setup Custom PCB (unfinished)
+
+In this setup, the custom UWB PCB tag is used. The tag should be configured into a network like normal. But some
+additional steps have to be taken.
+
+1. Connect the Linux ROS PC to the ESP32 on the PCB. 
+2. Read out data via UDP on ROS
+3. Choose ROS in the selection menu in the GUI
+
+//It is important to note that this description above is what it should be like. Currently ROS is not implemented, but a
+test has been done reading out data in python in the read_me script. This script is still there commented out in the
+read_uwb script.
+
+
 
 [2.4] OptiTrack setup
 
@@ -321,13 +339,16 @@ The folder contains the raw logs, filtered logs, error logs, report files and me
 3. USER GUIDES
 -----------------------------------------------------------------------------------------------------------------------
 
-[3.1] Normal indoor UWB + OptiTrack measurement
+[3.1.1] Normal indoor UWB + OptiTrack measurement
 
 1. Turn on and configure the UWB anchors, tag and listener. `ReadUWBBluetooth` can be used.
 2. Connect the listener to the Windows computer.
 3. Start Motive and check the OptiTrack rigid body.
 4. Start MATLAB and run `MatlabMasterUWBControl.m` if MATLAB filtering or ROS publishing is needed.
 5. Start the Python GUI:
+
+[3.1.2] Normal indoor UWB + OptiTrack measurement Example images
+
 
 ```bash
 python MasterControlStation.py
@@ -374,6 +395,8 @@ For a full robot-control test, the safest order is:
 5. Start `MasterControlStation.py` on Windows.
 6. Start UWB or ground-truth logging, Robot will use this position data to perform programmed movement.
 7. Keep manual emergency control available.
+
+
 
 -----------------------------------------------------------------------------------------------------------------------
 4. DATA OUTPUT SCHEMA
@@ -471,6 +494,12 @@ Supported use cases:
 
 - 1 Network / 1 Listener reading position data.
 - 2 Networks / 2 Listeners reading position data.
+
+Temporary Custom PCB reading:
+
+- In the current version, an additional script is commented out inside the read_uwb script
+- By running the program with this active instead of the other script uwb data will be read from the UWB PCB with Wi-Fi
+- On the ESP32C6, the correct software should be programmed for this
 
 [5.3] drivers/NatNetClient.py
 
@@ -590,18 +619,7 @@ Main responsibilities:
 - Publish robot commands through ROS.
 - Control the Bebop 2 drone or Limo ground robot.
 
-
-[6.6] `ReplayGeneralFilterFromCsv.m`
-
-This script is used to replay a raw UWB CSV through the same general filter that is used live.
-
-Main use:
-
-- Test filter settings offline.
-- Compare filter configurations without repeating the same physical measurement.
-- Generate filtered output in the same format expected by the plotting/report scripts.
-
-[6.7] ReadCustomPcb.m
+[6.6] ReadCustomPcb.m
 
 `ReadCustomPcb.m` is a placeholder/future structure for reading the Mini UWB PCB data.
 
@@ -615,8 +633,7 @@ Future purpose:
 7. ROS AND ROBOT COMMANDS
 -----------------------------------------------------------------------------------------------------------------------
 
-Password Limo: ...
-Password ...: 2021
+Password for Limo and AGX in ROS must be asked for from someone at Lab-Air
 
 [7.1] General ROS commands
 
@@ -771,7 +788,7 @@ Possible causes:
 
 AI assistance was used during the development process as a support tool. Mainly ChatGPT 5.5 and Gemini Pro. It was 
 mainly used for refactoring code, cleaning up structure, improving comments, debugging, and making existing scripts 
-more consistent.
+more consistent. A few scripts were almost fully written with AI, but that was mentioned in the scripts themselves.
 
 The project concept, system structure, measurement workflow, engineering decisions and testing approach were made by the
 developer. Most of the software was first designed and built manually, after which AI assistance was used to improve or
@@ -795,11 +812,12 @@ MATLAB UDP receiving                            Working
 General UWB filtering                           Working
 IMU fusion structure                            Working / experimental
 ROS 1 publishing                                Working
-Bebop 2 control                                 Working but experimental
-Limo control                                    Working but experimental
+Bebop 2 control                                 Future / placeholder
+Limo control                                    Working
 UWB Bluetooth module configuration              Working
 UWB module network changing through Bluetooth   Not reliable, use qorvo DRTLS app
-Mini UWB PCB ROS input                          Future / placeholder
+Mini UWB PCB Wi-Fi input                        Working
+Mini UWB PCB ROS input                          Untested
 Mini UWB Raw-distance triangulation             Future work
 ```
 
@@ -816,11 +834,13 @@ Important improvements for future students or researchers:
 - Add custom Mini UWB PCB support when the PCB firmware is ready.
 - Add unit tests for parsers and filtering functions.
 
-[10.3] Nice-to-have improvements
+Nice-to-have improvements:
 
 - Better live plots, possibly showing 3d models in real time.
 - More GUI themes.
 - Direct anchor-geometry visualization.
+
+Other script specific small fixes are described in the scripts themselves
 
 -----------------------------------------------------------------------------------------------------------------------
 11. VERSION HISTORY
@@ -829,66 +849,13 @@ Important improvements for future students or researchers:
 For detailed version history, use the GitHub commit history.
 
 
+
+-----------------------------------------------------------------------------------------------------------------------
+12. MISCELANIOUS NOTES
+-----------------------------------------------------------------------------------------------------------------------
+
+- There used to be pdf report generation instead of html, can be found in older github versions around V3
+
 =======================================================================================================================
 END OF DOCUMENT
 =======================================================================================================================
-
-
-Documentation
-- Add an explanation in readme for why matplotlib
-- Add an explanation in readme for the use of threads with live visualization.
-- Make reprogramming or adding features easy for new people
-- in readuwbbluetooth it was not figured out how to adjust the network of uwb modules. In the documentation from qorvo
-there was a guide on how to do it but it didn't work. When you change network they don't change network.
-
-
-Note: Offset is now calculated in the following way
-- Python: offset of uwb antenna from opti center
-- Matlab: offset of robot center from opti center
-    - opti center in matlab is same as uwb center as it is already converted
-
-
-software framework stuff for documentation.
-
-Describe what it is, how it works. Reference the manual / read me.
-Object oriented programming benoemen in software stukje
-- Waarom heb ik voor python gekozen en waarom gebruik ik niet AI. En welke delen van het programma zijn nice to have en welke zijn echt nodig
-	- Naast python ook matlab gebruik omdat daar al code van was en de rest in python omdat dat gebruiksvriendelijker is
-	- Meeste dingen zijn echt nodig
-		- Logging pagina: Ik moet veel metingen doen, dit bespaart veel tijd
-		- over het algemeen is het ook iets dat gebruikt moet gaan worden door anderen
-		- Meetrapporten voor de paper
-		- App vervangen omdat het niet veel werk was en dat zorgt ervoor dat je niet een aparte app hoeft te installeren. Iets professioneler voor laten zien buiten het lab
-		- Matlab filter en matlab robot control…
-		- ROS…
-punten die er in moeten:
-- Probleem in verslag zetten van matlab versie
-•	Toolbox problemen, versie met python problemen en cisco problemen
-
-- pdf was removed to save code space, the old version can be found in github version x
-- ergens iets zeggen dat ik na concept eindverslag chatgpt pro heb gekocht en daarmee code opnieuw heb 
-geschreven gebasseerd op mijn oude code. Functioneel werkte bijna alles al maar voor finishing touches was het toch
-wel heel erg handig.
-- nieuwe matlab master is 3x zo lang als oudes
-
-Ai description:
-- for first part of project gemini was used, but is not the best at coding so did most of the work mysefl
-- for second part i bought chatgpt pro and it was much better at coding with libraries so then i started offloading a lot
-of the work to it...
-
-
-Angle calculation with two listeners. Describe the mathematical stuff in documentation with images and vectors!!!
-- possibly have more distance between sensors with new holder
-
-the two tags fusion now calculates every time a new data point goes through so instead of 10hz it is now almost like 
-20hz but not really
-
-From listener:
-- read position data
-- read position data from two listeners and combine them efficiently
-
-From ROS:
-- read position data
-- read seperate distances and triangulate them into one coordinate
-- read position data from two ros networks and combine them efficiently
-- read seperate position data from two ros networks and triangulate them into one coordinate

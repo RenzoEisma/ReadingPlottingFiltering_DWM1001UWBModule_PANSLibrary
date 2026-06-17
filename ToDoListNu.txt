@@ -26,43 +26,13 @@ planning komende drie jaar
 
 ----------------------------------------------------------------------------------------------
 
-5. Does IMU need to be rotated to world frame before getting to this script?
-
-No. In the current design, the IMU acceleration should come into this script in the body/IMU frame as:
-
-imu_sample.accel_body = [ax ay az];
-
-Then this script rotates it to the world frame inside:
-
-getWorldAcceleration()
-
-using:
-
-imu_sample.orientation = [roll pitch yaw];
-
-So the reader does not need to rotate acceleration to world frame before passing it to ImuFusionFilter.
-
-But the reader does need to make sure the IMU axes are standardized first.
-
-So the split should be:
-
-ReadCustomPcb / ReadLimo / ReadBebop:
-    fix IMU axis mapping and signs
-    output accel_body in expected body-frame convention
-    output orientation in degrees
-
-ImuFusionFilter:
-    rotate accel_body from body frame to world frame
-    remove gravity if needed
-    integrate acceleration
-
-So to confirm:
-
-Do not rotate to world frame before this script.
-Do fix axis/sign mapping before this script.
+- Kamernet paar nieuwe mails
+- tn
 
 
-----------------------------------------------------------------------------------------------
+
+In software zettrn:
+- bij 3.1.2 de afbeeldingen van de metingen toevoegen
 
 
 Matlab opschonen
@@ -70,26 +40,13 @@ Matlab opschonen
 	- position jump uitzetten en meer met speed bezig zijn. ALs vorige meting gereject was is de volgende jump 2x zo groot en kan de gate zomaar denken dat het niet klopt en dan zet hij het weer uit
 	- kalman filter fixen
 
-readme afmaken
-
-
-
-
 
 hoe werkt kalman filter?
 Extended kalman filter is voor als je direct met anchor distances berekening doet (non linear omdat er een square root in zit, distance_to_anchor = sqrt((x - ax)^2 + (y - ay)^2 + (z - az)^2)) en linear is voor als je positie al hebt (zit geen kwadraat in)
 
 Research document helemaal af
 
-
-
-
-
-
----------------------------------------------------------------------------------------------------------
-
-Dingen fixen:
-
+Misschien kan UWB lezen beter in python kunnen
 
 Verwerken GPS RTK spul:
 - My zero was in lat:  -20.27170892 N | lon: -40.30452453 E | altitude: -6.198m, but we can use any point
@@ -97,9 +54,14 @@ Verwerken GPS RTK spul:
 
 
 
+
+
+
 ---------------------------------------------------------------------------------------------------------
 
-Fysiek spul:
+Vanavond:
+
+
 
 
 - Lees ik accelerometer wel van juiste topic?
@@ -157,12 +119,8 @@ foto van router
 
 Documentatie:
 
-Readme updaten
-
-
 
 Z axis should have heavy filtering
-
 
 kijken naar onenote spul
 
@@ -186,9 +144,6 @@ uitleggen hoe je het naar buiten zo kunnen nemen en een robot kan besturen
 
 
 
-Noemen dat accelerometer ook als battery saver gebruikt kan worden
-
-
 
 
 conclusies maken 
@@ -198,11 +153,6 @@ UWB onderzoek document afronden
 - conclusions
 
 
-
-the rest:
-- blokdiagram aanpassen: 
-	- ground truths moeten verbonden zijn met router
-	- verbindingen beter labelel en de uwb tag kan verbonden worden met de router via wifi en via 	- de computer via wifi en via normale mdek manier
 
 - [Link] dingen misschien de echte link plakken
 - finish reprogramming firmware part.
@@ -262,6 +212,84 @@ Software op de hoofd pc zetten
 
 
 =========================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------
+
+5. Does IMU need to be rotated to world frame before getting to this script?
+
+No. In the current design, the IMU acceleration should come into this script in the body/IMU frame as:
+
+imu_sample.accel_body = [ax ay az];
+
+Then this script rotates it to the world frame inside:
+
+getWorldAcceleration()
+
+using:
+
+imu_sample.orientation = [roll pitch yaw];
+
+So the reader does not need to rotate acceleration to world frame before passing it to ImuFusionFilter.
+
+But the reader does need to make sure the IMU axes are standardized first.
+
+So the split should be:
+
+ReadCustomPcb / ReadLimo / ReadBebop:
+    fix IMU axis mapping and signs
+    output accel_body in expected body-frame convention
+    output orientation in degrees
+
+ImuFusionFilter:
+    rotate accel_body from body frame to world frame
+    remove gravity if needed
+    integrate acceleration
+
+So to confirm:
+
+Do not rotate to world frame before this script.
+Do fix axis/sign mapping before this script.
+
+
+----------------------------------------------------------------------------------------------
 
 
 
