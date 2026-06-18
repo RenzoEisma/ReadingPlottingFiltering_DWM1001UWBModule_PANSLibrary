@@ -347,12 +347,11 @@ The folder contains the raw logs, filtered logs, error logs, report files and me
 4. Start MATLAB and run `MatlabMasterUWBControl.m` if MATLAB filtering or ROS publishing is needed.
 5. Start the Python GUI:
 
-[3.1.2] Normal indoor UWB + OptiTrack measurement Example images
-
-
 ```bash
 python MasterControlStation.py
 ```
+
+![img.png](ReadMeImages/img.png)
 
 6. In the GUI:
    - Enable UWB.
@@ -362,12 +361,19 @@ python MasterControlStation.py
    - Select OptiTrack.
    - Fill in OptiTrack IP settings.
    - Enable Send Data to MATLAB if filtering/control is needed.
+![img_1.png](ReadMeImages/img_1.png)
 7. Click Start Logging.
+![img_2.png](ReadMeImages/img_2.png)
 8. Click Start Measuring when the useful measurement begins.
+![img_3.png](ReadMeImages/img_3.png)
 9. Move the robot, drone or tag through the test path.
 10. Click Stop Measuring.
 11. Click Stop Logging.
+![img_4.png](ReadMeImages/img_4.png)
 12. Generate the HTML report from the Report Maker tab.
+![img_6.png](ReadMeImages/img_6.png)
+Image Is zoomed out a lot
+![img_9.png](ReadMeImages/img_9.png)
 
 [3.2] Outdoor UWB + GPS RTK measurement
 
@@ -555,6 +561,10 @@ Known limitation:
 
 - Network ID changes were not found to work reliably through this script. Use the DRTLS app for changing UWB networks.
 
+[5.7] Supporting scripts
+- DataDescriptions.py: helper/reference file for NatNetClient
+- MoCapData.py: OptiTrack/NatNet support structure.
+
 -----------------------------------------------------------------------------------------------------------------------
 6. MATLAB SCRIPT EXPLANATIONS
 -----------------------------------------------------------------------------------------------------------------------
@@ -623,11 +633,20 @@ Main responsibilities:
 
 `ReadCustomPcb.m` is a placeholder/future structure for reading the Mini UWB PCB data.
 
+Placeholder code was written for reading all the data and compiling it into standard outputs, but nothing to do with
+custom trilateration has been done yet.
+
 Future purpose:
 
 - Either read UWB position data from the Mini UWB PCB or read raw UWB tag to anchor distances and triangulate position.
 - Read BMI270 IMU data.
 - Output data in the same structure as the current UWB and IMU readers.
+- Matlab Master needs to be properly reprogrammed to be able to accept data from this script
+
+[6.7] Supporting scripts
+
+- @Bebop, @JoyControl, @RPioneer: existing LAB-AIR MATLAB robot-control classes used by the control scripts.
+- IndividualPrograms: standalone experiments and older test scripts, not the main workflow.
 
 -----------------------------------------------------------------------------------------------------------------------
 7. ROS AND ROBOT COMMANDS
@@ -804,14 +823,14 @@ itself.
 ```text
 Python GUI / MasterControlStation.py            Working
 UWB serial listener logging                     Working
-Two-listener / two-network structure            Working / experimental
+Two-listener / two-network structure            Working (unoptimized)
 OptiTrack NatNet logging                        Working
 GPS RTK Python reader                           Implemented, setup-dependent topic still placeholder
 HTML report generation                          Working
 MATLAB UDP receiving                            Working
 General UWB filtering                           Working
-IMU fusion structure                            Working / experimental
-ROS 1 publishing                                Working
+IMU fusion structure                            Experimental (unoptimized)
+ROS 1 publishing                                Working (unoptimized)
 Bebop 2 control                                 Future / placeholder
 Limo control                                    Working
 UWB Bluetooth module configuration              Working
@@ -825,17 +844,16 @@ Mini UWB Raw-distance triangulation             Future work
 
 Important improvements for future students or researchers:
 
-- Finish raw-distance triangulation from UWB anchor distances.
-- Improve two-tag / two-network fusion.
-- Improve IMU fusion and tag-offset compensation.
+- Finish raw-distance triangulation from UWB anchor distances using nonlinear kalman filter
+- Improve two-tag / two-network fusion, works decently well but still unoptimized and possibly has some bugs
+- Improve and test IMU fusion and add proper tag-offset compenstation.
 - Validate GPS RTK outdoor ground-truth workflow fully.
-- Add automatic detection of COM ports and connected UWB listeners.
 - Add clearer coordinate-frame tools for UWB, OptiTrack and GPS RTK alignment.
 - Add custom Mini UWB PCB support when the PCB firmware is ready.
-- Add unit tests for parsers and filtering functions.
 
 Nice-to-have improvements:
 
+- Add automatic detection of COM ports and connected UWB listeners.
 - Better live plots, possibly showing 3d models in real time.
 - More GUI themes.
 - Direct anchor-geometry visualization.
@@ -847,15 +865,3 @@ Other script specific small fixes are described in the scripts themselves
 -----------------------------------------------------------------------------------------------------------------------
 
 For detailed version history, use the GitHub commit history.
-
-
-
------------------------------------------------------------------------------------------------------------------------
-12. MISCELANIOUS NOTES
------------------------------------------------------------------------------------------------------------------------
-
-- There used to be pdf report generation instead of html, can be found in older github versions around V3
-
-=======================================================================================================================
-END OF DOCUMENT
-=======================================================================================================================
