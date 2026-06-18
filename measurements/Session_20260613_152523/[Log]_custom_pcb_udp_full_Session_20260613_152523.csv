@@ -1,1 +1,0 @@
-pc_timestamp,time_ms,packet_type,uwb_new,uwb_valid,uwb_x,uwb_y,uwb_z,uwb_quality,a0_id,a0_distance,a1_id,a1_distance,a2_id,a2_distance,a3_id,a3_distance,a4_id,a4_distance,a5_id,a5_distance,a6_id,a6_distance,a7_id,a7_distance,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z,battery_v
