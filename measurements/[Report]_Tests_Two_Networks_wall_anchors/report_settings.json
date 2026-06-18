@@ -1,0 +1,8 @@
+{
+    "name": "Tests Two Networks wall anchors",
+    "notes": "First test that actually went well",
+    "show_anchors": true,
+    "use_measurement_window": true,
+    "save_pdf": false,
+    "save_pngs": false
+}

@@ -1,8 +1,8 @@
 MASTER_CONTROL_CONFIGURATION
 ============================================================
-SESSION_NAME: Session_20260601_183608
-SESSION_FOLDER: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260601_183608
-DATE_TIME: 2026-06-01 18:36:08
+SESSION_NAME: Session_20260617_205556
+SESSION_FOLDER: C:\Users\reism\OneDrive\Documenten\0x02 School\0x06 Afstuderen Brazilie\01_Afstuderen\03_Design\02_PythonPrograms\ReadSensorsV2\measurements\Session_20260617_205556
+DATE_TIME: 2026-06-17 20:55:56
 
 UWB_CONFIG
 ------------------------------------------------------------

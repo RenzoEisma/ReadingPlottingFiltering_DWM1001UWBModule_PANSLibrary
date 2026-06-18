@@ -1,6 +1,6 @@
 {
-    "name": "FirstPuzzleMatSetupTest",
-    "notes": "anchors in one plane",
+    "name": "17_06_26 Tests Two Networks wall anchors T2",
+    "notes": "Actual good test with tag on stick",
     "show_anchors": true,
     "use_measurement_window": true,
     "save_pdf": false,
